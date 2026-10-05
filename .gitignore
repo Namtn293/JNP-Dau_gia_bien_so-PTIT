@@ -1,0 +1,10 @@
+# AIs/Prompts
+.ai/
+
+# IDE, Editors & Workspace
+.vscode/
+.idea/
+
+# OS Files
+.DS_Store
+Thumbs.db
