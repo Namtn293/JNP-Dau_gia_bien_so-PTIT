@@ -1,0 +1,54 @@
+{
+  "compilerOptions": {
+    "incremental": true,
+    "tsBuildInfoFile": "./node_modules/.cache/tsc/tsconfig.tsbuildinfo",
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "types": ["vite/client", "node"],
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "noImplicitAny": false,
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": false,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true,
+
+    "baseUrl": ".",
+    "paths": {
+      "~/*": ["src/*"], 
+      "@/*": ["src/*"],
+      "@apps/*": ["src/apps/*"],
+      "@assets/*": ["src/assets/*"],
+      "@configs/*": ["src/configs/*"],
+      "@constants": ["src/constants/index.ts"],
+      "@constants/*": ["src/constants/*"],
+      "@utils/*": ["src/shared/utils/*"],
+      "@types/*": ["src/shared/types/*"],
+      "@components/*": ["src/shared/components/*"],
+      "@hooks/*": ["src/shared/hooks/*"],
+      "@services/*": ["src/shared/services/*"],
+      "@shared/*": ["src/shared/*"],
+      "@packages/*": ["packages/*"],
+      "@antd/InputNumber": ["packages/components/InputNumber/index.tsx"]
+    }
+  },
+  "include": [
+    "plopfile.js",
+    "src", 
+    "mock",
+    "packages",
+    "global.d.ts",
+  ]
+}

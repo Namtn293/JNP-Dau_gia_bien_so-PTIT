@@ -1,0 +1,37 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="100" fill="#E8F4FF"/>
+  
+  <!-- Robot body -->
+  <path d="M100 60C105.523 60 110 64.477 110 70V75H90V70C90 64.477 94.477 60 100 60Z" fill="#1890FF"/>
+  
+  <!-- Antenna -->
+  <circle cx="90" cy="50" r="4" fill="#1890FF"/>
+  <circle cx="110" cy="50" r="4" fill="#1890FF"/>
+  <line x1="90" y1="54" x2="90" y2="60" stroke="#1890FF" stroke-width="2"/>
+  <line x1="110" y1="54" x2="110" y2="60" stroke="#1890FF" stroke-width="2"/>
+  
+  <!-- Head -->
+  <rect x="70" y="75" width="60" height="50" rx="10" fill="#1890FF"/>
+  
+  <!-- Eyes -->
+  <circle cx="85" cy="95" r="6" fill="#0050B3"/>
+  <circle cx="115" cy="95" r="6" fill="#0050B3"/>
+  
+  <!-- Mouth -->
+  <path d="M85 110C85 110 92.5 105 100 105C107.5 105 115 110 115 110" stroke="#0050B3" stroke-width="3" stroke-linecap="round" fill="none"/>
+  
+  <!-- Body -->
+  <path d="M80 125C80 125 75 125 70 130L70 160C70 165 75 170 80 170H120C125 170 130 165 130 160V130C125 125 120 125 120 125H80Z" fill="#1890FF"/>
+  
+  <!-- Arms -->
+  <circle cx="60" cy="140" r="8" fill="#1890FF"/>
+  <circle cx="140" cy="140" r="8" fill="#1890FF"/>
+  <line x1="70" y1="135" x2="68" y2="140" stroke="#1890FF" stroke-width="6" stroke-linecap="round"/>
+  <line x1="130" y1="135" x2="132" y2="140" stroke="#1890FF" stroke-width="6" stroke-linecap="round"/>
+  
+  <!-- Hologram base -->
+  <ellipse cx="100" cy="180" rx="20" ry="4" fill="#1890FF" opacity="0.3"/>
+  <ellipse cx="100" cy="185" rx="25" ry="5" fill="#1890FF" opacity="0.2"/>
+  <ellipse cx="100" cy="190" rx="30" ry="6" fill="#1890FF" opacity="0.1"/>
+</svg>

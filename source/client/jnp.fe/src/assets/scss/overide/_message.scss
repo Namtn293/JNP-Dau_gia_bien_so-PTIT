@@ -1,0 +1,48 @@
+.ant-message {
+  top: 20px !important;
+  right: 20px !important;
+  left: auto !important; 
+  transform: none !important; 
+  z-index: 9999; 
+
+  animation: slide-in 0.25s ease-out;
+}
+
+.ant-message-notice-content {
+  padding: 16px 24px; 
+  min-width: 280px; 
+  border-radius: 8px;
+  font-size: 16px; 
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.ant-message-success .ant-message-notice-content {
+  background-color: #52c41a;
+  color: #fff;
+}
+
+.ant-message-error .ant-message-notice-content {
+  background-color: #ff4d4f;
+  color: #fff;
+}
+
+.ant-message-warning .ant-message-notice-content {
+  background-color: #faad14;
+  color: #fff;
+}
+
+.ant-message-loading .ant-message-notice-content {
+  background-color: #1677ff;
+  color: #fff;
+}
+
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(40px); 
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}

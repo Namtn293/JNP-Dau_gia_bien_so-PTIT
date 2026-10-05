@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sàn đấu giá biển số xe - Danh sách phiên</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* Primary sampled from Image 2: #9ccade */
+  --primary: #9ccade;
+  --primary-deep: #256b8c;
+  --primary-dark: #123d50;
+  --primary-hover: #86bed6;
+  --primary-soft: #f0f7fb;
+  --primary-light: #e2f0f7;
+  --primary-border: #b8dbeb;
+  
+  --bg: #f4f8fa;
+  --card: #ffffff;
+  --ink: #14202b;
+  --mute: #586979;
+  --line: #dbe6ee;
+  
+  --gold: #d89b00;
+  --gold-soft: #fff9ea;
+  --live: #e03838;
+  --live-soft: #ffefef;
+  --ok: #17935b;
+  --soft: #f2f7fa;
+  
+  --btn: #256b8c;
+  --btnt: #ffffff;
+  
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1922;
+    --card: #162430;
+    --ink: #eaf1f7;
+    --mute: #94a7b8;
+    --line: #263847;
+    --soft: #1d2e3d;
+    --primary-soft: #183344;
+    --primary-light: #1f3f54;
+    --btn: #9ccade;
+    --btnt: #0e2938;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0f1922;
+  --card: #162430;
+  --ink: #eaf1f7;
+  --mute: #94a7b8;
+  --line: #263847;
+  --soft: #1d2e3d;
+  --primary-soft: #183344;
+  --primary-light: #1f3f54;
+  --btn: #9ccade;
+  --btnt: #0e2938;
+}
+
+* { box-sizing: border-box; }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.5 "Be Vietnam Pro", system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+}
+
+/* Top Navbar */
+.top-nav {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 4px 20px rgba(37, 107, 140, 0.05);
+}
+
+:root[data-theme="dark"] .top-nav {
+  background: rgba(22, 36, 48, 0.95);
+}
+
+.nav-container {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 12px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.brand-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.brand-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-deep) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(37, 107, 140, 0.25);
+}
+
+.brand-icon svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+}
+
+.brand-text h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: var(--primary-deep);
+  text-transform: uppercase;
+}
+
+.brand-text span {
+  font-size: 11px;
+  color: var(--mute);
+  font-weight: 500;
+}
+
+.nav-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* User Profile Trigger & Dropdown */
+.user-menu-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.user-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.user-trigger:hover,
+.user-menu-wrap:hover .user-trigger {
+  color: var(--primary-deep);
+  background: var(--primary-soft);
+}
+
+.user-trigger .user-icon {
+  color: var(--mute);
+  transition: color 0.2s;
+}
+
+.user-trigger:hover .user-icon,
+.user-menu-wrap:hover .user-icon {
+  color: var(--primary-deep);
+}
+
+.user-trigger .caret-icon {
+  color: #94a3b8;
+  transition: transform 0.2s ease;
+}
+
+.user-menu-wrap:hover .caret-icon {
+  transform: rotate(180deg);
+}
+
+.user-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  min-width: 150px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
+  padding: 6px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(6px);
+  transition: all 0.2s ease;
+  z-index: 1000;
+}
+
+.user-menu-wrap:hover .user-dropdown {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.user-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 6px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #dc2626;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.user-dropdown-item:hover {
+  background: #fef2f2;
+}
+
+
+/* Page Layout */
+.wrap {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 24px 18px 60px;
+}
+
+.page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+}
+
+h1 {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  margin: 0 0 4px;
+  color: var(--ink);
+}
+
+.sub {
+  color: var(--mute);
+  margin: 0;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sub-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--primary-soft);
+  color: var(--primary-deep);
+  font-weight: 700;
+  font-size: 12px;
+  padding: 2px 10px;
+  border-radius: 99px;
+  border: 1px solid var(--primary-border);
+}
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.tabs, .views {
+  display: flex;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.tabs button, .views button {
+  border: 0;
+  background: none;
+  color: var(--mute);
+  font: inherit;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 8px 16px;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.tabs button:hover, .views button:hover {
+  color: var(--ink);
+}
+
+.tabs button[aria-pressed=true] {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-deep) 100%);
+  color: #ffffff;
+  box-shadow: 0 3px 10px rgba(37, 107, 140, 0.3);
+}
+
+.views button[aria-pressed=true] {
+  background: var(--primary-deep);
+  color: #ffffff;
+  box-shadow: 0 3px 10px rgba(37, 107, 140, 0.25);
+}
+
+.views {
+  margin-left: auto;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+input, select {
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 9px 14px;
+  min-width: 0;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+}
+
+input {
+  flex: 1 1 240px;
+}
+
+select {
+  cursor: pointer;
+}
+
+button:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 2px solid var(--primary-deep);
+  outline-offset: 2px;
+  border-color: var(--primary);
+}
+
+.count {
+  color: var(--mute);
+  margin: 0 0 14px;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Plate Design */
+.plate {
+  display: inline-block;
+  background: #ffffff;
+  color: #111111;
+  border: 4px solid var(--primary);
+  border-radius: 10px;
+  padding: 4px 18px;
+  font: 800 42px/1.15 "Barlow Condensed", Impact, sans-serif;
+  letter-spacing: 2.5px;
+  white-space: nowrap;
+  box-shadow: inset 0 0 0 2px #111111, 0 6px 16px rgba(37, 107, 140, 0.12);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.card:hover .plate {
+  transform: scale(1.02);
+  border-color: var(--primary-deep);
+}
+
+.plate.sm {
+  font-size: 24px;
+  border-width: 3px;
+  padding: 2px 10px;
+  letter-spacing: 1.5px;
+  border-radius: 6px;
+}
+
+.tag {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 99px;
+  background: var(--primary-soft);
+  border: 1px solid var(--primary-border);
+  color: var(--primary-deep);
+}
+
+.st {
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 99px;
+}
+
+.st i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--mute);
+}
+
+.st.live {
+  color: var(--live);
+  background: var(--live-soft);
+}
+.st.live i {
+  background: var(--live);
+  animation: p 1.4s infinite;
+}
+
+.st.soon {
+  color: var(--gold);
+  background: var(--gold-soft);
+}
+.st.soon i {
+  background: var(--gold);
+}
+
+.st.end {
+  color: var(--mute);
+  background: var(--soft);
+}
+
+@keyframes p {
+  50% { opacity: 0.3; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .st.live i { animation: none; }
+}
+
+.price {
+  font-weight: 800;
+  font-size: 20px;
+  color: var(--primary-dark);
+}
+
+:root[data-theme="dark"] .price {
+  color: var(--primary);
+}
+
+.lbl {
+  font-size: 12px;
+  color: var(--mute);
+  font-weight: 500;
+}
+
+.time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.time.hot {
+  color: var(--live);
+  background: var(--live-soft);
+  padding: 2px 8px;
+  border-radius: 6px;
+  display: inline-block;
+}
+
+/* Action Buttons */
+.go {
+  border: 0;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-deep) 100%);
+  color: #ffffff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 9px 18px;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(37, 107, 140, 0.25);
+  transition: all 0.2s ease;
+}
+
+.go:hover {
+  background: linear-gradient(135deg, var(--primary-hover) 0%, #1e5975 100%);
+  box-shadow: 0 6px 16px rgba(37, 107, 140, 0.35);
+  transform: translateY(-1px);
+}
+
+.go:active {
+  transform: translateY(1px);
+}
+
+.go.ghost {
+  background: var(--card);
+  color: var(--primary-deep);
+  border: 1px solid var(--primary-border);
+  box-shadow: none;
+}
+
+.go.ghost:hover {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+  color: var(--primary-dark);
+}
+
+/* Grid View */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 16px;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.03);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(37, 107, 140, 0.1);
+  border-color: var(--primary-border);
+}
+
+.card .top, .card .row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.card .plate-box {
+  text-align: center;
+  background: var(--primary-soft);
+  border: 1px solid var(--primary-border);
+  border-radius: 12px;
+  padding: 20px 10px;
+}
+
+/* Table View */
+.tw {
+  overflow-x: auto;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.03);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 820px;
+}
+
+th {
+  text-align: left;
+  font-size: 12px;
+  color: var(--mute);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 14px 16px;
+  background: var(--primary-soft);
+  border-bottom: 1px solid var(--line);
+}
+
+td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+tr:last-child td {
+  border-bottom: 0;
+}
+
+tr:hover td {
+  background: rgba(156, 202, 222, 0.06);
+}
+
+td.r, th.r {
+  text-align: right;
+}
+
+/* Board View */
+.board {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(280px, 1fr));
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 12px;
+}
+
+.col {
+  background: var(--soft);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px;
+  min-width: 280px;
+}
+
+.col h3 {
+  margin: 4px 6px 14px;
+  font-size: 15px;
+  font-weight: 700;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.mini {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.mini:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(37, 107, 140, 0.08);
+  border-color: var(--primary-border);
+}
+
+.mini .row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.empty {
+  padding: 50px 20px;
+  text-align: center;
+  color: var(--mute);
+  background: var(--card);
+  border: 1px dashed var(--line);
+  border-radius: 16px;
+  font-size: 14px;
+}
+
+/* Pagination */
+.pagination-wrap {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 32px;
+  padding: 18px 0 0;
+  border-top: 1px solid var(--line);
+}
+
+.pagination-info {
+  font-size: 13.5px;
+  color: var(--mute);
+  font-weight: 500;
+}
+
+.pagination-info b {
+  color: var(--ink);
+}
+
+.pagination-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.page-btn {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.page-btn:hover:not(:disabled):not(.active) {
+  border-color: var(--primary);
+  color: var(--primary-deep);
+  background: var(--primary-soft);
+}
+
+.page-btn.active {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-deep) 100%);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 4px 10px rgba(37, 107, 140, 0.25);
+}
+
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.page-size-select {
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  background: #ffffff;
+  cursor: pointer;
+  margin-left: 8px;
+}
+
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(14, 32, 43, 0.6);
+  backdrop-filter: blur(8px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.modal-box {
+  background: #ffffff;
+  border-radius: 20px;
+  max-width: 480px;
+  width: 100%;
+  padding: 28px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.25);
+  animation: modalIn 0.25s ease-out;
+  text-align: center;
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.modal-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--primary-deep);
+  margin-bottom: 6px;
+}
+
+.modal-desc {
+  font-size: 13px;
+  color: var(--mute);
+  margin-bottom: 20px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.modal-actions button {
+  flex: 1;
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--primary-deep);
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+  z-index: 2000;
+  display: none;
+  animation: toastIn 0.3s ease-out;
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+</style>
+</head>
+<body>
+
+<!-- Top Navigation -->
+<nav class="top-nav">
+  <div class="nav-container">
+    <a href="#" class="brand-wrap">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24">
+          <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.22.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.85 7h10.29l1.04 3H5.81l1.04-3zM19 17H5v-4.66l.12-.34h13.77l.11.34V17z"/>
+          <circle cx="7.5" cy="14.5" r="1.5"/>
+          <circle cx="16.5" cy="14.5" r="1.5"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <h2>Sàn Đấu Giá Biển Số Xe</h2>
+        <span>Hệ thống Đấu giá Biển số Trực tuyến</span>
+      </div>
+    </a>
+
+    <div class="user-menu-wrap">
+      <div class="user-trigger">
+        <svg class="user-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+        <span>Trần Đức An</span>
+        <svg class="caret-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </div>
+      <div class="user-dropdown">
+        <a href="Đăng nhập.html" class="user-dropdown-item">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+          <span>Đăng xuất</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- Main Container -->
+<div class="wrap">
+  <div class="page-head">
+    <div>
+      <h1>Phiên Đấu Giá Biển Số Xe</h1>
+      <p class="sub">
+      </p>
+    </div>
+  </div>
+
+  <div class="bar">
+    <div class="tabs" id="tabs" role="group" aria-label="Trạng thái phiên"></div>
+    <div class="views" id="views" role="group" aria-label="Kiểu hiển thị">
+      <button data-v="grid" aria-pressed="true">Lưới thẻ</button>
+      <button data-v="table" aria-pressed="false">Bảng</button>
+      <button data-v="board" aria-pressed="false">Theo cột</button>
+    </div>
+  </div>
+
+  <div class="filters">
+    <input id="q" type="search" placeholder="Tìm biển số, ví dụ 555 hoặc 30K..." aria-label="Tìm biển số">
+    <select id="prov" aria-label="Tỉnh/thành">
+      <option value="">Tất cả tỉnh/thành</option>
+      <option>Hà Nội</option>
+      <option>TP.HCM</option>
+      <option>Đà Nẵng</option>
+      <option>Hải Phòng</option>
+    </select>
+    <select id="type" aria-label="Loại biển">
+      <option value="">Tất cả loại biển</option>
+      <option>Ngũ quý</option>
+      <option>Tứ quý</option>
+      <option>Lộc phát</option>
+      <option>Thần tài</option>
+      <option>Sảnh tiến</option>
+    </select>
+    <select id="sort" aria-label="Sắp xếp">
+      <option value="time">Sắp kết thúc trước</option>
+      <option value="hi">Giá cao nhất</option>
+      <option value="lo">Giá thấp nhất</option>
+      <option value="bids">Nhiều lượt bid nhất</option>
+    </select>
+  </div>
+
+  <p class="count" id="count"></p>
+  <div id="out"></div>
+
+  <!-- Pagination -->
+  <div class="pagination-wrap" id="paginationWrap" style="display: none;">
+    <div class="pagination-info" id="pageInfo"></div>
+    <div class="pagination-ctrl">
+      <button class="page-btn" id="prevPage" onclick="changePage(state.page - 1)" title="Trang trước">&lsaquo;</button>
+      <div id="pageNumbers" style="display: flex; gap: 6px;"></div>
+      <button class="page-btn" id="nextPage" onclick="changePage(state.page + 1)" title="Trang sau">&rsaquo;</button>
+      <select class="page-size-select" id="pageSizeSelect" onchange="changePageSize(Number(this.value))">
+        <option value="6">6 / trang</option>
+        <option value="12">12 / trang</option>
+        <option value="24">24 / trang</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+
+<!-- Modal Đặt Giá / Vào Phòng -->
+<div class="modal-overlay" id="bidModal">
+  <div class="modal-box">
+    <div class="modal-title" id="modalTitle">Vào Phòng Đấu Giá</div>
+    <div class="modal-desc" id="modalDesc">Biển số đang trong thời gian đấu giá sôi động</div>
+    <div style="margin: 16px 0;" id="modalPlateBox"></div>
+    <div style="background: var(--primary-soft); padding: 12px; border-radius: 12px; margin-bottom: 16px;">
+      <div class="lbl">Giá hiện tại</div>
+      <div class="price" id="modalPrice" style="font-size: 24px; margin-top: 4px;">0 đ</div>
+      <div class="lbl" id="modalStep" style="margin-top: 4px;">Bước giá: 50.000.000 đ</div>
+    </div>
+    <div class="modal-actions">
+      <button class="go ghost" onclick="closeModal()">Đóng</button>
+      <button class="go" id="btnPlaceBid" onclick="placeBid()">Đặt giá ngay (+1 bước)</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toastMessage"></div>
+
+<script>
+const H = 3600;
+const DATA = [
+  { p: "30K-555.55", prov: "Hà Nội", type: "Ngũ quý", st: "live", price: 1850000000, step: 50000000, bids: 42, t: 1240 },
+  { p: "51H-888.88", prov: "TP.HCM", type: "Ngũ quý", st: "live", price: 2320000000, step: 100000000, bids: 67, t: 48 },
+  { p: "29A-999.99", prov: "Hà Nội", type: "Ngũ quý", st: "live", price: 3100000000, step: 100000000, bids: 81, t: 5400 },
+  { p: "43A-686.86", prov: "Đà Nẵng", type: "Lộc phát", st: "live", price: 410000000, step: 10000000, bids: 19, t: 2900 },
+  { p: "15K-777.77", prov: "Hải Phòng", type: "Ngũ quý", st: "soon", price: 600000000, step: 20000000, bids: 0, t: 3 * H },
+  { p: "30L-123.45", prov: "Hà Nội", type: "Sảnh tiến", st: "soon", price: 350000000, step: 10000000, bids: 0, t: 7 * H },
+  { p: "51G-379.79", prov: "TP.HCM", type: "Thần tài", st: "soon", price: 280000000, step: 10000000, bids: 0, t: 20 * H },
+  { p: "88A-666.66", prov: "Hà Nội", type: "Ngũ quý", st: "end", price: 4250000000, step: 100000000, bids: 112, t: 0 },
+  { p: "30H-868.68", prov: "Hà Nội", type: "Lộc phát", st: "end", price: 520000000, step: 10000000, bids: 34, t: 0 },
+  { p: "51F-345.67", prov: "TP.HCM", type: "Sảnh tiến", st: "end", price: 190000000, step: 5000000, bids: 15, t: 0 },
+  { p: "43B-333.33", prov: "Đà Nẵng", type: "Ngũ quý", st: "end", price: 760000000, step: 20000000, bids: 48, t: 0 }
+];
+
+const ST = { live: "Đang diễn ra", soon: "Sắp diễn ra", end: "Đã kết thúc" };
+const state = { tab: "live", view: "grid", page: 1, pageSize: 6, currentPlate: null };
+
+const $ = id => document.getElementById(id);
+const money = n => n >= 1e9 ? (n / 1e9).toLocaleString("vi-VN", { maximumFractionDigits: 2 }) + " tỷ" : (n / 1e6).toLocaleString("vi-VN") + " triệu";
+const fullMoney = n => n.toLocaleString("vi-VN") + " đ";
+const fmt = s => {
+  const h = Math.floor(s / H), m = Math.floor(s % H / 60), x = s % 60, z = n => String(n).padStart(2, "0");
+  return (h ? h + ":" : "") + z(m) + ":" + z(x);
+};
+
+const tcls = a => a.st === "live" && a.t < 60 ? "time hot" : "time";
+const timeTxt = a => a.st === "end" ? "Đã chốt" : (a.st === "soon" ? "Mở sau " : "Còn ") + fmt(a.t);
+const priceLbl = a => a.st === "end" ? "Giá chốt" : a.st === "soon" ? "Giá khởi điểm" : "Giá hiện tại";
+
+const act = a => a.st === "live" 
+  ? `<button class="go" onclick="openRoom('${a.p}')">Vào phòng</button>` 
+  : a.st === "soon" 
+    ? `<button class="go ghost" onclick="registerAuction('${a.p}')">Đăng ký tham gia</button>` 
+    : `<button class="go ghost" onclick="viewResult('${a.p}')">Xem kết quả</button>`;
+
+const stBadge = a => `<span class="st ${a.st}"><i></i>${ST[a.st]}</span>`;
+const T = a => `<span class="${tcls(a)}" data-t="${a.p}">${timeTxt(a)}</span>`;
+
+function view() {
+  const q = $("q").value.trim().toLowerCase(), pv = $("prov").value, ty = $("type").value, so = $("sort").value;
+  let l = DATA.filter(a => (state.view === "board" || a.st === state.tab) && (!q || a.p.toLowerCase().includes(q)) && (!pv || a.prov === pv) && (!ty || a.type === ty));
+  l.sort((a, b) => so === "hi" ? b.price - a.price : so === "lo" ? a.price - b.price : so === "bids" ? b.bids - a.bids : (a.t || 9e9) - (b.t || 9e9));
+  return l;
+}
+
+function changePage(p) {
+  const l = view();
+  const totalPages = Math.ceil(l.length / state.pageSize) || 1;
+  if (p < 1 || p > totalPages) return;
+  state.page = p;
+  render();
+  window.scrollTo({ top: 180, behavior: 'smooth' });
+}
+
+function changePageSize(ps) {
+  state.pageSize = ps;
+  state.page = 1;
+  render();
+}
+
+function render() {
+  const l = view();
+  const total = l.length;
+  const totalPages = Math.ceil(total / state.pageSize) || 1;
+  if (state.page > totalPages) state.page = totalPages;
+  if (state.page < 1) state.page = 1;
+
+  $("count").innerHTML = `<span>Tìm thấy <b>${total}</b> phiên đấu giá${state.view === "board" ? "" : " · " + ST[state.tab]}</span>`;
+  $("tabs").style.display = state.view === "board" ? "none" : "flex";
+  $("tabs").innerHTML = Object.keys(ST).map(k => `<button data-k="${k}" aria-pressed="${state.tab === k}">${ST[k]} (${DATA.filter(a => a.st === k).length})</button>`).join("");
+  
+  const pag = $("paginationWrap");
+  if (!total) {
+    $("out").innerHTML = `<div class="empty">Không có phiên nào khớp bộ lọc. Hãy xóa bớt điều kiện lọc hoặc đổi tab trạng thái.</div>`;
+    if (pag) pag.style.display = "none";
+    return;
+  }
+  
+  const pagedList = state.view === "board" ? l : l.slice((state.page - 1) * state.pageSize, state.page * state.pageSize);
+
+  let h = "";
+  if (state.view === "grid") {
+    h = `<div class="grid">` + pagedList.map(a => `
+      <article class="card">
+        <div class="top">${stBadge(a)}<span class="tag">${a.type}</span></div>
+        <div class="plate-box"><span class="plate">${a.p}</span></div>
+        <div class="row">
+          <div>
+            <div class="lbl">${priceLbl(a)}</div>
+            <div class="price">${money(a.price)}</div>
+          </div>
+          <div style="text-align:right">
+            <div class="lbl">${a.prov}</div>
+            ${T(a)}
+          </div>
+        </div>
+        <div class="row">
+          <span class="lbl">Bước giá ${money(a.step)} &bull; ${a.bids} lượt bid</span>
+          ${act(a)}
+        </div>
+      </article>
+    `).join("") + `</div>`;
+  } else if (state.view === "table") {
+    h = `<div class="tw"><table>
+      <thead>
+        <tr>
+          <th>Biển số</th>
+          <th>Tỉnh/thành</th>
+          <th>Loại</th>
+          <th>Trạng thái</th>
+          <th class="r">Giá</th>
+          <th class="r">Lượt Bid</th>
+          <th>Thời gian</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>` +
+      pagedList.map(a => `
+        <tr>
+          <td><span class="plate sm">${a.p}</span></td>
+          <td><b>${a.prov}</b></td>
+          <td><span class="tag">${a.type}</span></td>
+          <td>${stBadge(a)}</td>
+          <td class="r">
+            <div class="price" style="font-size:16px">${money(a.price)}</div>
+            <div class="lbl">${priceLbl(a)}</div>
+          </td>
+          <td class="r"><b>${a.bids}</b></td>
+          <td>${T(a)}</td>
+          <td class="r">${act(a)}</td>
+        </tr>
+      `).join("") + `</tbody></table></div>`;
+  } else {
+    h = `<div class="board">` + Object.keys(ST).map(k => {
+      const c = l.filter(a => a.st === k);
+      return `<section class="col">
+        <h3>${ST[k]}<span class="lbl">${c.length} biển</span></h3>` +
+        (c.map(a => `
+          <div class="mini">
+            <div class="row">
+              <span class="plate sm">${a.p}</span>
+              <span class="tag">${a.type}</span>
+            </div>
+            <div class="row">
+              <div>
+                <div class="lbl">${priceLbl(a)}</div>
+                <b class="price" style="font-size:15px">${money(a.price)}</b>
+              </div>
+              ${T(a)}
+            </div>
+            <div class="row">
+              <span class="lbl">${a.prov} &bull; ${a.bids} bid</span>
+              ${act(a)}
+            </div>
+          </div>
+        `).join("") || `<div class="lbl" style="padding:12px;text-align:center;">Chưa có phiên.</div>`) +
+      `</section>`;
+    }).join("") + `</div>`;
+  }
+  $("out").innerHTML = h;
+
+  // Pagination UI
+  if (pag) {
+    if (state.view === "board") {
+      pag.style.display = "none";
+    } else {
+      pag.style.display = "flex";
+      const from = (state.page - 1) * state.pageSize + 1;
+      const to = Math.min(state.page * state.pageSize, total);
+      $("pageInfo").innerHTML = `Hiển thị <b>${from} - ${to}</b> trên tổng số <b>${total}</b> phiên`;
+      $("prevPage").disabled = state.page <= 1;
+      $("nextPage").disabled = state.page >= totalPages;
+
+      let pNums = "";
+      for (let i = 1; i <= totalPages; i++) {
+        pNums += `<button class="page-btn ${state.page === i ? 'active' : ''}" onclick="changePage(${i})">${i}</button>`;
+      }
+      $("pageNumbers").innerHTML = pNums;
+      $("pageSizeSelect").value = String(state.pageSize);
+    }
+  }
+}
+
+function showToast(msg) {
+  const t = $("toastMessage");
+  t.textContent = msg;
+  t.style.display = "block";
+  setTimeout(() => { t.style.display = "none"; }, 3000);
+}
+
+function openRoom(plate) {
+  const item = DATA.find(x => x.p === plate);
+  if (!item) return;
+  state.currentPlate = item;
+  $("modalTitle").textContent = "Phòng đấu giá biển số " + item.p;
+  $("modalDesc").textContent = `${item.prov} - Loại biển: ${item.type}`;
+  $("modalPlateBox").innerHTML = `<span class="plate">${item.p}</span>`;
+  $("modalPrice").textContent = fullMoney(item.price);
+  $("modalStep").textContent = `Bước giá: ${fullMoney(item.step)}`;
+  $("bidModal").style.display = "flex";
+}
+
+function closeModal() {
+  $("bidModal").style.display = "none";
+}
+
+function placeBid() {
+  if (!state.currentPlate) return;
+  state.currentPlate.price += state.currentPlate.step;
+  state.currentPlate.bids += 1;
+  $("modalPrice").textContent = fullMoney(state.currentPlate.price);
+  showToast(`Đặt giá thành công cho biển ${state.currentPlate.p}! Giá mới: ${money(state.currentPlate.price)}`);
+  render();
+}
+
+function registerAuction(plate) {
+  showToast(`Đã ghi nhận đăng ký tham gia đấu giá biển ${plate}!`);
+}
+
+function viewResult(plate) {
+  const item = DATA.find(x => x.p === plate);
+  if (item) {
+    showToast(`Biển ${plate} đã kết thúc với giá chốt ${money(item.price)} sau ${item.bids} lượt bid.`);
+  }
+}
+
+$("tabs").onclick = e => {
+  const k = e.target.dataset.k;
+  if (k) { state.tab = k; state.page = 1; render(); }
+};
+
+$("views").onclick = e => {
+  const v = e.target.dataset.v;
+  if (!v) return;
+  state.view = v;
+  [...$("views").children].forEach(b => b.setAttribute("aria-pressed", b.dataset.v === v));
+  render();
+};
+
+["q", "prov", "type", "sort"].forEach(i => $(i).addEventListener("input", () => {
+  state.page = 1;
+  render();
+}));
+
+setInterval(() => {
+  DATA.forEach(a => {
+    if (a.st !== "end" && a.t > 0) a.t--;
+  });
+  document.querySelectorAll("[data-t]").forEach(el => {
+    const a = DATA.find(x => x.p === el.dataset.t);
+    if (a) {
+      el.textContent = timeTxt(a);
+      el.className = tcls(a);
+    }
+  });
+}, 1000);
+
+render();
+</script>
+</body>
+</html>
+

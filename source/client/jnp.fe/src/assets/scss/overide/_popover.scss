@@ -1,0 +1,16 @@
+.ant-popover {
+  .ant-popover-arrow {
+    display: none;
+  }
+
+  .ant-popover-inner {
+    padding: 12px;
+  }
+}
+.ant-popover .ant-popover-inner-content {
+  overflow-y: auto;
+  max-height: 550px;
+}
+.ant-popover .ant-popover-content {
+  max-width: 70vw;
+}

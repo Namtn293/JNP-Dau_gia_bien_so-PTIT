@@ -1,0 +1,143 @@
+/**
+ * (VI) Gói ngôn ngữ tiếng Việt đầy đủ cho TinyMCE. (trình soạn thảo)
+ */
+export const viVN = {
+    // Core
+    'Redo': 'Làm lại',
+    'Undo': 'Hoàn tác',
+    'Cut': 'Cắt',
+    'Copy': 'Sao chép',
+    'Paste': 'Dán',
+    'Select all': 'Chọn tất cả',
+    'New document': 'Văn bản mới',
+    'Ok': 'Đồng ý',
+    'Cancel': 'Hủy',
+    'Visual aids': 'Hỗ trợ trực quan',
+    'Bold': 'Đậm',
+    'Italic': 'Nghiêng',
+    'Underline': 'Gạch chân',
+    'Strikethrough': 'Gạch giữa',
+    'Font family': 'Phông chữ',
+    'Font families': 'Phông chữ',
+    'Font size': 'Cỡ chữ',
+    'Font sizes': 'Cỡ chữ',
+    'Line height': 'Giãn dòng',
+    'Clear formatting': 'Xóa định dạng',
+    'Align left': 'Căn trái',
+    'Align center': 'Căn giữa',
+    'Align right': 'Căn phải',
+    'Justify': 'Căn đều',
+    'Bullet list': 'Danh sách chấm',
+    'Numbered list': 'Danh sách số',
+    'Decrease indent': 'Giảm lề',
+    'Increase indent': 'Tăng lề',
+    'Close': 'Đóng',
+    'Formats': 'Định dạng',
+    'Paragraph': 'Đoạn văn',
+    'Heading 1': 'Tiêu đề 1',
+    'Heading 2': 'Tiêu đề 2',
+    'Heading 3': 'Tiêu đề 3',
+    'Heading 4': 'Tiêu đề 4',
+    'Heading 5': 'Tiêu đề 5',
+    'Heading 6': 'Tiêu đề 6',
+    'Preformatted': 'Định dạng sẵn',
+    'Div': 'Khối (div)',
+    'Address': 'Địa chỉ',
+    'Blockquote': 'Trích dẫn',
+    'Code': 'Mã',
+    'File': 'Tệp',
+    'Edit': 'Chỉnh sửa',
+    'View': 'Hiển thị',
+    'Insert': 'Chèn',
+    'Format': 'Định dạng',
+    'Table': 'Bảng',
+    'Tools': 'Công cụ',
+    'Help': 'Trợ giúp',
+
+    // Link plugin
+    'Insert/edit link': 'Chèn/Sửa liên kết',
+    'URL': 'Đường dẫn',
+    'Url': 'Đường dẫn',
+    'Text to display': 'Văn bản hiển thị',
+    'Title': 'Chú thích',
+    'Anchors': 'Mỏ neo',
+    'Open link in...': 'Mở liên kết trong...',
+    'New window': 'Cửa sổ mới',
+    'Current window': 'Cửa sổ hiện tại',
+    'Link list': 'Danh sách liên kết',
+    'None': 'Không có',
+    'Target': 'Mục tiêu',
+    'No': 'Không',
+    'Yes': 'Có',
+    'The URL you entered seems to be an external link. Do you want to add the required https:// prefix?': 'Đường dẫn bạn nhập có vẻ là một liên kết ngoài. Bạn có muốn thêm tiền tố https:// không?',
+    'The URL you entered seems to be an external link. Do you want to add the required http:// prefix?': 'Đường dẫn bạn nhập có vẻ là một liên kết ngoài. Bạn có muốn thêm tiền tố http:// không?',
+
+    // Image plugin
+    'Insert/edit image': 'Chèn/Sửa ảnh',
+    'Source': 'Nguồn',
+    'Image description': 'Mô tả ảnh',
+    'Alternative description': 'Mô tả thay thế',
+    'Width': 'Chiều rộng',
+    'Height': 'Chiều cao',
+    'Dimensions': 'Kích thước',
+    'Constrain proportions': 'Giữ tỷ lệ',
+    'General': 'Chung',
+    'Advanced': 'Nâng cao',
+    'Upload': 'Tải lên',
+
+    // Table plugin
+    'Insert table': 'Chèn bảng',
+    'Table properties': 'Thuộc tính bảng',
+    'Delete table': 'Xóa bảng',
+    'Row': 'Hàng',
+    'Column': 'Cột',
+    'Cell': 'Ô',
+    'Merge cells': 'Gộp ô',
+    'Split cell': 'Tách ô',
+    'Insert row before': 'Chèn hàng phía trên',
+    'Insert row after': 'Chèn hàng phía dưới',
+    'Delete row': 'Xóa hàng',
+    'Insert column before': 'Chèn cột bên trái',
+    'Insert column after': 'Chèn cột bên phải',
+    'Delete column': 'Xóa cột',
+    'Cell properties': 'Thuộc tính ô',
+    'Row properties': 'Thuộc tính hàng',
+
+    // Media plugin
+    'Insert/edit media': 'Chèn/Sửa media',
+    'Embed': 'Mã nhúng',
+    'Paste your embed code below:': 'Dán mã nhúng của bạn vào bên dưới:',
+
+    // Others
+    'Source code': 'Mã HTML',
+    'Preview': 'Xem trước',
+    'Print': 'In',
+    'Fullscreen': 'Toàn màn hình',
+    'Find and replace': 'Tìm và thay thế',
+    'Search': 'Tìm kiếm',
+    'Replace': 'Thay thế',
+    'Special character': 'Ký tự đặc biệt',
+    'Horizontal line': 'Đường kẻ ngang',
+    'Page break': 'Ngắt trang',
+    'Word count': 'Số từ',
+    'Count': 'Số lượng',
+    'Show blocks': 'Hiển thị khối',
+    'Anchors (Mỏ neo)': 'Mỏ neo',
+    'Press {0} for help': 'Nhấn {0} để xem trợ giúp',
+    'Press Alt+0 for help': 'Nhấn Alt+0 để xem hướng dẫn',
+    'words': 'từ',
+    'word': 'từ',
+    '{0} words': '{0} từ',
+    '{0} word': '{0} từ',
+};
+
+/**
+ * Đăng ký ngôn ngữ cho TinyMCE
+ */
+export const registerVietnamese = (editor: any) => {
+    if (editor && editor.editorManager) {
+        editor.editorManager.addI18n('vi', viVN);
+    } else if (window.tinymce) {
+        window.tinymce.addI18n('vi', viVN);
+    }
+};

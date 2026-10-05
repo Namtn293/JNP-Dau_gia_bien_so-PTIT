@@ -1,0 +1,8 @@
+.ant-tooltip-arrow-content:before,
+.ant-tooltip-inner {
+  background-color: var(--bg-tooltip) !important;
+}
+.ant-tooltip,
+.ant-tooltip-arrow-content {
+  --antd-arrow-background-color: var(--bg-tooltip) !important;
+}
