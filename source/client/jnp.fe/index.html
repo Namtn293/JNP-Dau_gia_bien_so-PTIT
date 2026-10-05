@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg?v=2" />
+  <link rel="shortcut icon" href="/vite.svg?v=2" />
+  <link rel="preload" as="image" href="https://cdn.parcellab.com/img/flags/vn.png" />
+  <link rel="preload" as="image" href="https://cdn.parcellab.com/img/flags/gb.png" />
+  <link rel="preload" as="image" href="https://cdn.parcellab.com/img/flags/cn.png" />
+  <link rel="preload" as="image" href="https://cdn.parcellab.com/img/flags/jp.png" />
+  <link rel="preload" as="image" href="https://cdn.parcellab.com/img/flags/kr.png" />
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+  <title>Sàn Đấu Giá Biển Số Xe - Hệ Thống Đấu Giá Trực Tuyến</title>
+  <!-- Scripts -->
+  <script>
+    window.ENV = window.ENV || { VITE_API_DVC_URL: "" };
+  </script>
+  <script src="./libs/vgcaplugin.js"></script>
+  <script src="./scripts/getDvcBaseUrlGlobal.js"></script>
+  <script src="./scripts/common.js"></script>
+  <script src="./scripts/trigger-view-schema.js"></script>
+  <script src="./scripts/service.js"></script>
+  <script>
+    function emitEFormEvent(type, payload) {
+      window.dispatchEvent(
+        new CustomEvent(type, {
+          detail: payload,
+        }),
+      );
+    }
+    function callbackNopHoSo(jsonSchema) {
+      emitEFormEvent("EFORM_SUBMIT_RECORD", jsonSchema);
+    }
+    function callbackLuuHoSo(jsonSchema) {
+      emitEFormEvent("EFORM_SAVE_RECORD", jsonSchema);
+    }
+    function callbackSaveJson(jsonSchema) {
+      emitEFormEvent("EFORM_SAVE_JSON", jsonSchema);
+    }
+    function callExportData(jsonSchema) {
+      emitEFormEvent("EFORM_EXPORT_DATA", jsonSchema);
+    }
+    function callbackLuuKho(file) {
+      emitEFormEvent("EFORM_SAVE_STORE", jsonSchema);
+    }
+    function callbackQuayLai() {
+      emitEFormEvent("EFORM_CANCEL", {});
+    }
+    function callbackLuuToKhai(jsonSchema) {
+      emitEFormEvent("EFORM_SAVE_TO_KHAI", jsonSchema);
+    }
+    function callbackXuatToKhai(jsonSchema) {
+      emitEFormEvent("EFORM_EXPORT_TO_KHAI", jsonSchema);
+    }
+    function callbackVerify(file) {
+      emitEFormEvent("EFORM_VERIFY", jsonSchema);
+    }
+    function callbackGetCertificate() {
+      emitEFormEvent("EFORM_GET_CERT", jsonSchema);
+    }
+    function callbackSignDocument(jsonSchema) {
+      emitEFormEvent("EFORM_SIGN_DOCUMENT", jsonSchema);
+    }
+    function callBackTraCuuGiayPhep(value, dateValue) {
+      emitEFormEvent("EFORM_SEARCH_LICENSE", { value, dateValue });
+    }
+    function signUsbToken(file, indexFile) {
+      emitEFormEvent("EFORM_SEARCH_LICENSE", { file, indexFile });
+    }
+  </script>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
+</html>

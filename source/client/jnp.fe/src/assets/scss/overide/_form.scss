@@ -1,0 +1,48 @@
+.ant-form-item {
+  margin-bottom: 1.2rem;
+}
+
+.ant-form-item-label > label {
+  color: var(--text-primary) !important;
+}
+.ant-form.readOnly {
+  .ant-form-item,
+  .ant-form-item-label,
+  .ant-input,
+  .ant-select,
+  .ant-select-selector,
+  .ant-picker,
+  .ant-input-number,
+  .ant-checkbox-wrapper,
+  .ant-tree-treenode {
+    pointer-events: none;
+  }
+
+  .ant-select-multiple .ant-select-selection-item-remove,
+  .ant-form-item-label
+    > label.ant-form-item-required:not(.ant-form-item-required-mark-optional):before,
+  .ant-select-clear,
+  .ant-select-arrow {
+    display: none;
+  }
+}
+
+.enabled-pointer-event {
+  pointer-events: inherit !important;
+
+  .ant-form-item,
+  .ant-form-item-label,
+  .ant-input,
+  .ant-select,
+  .ant-select-selector,
+  .ant-picker,
+  .ant-input-number,
+  .ant-checkbox-wrapper,
+  .ant-tree-treenode {
+    pointer-events: inherit !important;
+  }
+}
+
+.ant-form-item-explain-error {
+  text-align: left;
+}
