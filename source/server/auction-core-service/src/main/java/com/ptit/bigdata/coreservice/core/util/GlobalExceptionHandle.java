@@ -14,12 +14,17 @@ import java.util.Map;
 public class GlobalExceptionHandle {
     @ExceptionHandler(BusinessException.class)
     public ErrorResponse handleException(BusinessException ex) {
-        return ResponseUtil.error(ex.getMessage(), ex.getStatus());
+        int code = 400;
+        try {
+            code = Integer.parseInt(ex.getStatus());
+        } catch (Exception ignored) {
+        }
+        return ResponseUtil.error(code, ex.getMessage());
     }
 
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public Map<String, String> handleValidationExceptions(MethodArgumentNotValidException ex) {
+    public ErrorResponse handleValidationExceptions(MethodArgumentNotValidException ex) {
         Map<String, String> errors = new HashMap<>();
 
         ex.getBindingResult().getAllErrors().forEach((error) -> {
@@ -27,6 +32,6 @@ public class GlobalExceptionHandle {
             String errorMessage = error.getDefaultMessage();
             errors.put(fieldName, errorMessage);
         });
-        return errors;
+        return ResponseUtil.error(400, "Validation failed", errors);
     }
 }

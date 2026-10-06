@@ -22,6 +22,7 @@ import org.springframework.web.context.WebApplicationContext;
 
 import java.time.LocalDate;
 
+import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -38,6 +39,7 @@ public class AuthenticationControllerTest {
     private MockMvc mockMvc;
 
     private static String savedTempToken;
+    private static String savedAccessToken;
 
     @BeforeEach
     void setUp() {
@@ -58,23 +60,73 @@ public class AuthenticationControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(registerDTO)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Register success"));
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value(nullValue()))
+                .andExpect(jsonPath("$.metaData").value(nullValue()));
 
         // 2. Đăng nhập thông thường
         LoginDTO loginDTO = new LoginDTO();
         loginDTO.setUserName("testuser1");
         loginDTO.setPassword("password123");
 
-        mockMvc.perform(post("/api/auth/login")
+        MvcResult result = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(loginDTO)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("200"))
-                .andExpect(jsonPath("$.data").isNotEmpty());
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value(nullValue()))
+                .andExpect(jsonPath("$.metaData").value(nullValue()))
+                .andExpect(jsonPath("$.data").isNotEmpty())
+                .andReturn();
+
+        JsonNode responseJson = objectMapper.readTree(result.getResponse().getContentAsString());
+        savedAccessToken = responseJson.path("data").asText();
     }
 
     @Test
     @Order(2)
+    void testRegisterDuplicateUsername_ShouldReturnError() throws Exception {
+        // Đăng ký lại với username đã tồn tại -> Phải trả về lỗi
+        RegisterDTO duplicateDTO = new RegisterDTO();
+        duplicateDTO.setUserName("testuser1");
+        duplicateDTO.setPassword("password456");
+        duplicateDTO.setEmail("another_email@ptit.edu.vn");
+        duplicateDTO.setFullName("Nguyen Van B");
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(duplicateDTO)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(409))
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("User already exist"))
+                .andExpect(jsonPath("$.data").value(nullValue()))
+                .andExpect(jsonPath("$.metaData").value(nullValue()));
+    }
+
+    @Test
+    @Order(3)
+    void testLoginWrongPassword_ShouldReturnError() throws Exception {
+        // Đăng nhập với mật khẩu sai -> Phải trả về lỗi 401 kèm message
+        LoginDTO wrongPassDTO = new LoginDTO();
+        wrongPassDTO.setUserName("testuser1");
+        wrongPassDTO.setPassword("wrong_password");
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(wrongPassDTO)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(401))
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Password not correct"))
+                .andExpect(jsonPath("$.data").value(nullValue()))
+                .andExpect(jsonPath("$.metaData").value(nullValue()));
+    }
+
+    @Test
+    @Order(4)
     void testGoogleFirstTimeLogin() throws Exception {
         // Đăng nhập Google lần đầu với Mock token
         GoogleLoginDTO googleLoginDTO = new GoogleLoginDTO();
@@ -84,6 +136,9 @@ public class AuthenticationControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(googleLoginDTO)))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value(nullValue()))
                 .andExpect(jsonPath("$.data.isNewUser").value(true))
                 .andExpect(jsonPath("$.data.email").value("googleuser@ptit.edu.vn"))
                 .andExpect(jsonPath("$.data.tempToken").isNotEmpty())
@@ -94,7 +149,7 @@ public class AuthenticationControllerTest {
     }
 
     @Test
-    @Order(3)
+    @Order(5)
     void testGoogleCompleteRegistration() throws Exception {
         // Hoàn tất thông tin đăng ký cho tài khoản Google
         CompleteRegistrationDTO completeDTO = new CompleteRegistrationDTO();
@@ -110,11 +165,14 @@ public class AuthenticationControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(completeDTO)))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value(nullValue()))
                 .andExpect(jsonPath("$.data").isNotEmpty());
     }
 
     @Test
-    @Order(4)
+    @Order(6)
     void testGoogleSubsequentLogin() throws Exception {
         // Đăng nhập Google ở các lần tiếp theo (phải trả về isNewUser = false và có JWT token)
         GoogleLoginDTO googleLoginDTO = new GoogleLoginDTO();
@@ -124,12 +182,15 @@ public class AuthenticationControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(googleLoginDTO)))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value(nullValue()))
                 .andExpect(jsonPath("$.data.isNewUser").value(false))
                 .andExpect(jsonPath("$.data.token").isNotEmpty());
     }
 
     @Test
-    @Order(5)
+    @Order(7)
     void testLoginWithCreatedCredentialsFromGoogle() throws Exception {
         // Đăng nhập bằng username và password đã tạo ở bước hoàn tất đăng ký
         LoginDTO loginDTO = new LoginDTO();
@@ -140,6 +201,21 @@ public class AuthenticationControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(loginDTO)))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value(nullValue()))
                 .andExpect(jsonPath("$.data").isNotEmpty());
+    }
+
+    @Test
+    @Order(8)
+    void testLogout() throws Exception {
+        // Đăng xuất với token hợp lệ
+        mockMvc.perform(post("/api/auth/logout")
+                        .header("Authorization", "Bearer " + savedAccessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value(nullValue()));
     }
 }
