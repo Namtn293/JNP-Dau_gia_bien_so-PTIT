@@ -26,45 +26,42 @@ public class AuthenticationController {
     }
 
     @PostMapping("/register")
-    public SuccessResponse<String> register(@Valid @RequestBody RegisterDTO dto) {
+    public SuccessResponse<Void> register(@Valid @RequestBody RegisterDTO dto) {
         authenticationService.register(dto);
-        return ResponseUtil.ok("Register success");
+        return ResponseUtil.ok();
     }
 
     @PostMapping("/login")
     public SuccessResponse<String> login(@Valid @RequestBody LoginDTO dto) {
-        return ResponseUtil.ok("Login success", authenticationService.login(dto));
+        return ResponseUtil.ok(authenticationService.login(dto));
     }
 
     @PostMapping("/google")
     public SuccessResponse<GoogleAuthResponse> googleLogin(@Valid @RequestBody GoogleLoginDTO dto) {
         GoogleAuthResponse response = authenticationService.authenticateGoogle(dto);
-        String message = response.isNewUser() 
-                ? "First time login with Google. Please complete registration info." 
-                : "Google login success";
-        return ResponseUtil.ok(message, response);
+        return ResponseUtil.ok(response);
     }
 
     @PostMapping("/google/complete-registration")
     public SuccessResponse<String> completeGoogleRegistration(@Valid @RequestBody CompleteRegistrationDTO dto) {
         String token = authenticationService.completeGoogleRegistration(dto);
-        return ResponseUtil.ok("Registration completed successfully", token);
+        return ResponseUtil.ok(token);
     }
 
     @PostMapping("/logout")
-    public SuccessResponse<String> logout(HttpServletRequest request) {
+    public SuccessResponse<Void> logout(HttpServletRequest request) {
         String authHeader = request.getHeader("Authorization");
         if (authHeader == null || !authHeader.contains("Bearer")) {
             throw new BusinessException(ErrorCode.TOKEN_NOT_CORRECT);
         }
         authHeader = authHeader.substring(7);
         authenticationService.logout(authHeader);
-        return ResponseUtil.ok("Logout success");
+        return ResponseUtil.ok();
     }
 
     @PostMapping("/set-admin/{userName}")
-    public SuccessResponse<String> setAdminRole(@PathVariable String userName) {
+    public SuccessResponse<Void> setAdminRole(@PathVariable String userName) {
         authenticationService.setAdminRole(userName);
-        return ResponseUtil.ok("User " + userName + " is now ADMIN");
+        return ResponseUtil.ok();
     }
 }
