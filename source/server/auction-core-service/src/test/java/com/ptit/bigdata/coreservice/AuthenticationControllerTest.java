@@ -23,7 +23,9 @@ import org.springframework.web.context.WebApplicationContext;
 import java.time.LocalDate;
 
 import static org.hamcrest.Matchers.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -217,5 +219,59 @@ public class AuthenticationControllerTest {
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value(nullValue()));
+    }
+
+    @Test
+    @Order(9)
+    void testGoogleRedirectEndpoint() throws Exception {
+        // Kiểm tra redirect sang URL xác thực của Google
+        mockMvc.perform(get("/api/auth/google/redirect")
+                        .param("state", "test_state_value"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location", startsWith("https://accounts.google.com/o/oauth2/v2/auth")));
+    }
+
+    @Test
+    @Order(10)
+    void testGoogleCallbackWithError() throws Exception {
+        // Kiểm tra callback khi người dùng hủy hoặc Google trả lỗi
+        mockMvc.perform(get("/api/auth/google/callback")
+                        .param("error", "access_denied"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location", startsWith("http://localhost:5173/auth/google/callback?error=")));
+    }
+
+    @Test
+    @Order(11)
+    void testGoogleCompleteRegistrationAutoGenerateCredentials() throws Exception {
+        // Đăng nhập lần đầu với tài khoản Google mới
+        GoogleLoginDTO googleLoginDTO = new GoogleLoginDTO();
+        googleLoginDTO.setIdToken("mock:autogen_user@ptit.edu.vn:Auto Gen User");
+
+        MvcResult result = mockMvc.perform(post("/api/auth/google")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(googleLoginDTO)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.isNewUser").value(true))
+                .andReturn();
+
+        JsonNode responseJson = objectMapper.readTree(result.getResponse().getContentAsString());
+        String tempToken = responseJson.path("data").path("tempToken").asText();
+
+        // Hoàn tất đăng ký mà KHÔNG truyền userName và password (để hệ thống tự sinh)
+        CompleteRegistrationDTO completeDTO = new CompleteRegistrationDTO();
+        completeDTO.setTempToken(tempToken);
+        completeDTO.setFullName("Auto Gen User");
+        completeDTO.setPhoneNumber("0988776655");
+        completeDTO.setDob(LocalDate.of(1999, 12, 31));
+        completeDTO.setAddress("PTIT Km10");
+
+        mockMvc.perform(post("/api/auth/google/complete-registration")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(completeDTO)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").isNotEmpty());
     }
 }
