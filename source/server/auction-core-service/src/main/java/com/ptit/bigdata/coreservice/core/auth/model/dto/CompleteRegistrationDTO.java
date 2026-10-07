@@ -11,14 +11,14 @@ public class CompleteRegistrationDTO {
     @NotBlank(message = "tempToken không được để trống")
     private String tempToken;
 
-    @NotBlank(message = "userName không được để trống")
+    // Không bắt buộc — tự sinh ngẫu nhiên nếu FE không truyền
     private String userName;
-
-    @NotBlank(message = "password không được để trống")
     private String password;
 
+    @NotBlank(message = "Họ và tên không được để trống")
     private String fullName;
 
+    @NotBlank(message = "Số điện thoại không được để trống")
     private String phoneNumber;
 
     @JsonFormat(pattern = "yyyy-MM-dd")
