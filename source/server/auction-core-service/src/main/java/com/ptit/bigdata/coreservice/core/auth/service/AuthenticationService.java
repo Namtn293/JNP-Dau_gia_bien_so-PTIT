@@ -26,6 +26,7 @@ import org.springframework.web.client.RestTemplate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class AuthenticationService {
@@ -186,8 +187,17 @@ public class AuthenticationService {
         String email = (String) claims.get("email");
         String googleName = (String) claims.get("fullName");
 
-        if (userRepository.existsByUserName(dto.getUserName())) {
-            throw new BusinessException(ErrorCode.USER_ALREADY_EXIST);
+        // Tự sinh userName nếu FE không truyền, hoặc kiểm tra nếu FE truyền
+        String userName = dto.getUserName();
+        if (userName != null && !userName.isBlank()) {
+            if (userRepository.existsByUserName(userName)) {
+                throw new BusinessException(ErrorCode.USER_ALREADY_EXIST);
+            }
+        } else {
+            userName = email.split("@")[0] + "_" + UUID.randomUUID().toString().substring(0, 6);
+            while (userRepository.existsByUserName(userName)) {
+                userName = email.split("@")[0] + "_" + UUID.randomUUID().toString().substring(0, 6);
+            }
         }
 
         if (userInfoRepository.existsByEmail(email)) {
@@ -199,17 +209,22 @@ public class AuthenticationService {
             throw new BusinessException(ErrorCode.PHONE_NUMBER_EXISTS);
         }
 
+        // Tự sinh password ngẫu nhiên nếu FE không truyền
+        String rawPassword = (dto.getPassword() != null && !dto.getPassword().isBlank())
+                ? dto.getPassword()
+                : UUID.randomUUID().toString();
+
         // 1. Tạo tài khoản đăng nhập (AUTH_USER)
         User user = new User();
-        user.setUserName(dto.getUserName());
-        user.setPassword(passwordEncoder.encode(dto.getPassword()));
+        user.setUserName(userName);
+        user.setPassword(passwordEncoder.encode(rawPassword));
         user.setRoleEnum(RoleEnum.USER);
         user.setAuthProvider(AuthProvider.GOOGLE);
         userRepository.save(user);
 
         // 2. Tạo thông tin người dùng (MAIN_USER_INFO) với các trường định danh đấu giá
         UserInfo userInfo = new UserInfo();
-        userInfo.setUserName(dto.getUserName());
+        userInfo.setUserName(userName);
         userInfo.setEmail(email);
         userInfo.setFullName(dto.getFullName() != null && !dto.getFullName().isBlank() ? dto.getFullName() : googleName);
         userInfo.setPhoneNumber(dto.getPhoneNumber());
