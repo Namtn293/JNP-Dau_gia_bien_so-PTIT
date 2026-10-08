@@ -1,59 +1,87 @@
 # CẤU TRÚC DỰ ÁN (PROJECT STRUCTURE)
 
 > Dự án: **Hệ thống Đấu giá Biển số Xe Ô tô Trực tuyến (PTIT - Lập trình Mạng)**
+>
+> Tài liệu này phản ánh mã nguồn hiện có trong repository. Các giao thức và dịch vụ được mô tả trong `project-overview.md` là kiến trúc mục tiêu; không đồng nghĩa chúng đã được triển khai.
 
 ---
 
-## 🌳 Sơ đồ Cây Thư Mục (Tree View)
+## 🌳 Sơ đồ cây thư mục hiện tại
 
 ```text
 JNP-Dau_gia_bien_so-PTIT/
-├── .ai/                                # Thư mục tài liệu thiết kế, kế hoạch và ngữ cảnh AI
-│   ├── tasks/                          # Theo dõi tiến độ và nhiệm vụ theo tuần của nhóm
-│   │   └── week-01.md                  # Kế hoạch và phân công công việc Tuần 1
-│   ├── project-overview.md             # Đặc tả chi tiết kiến trúc hệ thống, giao thức mạng & nghiệp vụ
-│   └── project-structure.md            # Sơ đồ và mô tả cấu trúc thư mục của dự án
-├── source/                             # Thư mục chứa toàn bộ mã nguồn của hệ thống
-│   ├── .gitignore                      # Cấu hình loại trừ file build/rác riêng cho thư mục source
-│   ├── client/                         # Module ứng dụng phía máy khách (Client Application)
-│   │   └── README.md                   # Tài liệu hướng dẫn cài đặt và khởi chạy Client
-│   └── server/                         # Module ứng dụng phía máy chủ (Server Application & Network Services)
-│       └── README.md                   # Tài liệu hướng dẫn cài đặt, cấu hình và khởi chạy Server
-├── .gitignore                          # Cấu hình danh sách file/thư mục loại trừ khỏi Git tracking ở cấp root
-├── INSTRUCTION.md                      # Hướng dẫn thực hiện bài tập lớn từ Giảng viên (Giữ nguyên)
-└── README.md                           # Báo cáo tổng quan chính của dự án và hướng dẫn chạy hệ thống
+├── .ai/
+│   ├── tasks/
+│   │   └── week-01.md                 # Kế hoạch và phân công công việc tuần 1
+│   ├── project-overview.md            # Đặc tả nghiệp vụ và kiến trúc mục tiêu
+│   └── project-structure.md           # Cấu trúc repository và trạng thái triển khai
+├── source/
+│   ├── .gitignore
+│   ├── client/
+│   │   └── README.md                  # Khung hướng dẫn client, chưa có mã nguồn
+│   └── server/
+│       ├── README.md                  # Khung hướng dẫn server, chưa cập nhật theo triển khai
+│       └── admin-console/
+│           ├── .gitignore
+│           ├── pom.xml                # Maven; Java 21; cấu hình ứng dụng chạy được
+│           └── src/main/java/com/auction/
+│               ├── AdminConsoleApp.java
+│               └── ui/
+│                   ├── AdminConsoleUI.java
+│                   ├── Theme.java
+│                   └── panels/
+│                       ├── LogPanel.java
+│                       └── monitoring/
+│                           ├── MetricCardsPanel.java
+│                           ├── MonitoringPanel.java
+│                           ├── QuickControlPanel.java
+│                           └── RoomTablePanel.java
+├── .gitignore
+├── INSTRUCTION.md                     # Hướng dẫn bài tập từ giảng viên
+└── README.md                          # README tổng quan hiện còn ở dạng khung
 ```
+
+> Các thư mục sinh ra khi build như `target/` không liệt kê trong cây mã nguồn.
 
 ---
 
-## 📂 Mô Tả Chi Tiết Vai Trò Các Thư Mục & Tệp Tin Chính
+## 📌 Trạng thái theo module
 
-### 1. Thư mục `.ai/`
-Chứa các tài liệu thiết kế kiến trúc, đặc tả yêu cầu, kế hoạch tiến độ và context phục vụ phát triển phần mềm và cộng tác cùng trợ lý AI:
-- **`tasks/`**: Thư mục quản lý nhiệm vụ và kế hoạch thực hiện của từng thành viên theo từng tuần:
-  - **`week-01.md`**: Kế hoạch tuần 1 (An: UI Đăng ký/Đăng nhập & Danh sách sản phẩm; Bảo: UI Admin & Mẫu email SMTP; Nam: REST API & Thiết kế CSDL).
-- **`project-overview.md`**: Bản đặc tả toàn diện về đề tài (Bối cảnh, nghiệp vụ đấu giá, quy chuẩn đặt cọc, 4 phân hệ cốt lõi, kiến trúc đa giao thức: HTTP REST, WebSocket/STOMP, Raw TCP Socket, UDP Datagram, Java RMI, SMTP và bảng phân công công việc).
-- **`project-structure.md`**: File tài liệu mô tả chi tiết sơ đồ tổ chức cây thư mục và vai trò của từng module trong dự án.
+### 1. Tài liệu `.ai/`
 
-### 2. Thư mục `source/`
-Thư mục gốc chứa toàn bộ mã nguồn triển khai dự án, được phân tách thành các module độc lập theo mô hình Client - Server:
+- **`project-overview.md`**: Đặc tả yêu cầu, nghiệp vụ và kiến trúc dự kiến, gồm HTTP/REST, WebSocket/STOMP, TCP, UDP, RMI, JDBC/MySQL và SMTP.
+- **`tasks/week-01.md`**: Kế hoạch và phân công công việc tuần 1.
+- **`project-structure.md`**: Tài liệu này; cập nhật theo mã nguồn đang có.
 
-- **`.gitignore`**: File cấu hình loại trừ các thư viện phụ thuộc và tệp build cục bộ phát sinh trong `source/`.
-- **`source/client/`**: Phân hệ giao diện người dùng và bảng điều khiển:
-  - Phụ trách giao diện Web cho người đấu giá (đăng ký, nạp ví, nộp cọc, phòng đấu giá nhảy giá thời gian thực, live chat) và ứng dụng quản trị Admin Console.
-  - Xử lý các kết nối HTTP REST API, WebSocket/STOMP client (bù trừ độ trễ NTP, cơ chế Auto-Reconnect) và giao tiếp Socket.
-  - **`source/client/README.md`**: Hướng dẫn môi trường, cài đặt dependencies và các bước khởi chạy client.
+Các giao thức/dịch vụ trong đặc tả chưa có module triển khai tương ứng trong cây mã nguồn hiện tại.
 
-- **`source/server/`**: Phân hệ xử lý máy chủ trung tâm và dịch vụ mạng phân tán:
-  - **Core Backend (Spring Boot)**: Quản lý phiên đấu giá, REST API, đồng bộ Countdown, xử lý kiểm soát tương tranh & đặt giá (Concurrency / Optimistic Lock).
-  - **WebSocket Hub**: Broadcast bước giá nhảy và cập nhật phòng đấu giá tức thời.
-  - **TCP Control Server (Port 9090)**: Tiếp nhận lệnh điều hành khẩn cấp từ Admin Console (`HALT`, `RESUME`, `KICK`, `CANCEL`).
-  - **RMI Settlement Service (Port 1099)**: Dịch vụ tài chính phân tán (khóa cọc, hoàn tiền cọc, trừ tiền người thắng cuộc).
-  - **UDP Telemetry Server (Port 8888)**: Đo độ trễ mạng Ping RTT và giám sát tải phần cứng (CPU/RAM).
-  - **SMTP Mailer**: Gửi email biên bản trúng đấu giá và cảnh báo tự động.
-  - **`source/server/README.md`**: Hướng dẫn cài đặt, cấu hình port/cơ sở dữ liệu và khởi động server.
+### 2. Client
 
-### 3. Các tệp tin cấu hình & tài liệu ở thư mục gốc (Root)
-- **`.gitignore`**: Khai báo loại trừ các file tạm thời, file build (`target/`, `node_modules/`, `.idea/`, `.DS_Store`, v.v.) khỏi kho mã nguồn Git.
-- **`INSTRUCTION.md`**: Tài liệu hướng dẫn chính thức từ giảng viên bộ môn Lập trình mạng (PTIT) về tiêu chí chấm điểm, quy định cấu trúc và quy trình báo cáo (không chỉnh sửa).
-- **`README.md`**: Báo cáo tổng quan của nhóm, bao gồm thông tin thành viên, tóm tắt đề tài, hướng dẫn cài đặt/chạy hệ thống hoàn chỉnh và sơ đồ kiến trúc.
+`source/client/` hiện chỉ có `README.md` dạng hướng dẫn mẫu. Chưa có mã nguồn ứng dụng đấu giá phía người dùng, cấu hình client hay kết nối tới server.
+
+### 3. Server và Admin Console
+
+- `source/server/README.md` vẫn là tài liệu mẫu, chưa phản ánh cách chạy hệ thống thực tế.
+- `source/server/admin-console/` là module mã nguồn triển khai hiện có. Đây là ứng dụng desktop Java Swing, build bằng Maven, yêu cầu Java 21; điểm bắt đầu là `AdminConsoleApp`.
+- `ui/AdminConsoleUI.java` tạo cửa sổ quản trị với tab giám sát và tab điều khiển phiên. Tab điều khiển phiên hiện là placeholder.
+- `ui/Theme.java` tập trung màu sắc và kiểu chữ dùng chung.
+- `ui/panels/monitoring/MonitoringPanel.java` ghép các phần giám sát và liên kết hàng phòng được chọn với bảng điều khiển nhanh.
+- `MetricCardsPanel.java` hiển thị thẻ CPU, RAM, RTT và hoạt động hệ thống; các chỉ số hiện là dữ liệu mẫu.
+- `RoomTablePanel.java` hiển thị bảng phòng đấu giá với dữ liệu mẫu.
+- `QuickControlPanel.java` cung cấp giao diện HALT, RESUME, KICK, CANCEL. Các nút hiện ghi lệnh vào nhật ký; chưa gửi lệnh qua TCP hay gọi dịch vụ server.
+- `LogPanel.java` hiển thị nhật ký mẫu, hỗ trợ tự cuộn, sao chép và xóa nội dung đang hiển thị.
+
+Do đó, các nhãn trạng thái kết nối và cổng UDP `8888`/TCP `9090` trên giao diện hiện chỉ là nội dung demo, không xác nhận có kết nối mạng đang hoạt động. Chưa thấy mã nguồn backend Spring Boot, WebSocket hub, TCP/UDP server, RMI settlement, truy cập cơ sở dữ liệu hoặc SMTP.
+
+### 4. Cấu hình và tài liệu cấp repository
+
+- **`.gitignore`**: Quy tắc loại trừ ở cấp repository, gồm IDE và file hệ điều hành.
+- **`source/.gitignore`**, **`source/server/admin-console/.gitignore`**: Quy tắc loại trừ riêng theo module.
+- **`INSTRUCTION.md`**: Hướng dẫn chính thức từ giảng viên.
+- **`README.md`**, **`source/client/README.md`**, **`source/server/README.md`**: Hiện vẫn chứa nội dung khung/mẫu; cần cập nhật khi các module tương ứng được triển khai.
+
+---
+
+## 🔭 Kiến trúc mục tiêu
+
+Các thành phần như ứng dụng web client, backend/API, WebSocket/STOMP, TCP điều khiển, UDP giám sát, RMI quyết toán, cơ sở dữ liệu và gửi email được nêu trong `.ai/project-overview.md` là mục tiêu thiết kế/phân công. Khi mã nguồn cho các thành phần này được thêm vào, cần cập nhật lại sơ đồ cây và trạng thái module trong tài liệu này.
