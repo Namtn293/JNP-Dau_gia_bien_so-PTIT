@@ -1,7 +1,5 @@
 package com.auction.ui.panels.monitoring;
 
-import com.auction.ui.panels.LogPanel;
-
 import static com.auction.ui.Theme.*;
 
 import java.awt.BorderLayout;
@@ -10,48 +8,124 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridLayout;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+import java.util.concurrent.CompletableFuture;
 
-import javax.swing.*;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.BorderFactory;
+import javax.swing.DefaultComboBoxModel;
+import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JTextField;
+import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.text.StyledDocument;
 
+import com.auction.AdminConfig;
+import com.auction.gateway.AdminGateway;
+import com.auction.model.CommandResult;
+import com.auction.model.RoomInfo;
+import com.auction.ui.panels.LogPanel;
+
 public class QuickControlPanel extends JPanel {
+    private final AdminGateway gateway;
     private final StyledDocument logDocument;
 
-    // Thông tin phòng
-    private JLabel roomIdLabel;
-    private JLabel roomLocationLabel;
-    private JLabel roomStatusLabel;
+    private final List<Consumer<String>> roomPickedListeners = new ArrayList<>();
+    private Runnable commandCompletedListener;
+    private List<String> roomOptions = List.of();
+    // true khi đang đồng bộ combo bằng code: bỏ qua sự kiện do chính code tạo ra
+    private boolean syncing;
 
-    // ComboBox chọn phòng
+    private JLabel plateLabel;
+    private JLabel roomInfoLabel;
+    private JLabel statusLabel;
     private JComboBox<String> roomComboBox;
-
-    // Input field Kick
     private JTextField kickAccountField;
 
-    // Các nút
     private JButton haltButton;
     private JButton resumeButton;
     private JButton kickButton;
     private JButton cancelButton;
 
-    // Các label mô tả
-    private JLabel haltDescLabel;
-    private JLabel resumeDescLabel;
-    private JLabel kickDescLabel;
-    private JLabel cancelDescLabel;
-
-    public QuickControlPanel(StyledDocument logDocument) {
+    public QuickControlPanel(AdminGateway gateway, StyledDocument logDocument) {
+        this.gateway = gateway;
         this.logDocument = logDocument;
+
         initializeUI();
-        attachButtonListeners(logDocument);
+        attachListeners();
+
+        // Chưa có phòng nào được chọn: tắt các nút điều khiển
+        setButtonEnabled(haltButton, false, COLOR_DANGER);
+        setButtonEnabled(resumeButton, false, COLOR_PRIMARY);
+        setCancelEnabled(false);
+        refreshKickButton();
     }
+
+    // ===== API cho MonitoringPanel =====
+
+    /** Hiển thị thông tin phòng và bật/tắt nút theo trạng thái phòng đó. */
+    public void showRoom(RoomInfo room) {
+        plateLabel.setText(room.plate());
+        roomInfoLabel.setText(room.id() + " • " + room.region());
+        statusLabel.setText("• " + room.status().label());
+
+        syncing = true;
+        try {
+            roomComboBox.setSelectedItem(room.id());
+        } finally {
+            syncing = false;
+        }
+
+        setButtonEnabled(haltButton, room.status().canHalt(), COLOR_DANGER);
+        setButtonEnabled(resumeButton, room.status().canResume(), COLOR_PRIMARY);
+        setCancelEnabled(!room.status().isFinished());
+    }
+
+    /** Cập nhật danh sách mã phòng trong combo, giữ nguyên lựa chọn hiện tại. */
+    public void setRoomOptions(List<String> roomIds) {
+        if (roomIds.equals(roomOptions)) {
+            return;
+        }
+        roomOptions = List.copyOf(roomIds);
+        String current = selectedRoomId();
+
+        syncing = true;
+        try {
+            roomComboBox.setModel(new DefaultComboBoxModel<>(roomOptions.toArray(new String[0])));
+            if (current != null) {
+                roomComboBox.setSelectedItem(current);
+            }
+        } finally {
+            syncing = false;
+        }
+    }
+
+    /** Người dùng đổi phòng trong combo. */
+    public void addRoomPickedListener(Consumer<String> listener) {
+        roomPickedListeners.add(listener);
+    }
+
+    /** Gọi sau khi một lệnh có kết quả, để MonitoringPanel làm mới dữ liệu. */
+    public void setOnCommandCompleted(Runnable listener) {
+        this.commandCompletedListener = listener;
+    }
+
+    // ===== Giao diện =====
 
     private void initializeUI() {
         setLayout(new BorderLayout());
         setBackground(Color.WHITE);
         setBorder(BorderFactory.createEmptyBorder(12, 16, 12, 16));
 
-        // Gom toàn bộ nội dung vào một Panel chạy dọc (Y_AXIS)
         JPanel contentWrapper = new JPanel();
         contentWrapper.setLayout(new BoxLayout(contentWrapper, BoxLayout.Y_AXIS));
         contentWrapper.setOpaque(false);
@@ -60,7 +134,6 @@ public class QuickControlPanel extends JPanel {
         contentWrapper.add(Box.createVerticalStrut(16));
         contentWrapper.add(createControlPanel());
 
-        // Đặt nội dung vào NORTH để khóa cứng chiều cao thực tế, giúp JScrollPane nhận diện được vùng tràn
         add(contentWrapper, BorderLayout.NORTH);
     }
 
@@ -70,29 +143,15 @@ public class QuickControlPanel extends JPanel {
         panel.setOpaque(false);
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        // Biển số
-        roomIdLabel = new JLabel("30K - 999.99");
-        roomIdLabel.setFont(FONT_VALUE.deriveFont(20f));
-        roomIdLabel.setForeground(COLOR_TEXT);
-        roomIdLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        plateLabel = createLeftLabel("—", FONT_VALUE.deriveFont(20f), COLOR_TEXT);
+        roomInfoLabel = createLeftLabel("", FONT_NORMAL, COLOR_TEXT);
+        statusLabel = createLeftLabel("", FONT_SMALL, COLOR_MUTED);
 
-        // Địa điểm
-        roomLocationLabel = new JLabel("Hà Nội");
-        roomLocationLabel.setFont(FONT_NORMAL);
-        roomLocationLabel.setForeground(COLOR_TEXT);
-        roomLocationLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        // Trạng thái
-        roomStatusLabel = new JLabel("• PAUSED • Đã khóa nhận giá");
-        roomStatusLabel.setFont(FONT_SMALL);
-        roomStatusLabel.setForeground(COLOR_MUTED);
-        roomStatusLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        panel.add(roomIdLabel);
+        panel.add(plateLabel);
         panel.add(Box.createVerticalStrut(4));
-        panel.add(roomLocationLabel);
+        panel.add(roomInfoLabel);
         panel.add(Box.createVerticalStrut(2));
-        panel.add(roomStatusLabel);
+        panel.add(statusLabel);
 
         return panel;
     }
@@ -103,39 +162,26 @@ public class QuickControlPanel extends JPanel {
         panel.setOpaque(false);
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        // 1. Label + ComboBox chọn phòng
-        JLabel roomLabel = new JLabel("ID phòng mục tiêu");
-        roomLabel.setFont(FONT_NORMAL);
-        roomLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        panel.add(roomLabel);
+        panel.add(createLeftLabel("ID phòng mục tiêu", FONT_NORMAL, COLOR_TEXT));
         panel.add(Box.createVerticalStrut(4));
 
-        roomComboBox = new JComboBox<>(new String[] {
-                "AUC-1021", "AUC-1022", "AUC-1023", "AUC-1024",
-                "AUC-1025", "AUC-1026", "AUC-1019", "AUC-1018"
-        });
-        roomComboBox.setSelectedIndex(2);
+        roomComboBox = new JComboBox<>();
         roomComboBox.setFont(FONT_NORMAL);
         roomComboBox.setAlignmentX(Component.LEFT_ALIGNMENT);
         roomComboBox.setMaximumSize(new Dimension(Short.MAX_VALUE, 32));
         panel.add(roomComboBox);
         panel.add(Box.createVerticalStrut(12));
 
-        // 2. Label + Input field KICK
-        JLabel kickLabel = new JLabel("ID tài khoản cần ngắt kết nối");
-        kickLabel.setFont(FONT_NORMAL);
-        kickLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        panel.add(kickLabel);
+        panel.add(createLeftLabel("ID tài khoản cần ngắt kết nối", FONT_NORMAL, COLOR_TEXT));
         panel.add(Box.createVerticalStrut(4));
 
-        kickAccountField = new JTextField("U-0842");
+        kickAccountField = new JTextField(AdminConfig.DEFAULT_KICK_ACCOUNT);
         kickAccountField.setFont(FONT_NORMAL);
         kickAccountField.setAlignmentX(Component.LEFT_ALIGNMENT);
         kickAccountField.setMaximumSize(new Dimension(Short.MAX_VALUE, 32));
         panel.add(kickAccountField);
         panel.add(Box.createVerticalStrut(16));
 
-        // 3. Khối 4 nút + Mô tả được tổ chức lại bằng GridLayout đồng nhất
         panel.add(createButtonPanel());
 
         return panel;
@@ -145,74 +191,48 @@ public class QuickControlPanel extends JPanel {
         JPanel gridPanel = new JPanel(new GridLayout(2, 2, 10, 12));
         gridPanel.setOpaque(false);
         gridPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        // FIX CUỘN: Ép cứng PreferredSize để JScrollPane luôn nhận diện được chiều cao chuẩn 240px
         gridPanel.setMinimumSize(new Dimension(280, 240));
         gridPanel.setPreferredSize(new Dimension(280, 240));
         gridPanel.setMaximumSize(new Dimension(Short.MAX_VALUE, 240));
 
-        // FIX KÍCH THƯỚC NÚT: Sử dụng BorderLayout thay vì BoxLayout
-        // BorderLayout.NORTH sẽ ép chiều cao nút bằng chính xác 36px, không bao giờ bị kéo giãn
-
-        // --- 1. Nhóm HALT ---
-        JPanel haltGroup = new JPanel(new BorderLayout(0, 4));
-        haltGroup.setOpaque(false);
-
         haltButton = createButton("HALT", COLOR_DANGER);
-        haltDescLabel = new JLabel("<html>HALT tạm dừng phiên, khóa đặt giá.<br>Đếm ngược bị đóng băng.</html>");
-        haltDescLabel.setFont(FONT_SMALL);
-        haltDescLabel.setForeground(COLOR_MUTED);
-        haltDescLabel.setVerticalAlignment(SwingConstants.TOP); // Ép chữ sát lên trên
-
-        haltGroup.add(haltButton, BorderLayout.NORTH);
-        haltGroup.add(haltDescLabel, BorderLayout.CENTER);
-
-        // --- 2. Nhóm RESUME ---
-        JPanel resumeGroup = new JPanel(new BorderLayout(0, 4));
-        resumeGroup.setOpaque(false);
-
         resumeButton = createButton("RESUME", COLOR_PRIMARY);
-        resumeDescLabel = new JLabel("<html>RESUME mở lại đặt giá, cộng 30 giây.<br>Đếm ngược dự kiến: 02:48.</html>");
-        resumeDescLabel.setFont(FONT_SMALL);
-        resumeDescLabel.setForeground(COLOR_MUTED);
-        resumeDescLabel.setVerticalAlignment(SwingConstants.TOP);
-
-        resumeGroup.add(resumeButton, BorderLayout.NORTH);
-        resumeGroup.add(resumeDescLabel, BorderLayout.CENTER);
-
-        // --- 3. Nhóm KICK ---
-        JPanel kickGroup = new JPanel(new BorderLayout(0, 4));
-        kickGroup.setOpaque(false);
-
         kickButton = createButton("KICK", COLOR_DANGER);
-        kickDescLabel = new JLabel("<html>KICK cưỡng chế ngắt kết nối WebSocket<br>của tài khoản.</html>");
-        kickDescLabel.setFont(FONT_SMALL);
-        kickDescLabel.setForeground(COLOR_MUTED);
-        kickDescLabel.setVerticalAlignment(SwingConstants.TOP);
-
-        kickGroup.add(kickButton, BorderLayout.NORTH);
-        kickGroup.add(kickDescLabel, BorderLayout.CENTER);
-
-        // --- 4. Nhóm CANCEL ---
-        JPanel cancelGroup = new JPanel(new BorderLayout(0, 4));
-        cancelGroup.setOpaque(false);
-
         cancelButton = createCancelButton("CANCEL");
-        cancelDescLabel = new JLabel("<html>CANCEL hủy phiên, hoàn 100% tiền cọc.<br>Bắt buộc xác nhận trước khi gửi.</html>");
-        cancelDescLabel.setFont(FONT_SMALL);
-        cancelDescLabel.setForeground(COLOR_MUTED);
-        cancelDescLabel.setVerticalAlignment(SwingConstants.TOP);
 
-        cancelGroup.add(cancelButton, BorderLayout.NORTH);
-        cancelGroup.add(cancelDescLabel, BorderLayout.CENTER);
-
-        // Thêm vào lưới
-        gridPanel.add(haltGroup);
-        gridPanel.add(resumeGroup);
-        gridPanel.add(kickGroup);
-        gridPanel.add(cancelGroup);
+        gridPanel.add(createActionGroup(haltButton,
+                "<html>HALT tạm dừng phiên, khóa đặt giá.<br>Đếm ngược bị đóng băng.</html>"));
+        gridPanel.add(createActionGroup(resumeButton,
+                "<html>RESUME mở lại đặt giá, cộng " + AdminConfig.EXTENSION_SECONDS
+                        + " giây.<br>Đếm ngược được cập nhật sau lệnh.</html>"));
+        gridPanel.add(createActionGroup(kickButton,
+                "<html>KICK cưỡng chế ngắt kết nối WebSocket<br>của tài khoản.</html>"));
+        gridPanel.add(createActionGroup(cancelButton,
+                "<html>CANCEL hủy phiên, hoàn 100% tiền cọc.<br>Bắt buộc xác nhận trước khi gửi.</html>"));
 
         return gridPanel;
+    }
+
+    private JPanel createActionGroup(JButton button, String descHtml) {
+        JPanel group = new JPanel(new BorderLayout(0, 4));
+        group.setOpaque(false);
+
+        JLabel desc = new JLabel(descHtml);
+        desc.setFont(FONT_SMALL);
+        desc.setForeground(COLOR_MUTED);
+        desc.setVerticalAlignment(SwingConstants.TOP);
+
+        group.add(button, BorderLayout.NORTH);
+        group.add(desc, BorderLayout.CENTER);
+        return group;
+    }
+
+    private JLabel createLeftLabel(String text, Font font, Color color) {
+        JLabel label = new JLabel(text);
+        label.setFont(font);
+        label.setForeground(color);
+        label.setAlignmentX(Component.LEFT_ALIGNMENT);
+        return label;
     }
 
     private JButton createButton(String text, Color bgColor) {
@@ -223,59 +243,129 @@ public class QuickControlPanel extends JPanel {
         button.setOpaque(true);
         button.setBorderPainted(false);
         button.setFocusPainted(false);
-        button.setPreferredSize(new Dimension(100, 36)); // Khóa cứng chiều cao 36px
+        button.setPreferredSize(new Dimension(100, 36));
         return button;
     }
 
     private JButton createCancelButton(String text) {
         JButton button = new JButton(text);
         button.setFont(FONT_NORMAL.deriveFont(Font.BOLD));
-        button.setForeground(COLOR_DANGER);
         button.setOpaque(false);
         button.setContentAreaFilled(false);
-        button.setBorder(BorderFactory.createLineBorder(COLOR_DANGER, 2));
         button.setFocusPainted(false);
-        button.setPreferredSize(new Dimension(100, 36)); // Khóa cứng chiều cao 36px
+        button.setPreferredSize(new Dimension(100, 36));
         return button;
     }
 
-    public void updateRoom(String roomId, String location, String status) {
-        roomIdLabel.setText(roomId);
-        roomLocationLabel.setText(location);
-        roomStatusLabel.setText(status);
-
-        for (int i = 0; i < roomComboBox.getItemCount(); i++) {
-            if (roomComboBox.getItemAt(i).equals(roomId)) {
-                roomComboBox.setSelectedIndex(i);
-                break;
-            }
-        }
+    /** Nút đặc: nền màu khi bật, nền xám khi tắt. */
+    private void setButtonEnabled(JButton button, boolean enabled, Color activeColor) {
+        button.setEnabled(enabled);
+        button.setBackground(enabled ? activeColor : COLOR_BORDER);
+        button.setForeground(enabled ? Color.WHITE : COLOR_MUTED);
     }
 
-    public void attachButtonListeners(StyledDocument logDocument) {
+    /** Nút viền: viền và chữ đỏ khi bật, xám khi tắt. */
+    private void setCancelEnabled(boolean enabled) {
+        Color color = enabled ? COLOR_DANGER : COLOR_BORDER;
+        cancelButton.setEnabled(enabled);
+        cancelButton.setForeground(enabled ? COLOR_DANGER : COLOR_MUTED);
+        cancelButton.setBorder(BorderFactory.createLineBorder(color, 2));
+    }
+
+    private void refreshKickButton() {
+        boolean hasAccount = !kickAccountField.getText().trim().isEmpty();
+        setButtonEnabled(kickButton, hasAccount, COLOR_DANGER);
+    }
+
+    private String selectedRoomId() {
+        return (String) roomComboBox.getSelectedItem();
+    }
+
+    // ===== Sự kiện =====
+
+    private void attachListeners() {
+        roomComboBox.addActionListener(e -> {
+            if (syncing) {
+                return;
+            }
+            String roomId = selectedRoomId();
+            if (roomId != null) {
+                for (Consumer<String> listener : roomPickedListeners) {
+                    listener.accept(roomId);
+                }
+            }
+        });
+
         haltButton.addActionListener(e -> {
-            String roomId = roomIdLabel.getText();
-            LogPanel.appendTo(logDocument, LogPanel.Level.COMMAND, "> HALT " + roomId);
+            String roomId = selectedRoomId();
+            sendCommand("> HALT " + roomId, gateway.halt(roomId));
         });
 
         resumeButton.addActionListener(e -> {
-            String roomId = roomIdLabel.getText();
-            LogPanel.appendTo(logDocument, LogPanel.Level.COMMAND, "> RESUME " + roomId);
+            String roomId = selectedRoomId();
+            sendCommand("> RESUME " + roomId, gateway.resume(roomId));
         });
 
         kickButton.addActionListener(e -> {
-            String roomId = roomIdLabel.getText();
-            String accountId = kickAccountField.getText();
-            LogPanel.appendTo(logDocument, LogPanel.Level.COMMAND, "> KICK " + accountId + " (từ phòng " + roomId + ")");
+            String roomId = selectedRoomId();
+            String account = kickAccountField.getText().trim();
+            sendCommand("> KICK " + account + " (từ phòng " + roomId + ")",
+                    gateway.kick(account, roomId));
         });
 
-        cancelButton.addActionListener(e -> {
-            String roomId = roomIdLabel.getText();
-            int confirm = JOptionPane.showConfirmDialog(null, "Hủy phiên " + roomId + "?\nHoàn 100% tiền cọc cho tất cả mọi người.",
-                    "Xác nhận Cancel", JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
-            if (confirm == JOptionPane.OK_OPTION) {
-                LogPanel.appendTo(logDocument, LogPanel.Level.COMMAND, "> CANCEL " + roomId);
+        cancelButton.addActionListener(e -> confirmAndCancel());
+
+        kickAccountField.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                refreshKickButton();
             }
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                refreshKickButton();
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                refreshKickButton();
+            }
+        });
+    }
+
+    private void confirmAndCancel() {
+        String roomId = selectedRoomId();
+        int confirm = JOptionPane.showConfirmDialog(
+                SwingUtilities.getWindowAncestor(this),
+                "Hủy phiên " + roomId + "?\nHoàn 100% tiền cọc cho tất cả mọi người.",
+                "Xác nhận Cancel",
+                JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.WARNING_MESSAGE);
+
+        if (confirm == JOptionPane.OK_OPTION) {
+            sendCommand("> CANCEL " + roomId, gateway.cancel(roomId));
+        }
+    }
+
+    /**
+     * Ghi lệnh vào nhật ký, chờ kết quả từ gateway rồi ghi kết quả.
+     * Mọi cập nhật giao diện đều được chuyển về EDT.
+     */
+    private void sendCommand(String commandLog, CompletableFuture<CommandResult> future) {
+        LogPanel.appendTo(logDocument, LogPanel.Level.COMMAND, commandLog);
+
+        future.thenAccept(result -> SwingUtilities.invokeLater(() -> {
+            LogPanel.appendTo(logDocument,
+                    result.success() ? LogPanel.Level.SUCCESS : LogPanel.Level.ERROR,
+                    result.message());
+            if (commandCompletedListener != null) {
+                commandCompletedListener.run();
+            }
+        })).exceptionally(ex -> {
+            SwingUtilities.invokeLater(() ->
+                    LogPanel.appendTo(logDocument, LogPanel.Level.ERROR,
+                            "Không gửi được lệnh: " + ex.getMessage()));
+            return null;
         });
     }
 }

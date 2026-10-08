@@ -3,6 +3,8 @@ package com.auction.ui;
 import java.awt.Color;
 import java.awt.Font;
 
+import java.util.Locale;
+
 /*
 
  */
@@ -32,4 +34,24 @@ public final class Theme {
     public static final Color COLOR_LOG_ERROR = new Color(252, 165, 165);
 
     public static final Font FONT_MONO = new Font(Font.MONOSPACED, Font.PLAIN, 12);
+
+    // Ngưỡng RTT (ms) theo tổng quan dự án
+    public static final int RTT_GOOD_MS = 50;
+    public static final int RTT_BAD_MS = 300;
+
+    /** Xanh dưới 50 ms, vàng từ 50 đến 300 ms, đỏ trên 300 ms. */
+    public static Color rttColor(int ms) {
+        if (ms < RTT_GOOD_MS) {
+            return COLOR_SUCCESS;
+        }
+        if (ms <= RTT_BAD_MS) {
+            return COLOR_WARNING;
+        }
+        return COLOR_DANGER;
+    }
+
+    /** Định dạng tiền VNĐ kiểu 380.000.000. */
+    public static String formatVnd(long amount) {
+        return String.format(Locale.US, "%,d", amount).replace(',', '.');
+    }
 }

@@ -1,5 +1,6 @@
 package com.auction.ui;
 
+
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 
@@ -15,6 +16,10 @@ import org.slf4j.LoggerFactory;
 
 import static com.auction.ui.Theme.*;
 import com.auction.ui.panels.LogPanel;
+import com.auction.AdminConfig;
+
+import com.auction.gateway.AdminGateway;
+import com.auction.gateway.MockAdminGateway;
 
 
 /**
@@ -43,7 +48,8 @@ public class AdminConsoleUI extends JFrame {
 
         // Tạo 2 tab
         tabbedPane = new JTabbedPane(JTabbedPane.TOP);
-        tabbedPane.addTab("Giám sát đấu giá", new MonitoringPanel(logDocument));
+        AdminGateway gateway = new MockAdminGateway();
+        tabbedPane.addTab("Giám sát đấu giá", new MonitoringPanel(gateway, logDocument));
         tabbedPane.addTab("Điều khiển phiên", createPlaceholderPanel("Tab 2: Điều khiển phiên"));
 
         add(createHeaderPanel(), BorderLayout.NORTH);
@@ -81,7 +87,7 @@ public class AdminConsoleUI extends JFrame {
         JLabel title = new JLabel("QUẢN TRỊ ĐẤU GIÁ BIỂN SỐ");
         title.setFont(FONT_TITLE);
 
-        JLabel serverInfo = new JLabel("Máy chủ: 192.168.1.7 • Cụm Hà Nội");
+        JLabel serverInfo = new JLabel("Máy chủ: " + AdminConfig.SERVER_ADDRESS + " • " + AdminConfig.CLUSTER_NAME);
         serverInfo.setFont(FONT_SMALL);
         serverInfo.setForeground(COLOR_MUTED);
 
@@ -101,10 +107,10 @@ public class AdminConsoleUI extends JFrame {
         user.setLayout(new BoxLayout(user, BoxLayout.Y_AXIS));
         user.setOpaque(false);
 
-        JLabel userName = new JLabel("Nguyễn Gia Bảo");
+        JLabel userName = new JLabel(AdminConfig.OPERATOR_NAME);
         userName.setFont(FONT_NORMAL);
 
-        JLabel userRole = new JLabel("Quản trị viên • Ca trực 14:00–22:00");
+        JLabel userRole = new JLabel(AdminConfig.OPERATOR_ROLE);
         userRole.setFont(FONT_SMALL);
         userRole.setForeground(COLOR_MUTED);
 

@@ -31,7 +31,7 @@ public class AdminConsoleApp {
 
     public static void main(String[] args) {
         logger.info("===== Khởi động Admin Console =====");
-        logger.info("Máy chủ: 192.168.1.7 • Cụm Hà Nội"); // ifconfig để lấy ip máy chủ - hiện fixed cứng để demo test
+        logger.info("Máy chủ: {} • {}", AdminConfig.SERVER_ADDRESS, AdminConfig.CLUSTER_NAME); // ifconfig để lấy ip máy chủ - hiện fixed cứng để demo test
         logger.info("Java Version: {}", System.getProperty("java.version"));
 
         try {

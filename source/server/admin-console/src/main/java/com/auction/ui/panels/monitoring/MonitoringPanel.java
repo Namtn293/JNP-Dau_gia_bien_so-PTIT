@@ -1,81 +1,109 @@
 package com.auction.ui.panels.monitoring;
 
-import com.auction.ui.panels.monitoring.MetricCardsPanel;
-import com.auction.ui.panels.monitoring.RoomTablePanel;
-import com.auction.ui.panels.monitoring.QuickControlPanel;
-import com.auction.ui.panels.LogPanel;
-
 import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.util.List;
 
-import javax.swing.*;
+import javax.swing.BorderFactory;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 import javax.swing.text.StyledDocument;
 
-public class MonitoringPanel extends JPanel {
-    private LogPanel logPanel;
-    private MetricCardsPanel metricCardsPanel;
-    private QuickControlPanel quickControlPanel;
-    private RoomTablePanel roomTablePanel;
+import com.auction.AdminConfig;
+import com.auction.gateway.AdminGateway;
+import com.auction.model.RoomInfo;
+import com.auction.model.RoomStatus;
+import com.auction.ui.panels.LogPanel;
 
-    // ==== TRANG MONITORING ====
-    public MonitoringPanel(StyledDocument logDocument) {
+/**
+ * Điều phối các thành phần trên tab Giám sát:
+ * lấy dữ liệu phòng từ gateway, đưa vào bảng, đồng bộ khung điều khiển và thẻ chỉ số.
+ */
+public class MonitoringPanel extends JPanel {
+    private static final int REFRESH_MS = 1000; // Chu kỳ 1 giây theo thiết kế
+
+    private final AdminGateway gateway;
+    private final MetricCardsPanel metricCardsPanel;
+    private final RoomTablePanel roomTablePanel;
+    private final QuickControlPanel quickControlPanel;
+    private final Timer refreshTimer;
+
+    public MonitoringPanel(AdminGateway gateway, StyledDocument logDocument) {
+        this.gateway = gateway;
+
         setLayout(new BorderLayout(0, 16));
         setBorder(BorderFactory.createEmptyBorder(16, 20, 16, 20));
 
-        // North
-        metricCardsPanel = new MetricCardsPanel();
+        // North: thẻ chỉ số
+        metricCardsPanel = new MetricCardsPanel(gateway);
         add(metricCardsPanel, BorderLayout.NORTH);
 
-        // Center
-        JPanel centerPanel = new JPanel(new BorderLayout(16, 0));
-        centerPanel.setOpaque(false);
-
+        // Center: bảng phòng + điều khiển nhanh
         roomTablePanel = new RoomTablePanel();
-        centerPanel.add(roomTablePanel, BorderLayout.CENTER);
-
-        quickControlPanel = new QuickControlPanel(logDocument);
+        quickControlPanel = new QuickControlPanel(gateway, logDocument);
 
         JScrollPane quickScrollPane = new JScrollPane(quickControlPanel);
-        quickScrollPane.setPreferredSize(new Dimension(330, 0)); // Tăng thêm 10px chiều rộng để chứa thanh cuộn
-        quickScrollPane.setBorder(BorderFactory.createEmptyBorder()); // Xóa viền ngoài
+        quickScrollPane.setPreferredSize(new Dimension(330, 0));
+        quickScrollPane.setBorder(BorderFactory.createEmptyBorder());
         quickScrollPane.setOpaque(false);
         quickScrollPane.getViewport().setOpaque(false);
-        quickScrollPane.getVerticalScrollBar().setUnitIncrement(16); // Tăng tốc độ cuộn chuột
+        quickScrollPane.getVerticalScrollBar().setUnitIncrement(16);
 
+        JPanel centerPanel = new JPanel(new BorderLayout(16, 0));
+        centerPanel.setOpaque(false);
         centerPanel.add(roomTablePanel, BorderLayout.CENTER);
-
         centerPanel.add(quickScrollPane, BorderLayout.EAST);
-
         add(centerPanel, BorderLayout.CENTER);
 
-        // South
-        logPanel = new LogPanel(logDocument);
+        // South: nhật ký
+        LogPanel logPanel = new LogPanel(logDocument);
         logPanel.setPreferredSize(new Dimension(0, 190));
         add(logPanel, BorderLayout.SOUTH);
 
-        connectTableSelectionListener(roomTablePanel, quickControlPanel);
+        // Nối các thành phần
+        roomTablePanel.addRoomSelectionListener(quickControlPanel::showRoom);
+        quickControlPanel.addRoomPickedListener(this::onRoomPickedFromCombo);
+        quickControlPanel.setOnCommandCompleted(this::refreshRooms);
+
+        // Tải lần đầu, sau đó làm mới mỗi giây
+        refreshRooms();
+        refreshTimer = new Timer(REFRESH_MS, e -> refreshRooms());
+        refreshTimer.start();
     }
 
-    private void connectTableSelectionListener(RoomTablePanel roomTablePanel, QuickControlPanel quickControlPanel) {
-        JTable table = roomTablePanel.getRoomTable();
+    private void refreshRooms() {
+        gateway.fetchRooms().thenAccept(rooms ->
+                SwingUtilities.invokeLater(() -> applyRooms(rooms)));
+    }
 
-        table.getSelectionModel().addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting()) {
-                int selectedRow = table.getSelectedRow();
+    private void applyRooms(List<RoomInfo> rooms) {
+        roomTablePanel.setRooms(rooms);
+        quickControlPanel.setRoomOptions(rooms.stream().map(RoomInfo::id).toList());
 
-                if (selectedRow >= 0) {
-                    // Lấy dữ liệu từ hàng được chọn
-                    String roomId= (String) table.getValueAt(selectedRow, 0);
-                    String plateNumber = (String) table.getValueAt(selectedRow, 1);
-                    String status = (String) table.getValueAt(selectedRow, 2);
+        // Phiên đang nhận giá: đang đấu giá hoặc đang gia hạn
+        long activeRooms = rooms.stream()
+                .filter(r -> r.status() == RoomStatus.ACTIVE || r.status() == RoomStatus.EXTENDING)
+                .count();
+        metricCardsPanel.setRoomSummary(rooms.size(), (int) activeRooms);
 
-                    // Tạo chuỗi thông tin phòng
-                    String roomInfo = " • " + plateNumber + "     • " + status;
+        RoomInfo selected = roomTablePanel.getSelectedRoom();
+        if (selected == null) {
+            // Lần đầu hoặc phòng đang chọn đã biến mất: chọn phòng mặc định
+            roomTablePanel.selectRoom(AdminConfig.DEFAULT_ROOM_ID);
+            selected = roomTablePanel.getSelectedRoom();
+        }
+        if (selected != null) {
+            quickControlPanel.showRoom(selected);
+        }
+    }
 
-                    // Cập nhật QuickControlPanel
-                    quickControlPanel.updateRoom(roomId, "Hà Nội", roomInfo);
-                }
-            }
-        });
+    private void onRoomPickedFromCombo(String roomId) {
+        roomTablePanel.selectRoom(roomId);
+        RoomInfo room = roomTablePanel.findRoom(roomId);
+        if (room != null) {
+            quickControlPanel.showRoom(room);
+        }
     }
 }

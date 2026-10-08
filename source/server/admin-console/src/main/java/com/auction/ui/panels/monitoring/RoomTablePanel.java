@@ -5,80 +5,94 @@ import static com.auction.ui.Theme.*;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
-import java.awt.Dimension;
-import java.util.regex.PatternSyntaxException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+import java.util.regex.Pattern;
 
+import javax.swing.Box;
 import javax.swing.BorderFactory;
+import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
+import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
+import javax.swing.RowFilter;
 import javax.swing.SwingConstants;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
-import javax.swing.JTextField;
-import javax.swing.JComboBox;
-import javax.swing.RowFilter;
-import javax.swing.Box;
+
+import com.auction.model.RoomInfo;
+import com.auction.model.RoomStatus;
 
 public class RoomTablePanel extends JPanel {
-    // SAMPLE DATA
-    private static final String[] ROOM_COLUMNS = {
+    private static final String[] COLUMNS = {
             "ID phòng", "Biển số", "Trạng thái", "Số người",
             "Giá hiện tại (VNĐ)", "Còn lại", "RTT"
     };
 
-    private static final Object[][] ROOM_DATA = {
-            {"AUC-1021", "51L - 888.88", "Đang đấu giá", "68", "380.000.000", "04:52", "32 ms"},
-            {"AUC-1022", "43A - 567.89", "Đang gia hạn", "35", "165.000.000", "00:24", "112 ms"},
-            {"AUC-1023", "30K - 999.99", "Tạm dừng", "42", "245.000.000", "02:18", "32 ms"},
-            {"AUC-1024", "30L - 686.86", "Đang đấu giá", "51", "120.000.000", "07:36", "326 ms"},
-            {"AUC-1025", "51M - 123.45", "Phòng chờ", "29", "40.000.000", "Chưa bắt đầu", "32 ms"},
-            {"AUC-1026", "43B - 888.89", "Đã lên lịch", "0", "40.000.000", "15:00 hôm nay", "32 ms"},
-            {"AUC-1019", "30K - 567.89", "Đã đóng", "12", "210.000.000", "00:00", "32 ms"},
-            {"AUC-1018", "51L - 666.68", "Đã quyết toán", "11", "195.000.000", "00:00", "32 ms"}
-    };
+    private static final int COL_ID = 0;
+    private static final int COL_STATUS = 2;
+    private static final int COL_PRICE = 4;
+    private static final int COL_RTT = 6;
 
-    private final JTable roomTable;
+    private static final String ALL_STATUS = "Tất cả trạng thái";
+
+    private final DefaultTableModel model;
     private final TableRowSorter<DefaultTableModel> rowSorter;
+    private final JTable roomTable;
     private final JTextField searchField;
     private final JComboBox<String> statusFilterCombo;
+    private final JLabel countLabel;
     private final JLabel filterInfoLabel;
+    private final List<Consumer<RoomInfo>> selectionListeners = new ArrayList<>();
+
+    private List<RoomInfo> rooms = List.of();
+    // true khi đang nạp lại dữ liệu: bỏ qua sự kiện chọn dòng để không gửi nhầm
+    private boolean updating;
 
     public RoomTablePanel() {
         setLayout(new BorderLayout(0, 8));
 
-        DefaultTableModel model = createRoomModel();
+        model = new DefaultTableModel(COLUMNS, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
         rowSorter = new TableRowSorter<>(model);
 
-        // HEADER: LỌC + TÌM KIẾM
+        // HEADER: tiêu đề + bộ lọc
         JPanel headerPanel = new JPanel(new BorderLayout());
 
-        // Tiêu đề bên trái
         JPanel titlePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         JLabel title = new JLabel("Danh sách phòng đấu giá");
         title.setFont(FONT_NORMAL.deriveFont(Font.BOLD, 15f));
-        JLabel count = new JLabel(String.format("%02d phòng", model.getRowCount()));
-        count.setFont(FONT_SMALL);
-        count.setForeground(COLOR_MUTED);
-        count.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 0));
+        countLabel = new JLabel("00 phòng");
+        countLabel.setFont(FONT_SMALL);
+        countLabel.setForeground(COLOR_MUTED);
+        countLabel.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 0));
         titlePanel.add(title);
-        titlePanel.add(count);
+        titlePanel.add(countLabel);
 
-        // Bộ lọc bên phải
         JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
-
         searchField = new JTextField(15);
         searchField.setToolTipText("Tìm mã phòng / biển số");
 
-        String[] statusOptions = {"Tất cả trạng thái", "Đang đấu giá", "Đang gia hạn", "Tạm dừng", "Phòng chờ", "Đã đóng", "Đã quyết toán", "Đã lên lịch"};
-        statusFilterCombo = new JComboBox<>(statusOptions);
+        List<String> statusOptions = new ArrayList<>();
+        statusOptions.add(ALL_STATUS);
+        for (RoomStatus status : RoomStatus.values()) {
+            statusOptions.add(status.label());
+        }
+        statusFilterCombo = new JComboBox<>(statusOptions.toArray(new String[0]));
 
         filterPanel.add(new JLabel("Tìm kiếm:"));
         filterPanel.add(searchField);
@@ -89,7 +103,7 @@ public class RoomTablePanel extends JPanel {
         headerPanel.add(titlePanel, BorderLayout.WEST);
         headerPanel.add(filterPanel, BorderLayout.EAST);
 
-        // KHUNG BẢNG
+        // BẢNG
         roomTable = new JTable(model);
         roomTable.setRowSorter(rowSorter);
         roomTable.setFont(FONT_NORMAL);
@@ -101,7 +115,6 @@ public class RoomTablePanel extends JPanel {
         roomTable.getTableHeader().setFont(FONT_LABEL);
         roomTable.getTableHeader().setPreferredSize(new Dimension(0, 40));
         roomTable.getTableHeader().setReorderingAllowed(false);
-        roomTable.setRowSelectionInterval(2, 2);
 
         JScrollPane scrollPane = new JScrollPane(roomTable);
         scrollPane.setBorder(BorderFactory.createLineBorder(COLOR_BORDER));
@@ -115,81 +128,152 @@ public class RoomTablePanel extends JPanel {
         footerPanel.add(filterInfoLabel);
         footerPanel.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, COLOR_BORDER));
 
-        // Thêm vào Panel chính
         add(headerPanel, BorderLayout.NORTH);
         add(scrollPane, BorderLayout.CENTER);
         add(footerPanel, BorderLayout.SOUTH);
 
-        // Đăng ký sự kiện
         attachFilterListeners();
         attachSelectionListener();
-
-        // Cập nhật nhãn footer lần đầu
         updateFilterInfo();
     }
 
-    private DefaultTableModel createRoomModel() {
-        return new DefaultTableModel(ROOM_DATA, ROOM_COLUMNS) {
-            @Override
-            public boolean isCellEditable(int row, int column) {
-                return false;
+    // ===== Dữ liệu =====
+
+    /** Nạp lại toàn bộ danh sách phòng, giữ nguyên dòng đang chọn nếu còn tồn tại. */
+    public void setRooms(List<RoomInfo> newRooms) {
+        String previousId = selectedRoomId();
+        rooms = List.copyOf(newRooms);
+
+        updating = true;
+        try {
+            model.setRowCount(0);
+            for (RoomInfo room : rooms) {
+                model.addRow(toRow(room));
             }
+            countLabel.setText(String.format("%02d phòng", rooms.size()));
+            if (previousId != null) {
+                selectRoom(previousId);
+            }
+        } finally {
+            updating = false;
+        }
+        updateFilterInfo();
+    }
+
+    private static Object[] toRow(RoomInfo room) {
+        return new Object[] {
+                room.id(),
+                room.plate(),
+                room.status(),
+                room.participantCount(),
+                room.currentPrice(),
+                room.remainingLabel(),
+                room.rttMs()
         };
     }
 
+    public RoomInfo findRoom(String roomId) {
+        return rooms.stream()
+                .filter(r -> r.id().equals(roomId))
+                .findFirst()
+                .orElse(null);
+    }
+
+    public RoomInfo getSelectedRoom() {
+        return findRoom(selectedRoomId());
+    }
+
+    /**
+     * Chọn một phòng theo ID.
+     * @return false nếu phòng không có hoặc đang bị bộ lọc ẩn.
+     */
+    public boolean selectRoom(String roomId) {
+        for (int modelRow = 0; modelRow < model.getRowCount(); modelRow++) {
+            if (roomId.equals(model.getValueAt(modelRow, COL_ID))) {
+                int viewRow = roomTable.convertRowIndexToView(modelRow);
+                if (viewRow < 0) {
+                    return false;
+                }
+                roomTable.setRowSelectionInterval(viewRow, viewRow);
+                roomTable.scrollRectToVisible(roomTable.getCellRect(viewRow, 0, true));
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String selectedRoomId() {
+        int viewRow = roomTable.getSelectedRow();
+        if (viewRow < 0) {
+            return null;
+        }
+        int modelRow = roomTable.convertRowIndexToModel(viewRow);
+        return (String) model.getValueAt(modelRow, COL_ID);
+    }
+
+    /** Đăng ký nhận sự kiện khi người dùng chọn một phòng khác. */
+    public void addRoomSelectionListener(Consumer<RoomInfo> listener) {
+        selectionListeners.add(listener);
+    }
+
+    // ===== Hiển thị =====
+
     private static class RoomCellRenderer extends DefaultTableCellRenderer {
         @Override
-        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected,
+                                                       boolean hasFocus, int row, int column) {
             super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
 
-            String statusValue = String.valueOf(table.getValueAt(row, 2));
-            String raw = String.valueOf(value);
-            setText(column == 2 ? "● " + raw : raw);
-
+            setText(textFor(value, column));
             setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 10));
             setHorizontalAlignment(column >= 3 ? SwingConstants.RIGHT : SwingConstants.LEFT);
 
             if (!isSelected) {
-                if (column == 6) {
-                    setForeground(rttColor(raw));
-                } else {
-                    setForeground(statusColor(statusValue));
-                }
+                RoomStatus status = (RoomStatus) table.getValueAt(row, COL_STATUS);
+                setForeground(column == COL_RTT
+                        ? rttColor((Integer) value)
+                        : statusColor(status));
             }
             return this;
         }
     }
 
-    private static Color statusColor(String status) {
+    private static String textFor(Object value, int column) {
+        return switch (column) {
+            case COL_STATUS -> "● " + value;
+            case COL_PRICE -> formatVnd((Long) value);
+            case COL_RTT -> value + " ms";
+            default -> String.valueOf(value);
+        };
+    }
+
+    private static Color statusColor(RoomStatus status) {
         return switch (status) {
-            case "Đang đấu giá" -> COLOR_SUCCESS;
-            case "Đang gia hạn", "Phòng chờ" -> COLOR_PRIMARY;
-            case "Tạm dừng" -> COLOR_WARNING;
+            case ACTIVE -> COLOR_SUCCESS;
+            case EXTENDING, WAITING -> COLOR_PRIMARY;
+            case PAUSED -> COLOR_WARNING;
             default -> COLOR_MUTED;
         };
     }
 
-    private static Color rttColor(String text) {
-        int ms = Integer.parseInt(text.replace("ms", "").trim());
-        if (ms < 100) {
-            return COLOR_SUCCESS;
-        }
-        if (ms < 200) {
-            return COLOR_WARNING;
-        }
-        return COLOR_DANGER;
-    }
+    // ===== Tìm kiếm, lọc =====
 
-    public JTable getRoomTable() {
-        return roomTable;
-    }
-
-    // Logic tìm kiếm bảng
     private void attachFilterListeners() {
         searchField.getDocument().addDocumentListener(new DocumentListener() {
-            public void insertUpdate(DocumentEvent e) { applyFilter(); }
-            public void removeUpdate(DocumentEvent e) { applyFilter(); }
-            public void changedUpdate(DocumentEvent e) { applyFilter(); }
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                applyFilter();
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                applyFilter();
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                applyFilter();
+            }
         });
 
         statusFilterCombo.addActionListener(e -> applyFilter());
@@ -199,55 +283,46 @@ public class RoomTablePanel extends JPanel {
         String searchText = searchField.getText().trim();
         String status = (String) statusFilterCombo.getSelectedItem();
 
-        java.util.List<RowFilter<Object, Object>> filters = new java.util.ArrayList<>();
+        List<RowFilter<Object, Object>> filters = new ArrayList<>();
 
-        // 1. Filter theo chuỗi tìm kiếm
+        // Pattern.quote: nội dung người dùng gõ là chuỗi thường, không phải regex
         if (!searchText.isEmpty()) {
-            try {
-                filters.add(RowFilter.regexFilter("(?i)" + searchText, 0, 1)); // Bỏ qua in hoa in đậm
-            } catch (PatternSyntaxException e) {
-                // Bỏ qua nếu nhập regex không hợp lệ
-            }
+            filters.add(RowFilter.regexFilter("(?i)" + Pattern.quote(searchText), COL_ID, 1));
         }
 
-        // 2. Filter theo Dropdown Trạng thái
-        if (status != null && !status.equals("Tất cả trạng thái")) {
-            filters.add(RowFilter.regexFilter("^" + status + "$", 2));
+        if (status != null && !status.equals(ALL_STATUS)) {
+            filters.add(RowFilter.regexFilter("^" + Pattern.quote(status) + "$", COL_STATUS));
         }
 
-        // Áp dụng gộp cả 2 Filter
-        if (filters.isEmpty()) {
-            rowSorter.setRowFilter(null);
-        } else {
-            rowSorter.setRowFilter(RowFilter.andFilter(filters));
-        }
-
+        rowSorter.setRowFilter(filters.isEmpty() ? null : RowFilter.andFilter(filters));
         updateFilterInfo();
     }
 
-    // Cập nhật info khi select 1 hàng nào đó
     private void attachSelectionListener() {
         roomTable.getSelectionModel().addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting()) {
-                updateFilterInfo();
+            if (e.getValueIsAdjusting()) {
+                return;
+            }
+            updateFilterInfo();
+            if (updating) {
+                return;
+            }
+            RoomInfo selected = getSelectedRoom();
+            if (selected != null) {
+                for (Consumer<RoomInfo> listener : selectionListeners) {
+                    listener.accept(selected);
+                }
             }
         });
     }
 
     private void updateFilterInfo() {
-        int totalRows = roomTable.getModel().getRowCount();
-        int visibleRows = roomTable.getRowCount(); // Số hàng sau khi bộ lọc có tác dụng
-        int selectedViewRow = roomTable.getSelectedRow();
-
-        String info = String.format("Hiển thị %d / %d phòng.", visibleRows, totalRows);
-
-        if (selectedViewRow >= 0) {
-            // Rất quan trọng: Convert index từ UI (View) sang Data (Model) khi bảng bị lọc
-            int modelRow = roomTable.convertRowIndexToModel(selectedViewRow);
-            String selectedRoomId = String.valueOf(roomTable.getModel().getValueAt(modelRow, 0));
-            info += " Đã chọn " + selectedRoomId;
+        String info = String.format("Hiển thị %d / %d phòng.",
+                roomTable.getRowCount(), model.getRowCount());
+        String selectedId = selectedRoomId();
+        if (selectedId != null) {
+            info += " Đã chọn " + selectedId;
         }
-
         filterInfoLabel.setText(info);
     }
 }
