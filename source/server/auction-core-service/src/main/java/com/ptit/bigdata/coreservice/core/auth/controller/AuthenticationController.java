@@ -64,7 +64,10 @@ public class AuthenticationController {
                 ObjectMapper mapper = new ObjectMapper();
                 JsonNode jsonNode = mapper.readTree(decodedState);
                 if (jsonNode.has("frontendCallback")) {
-                    frontendCallback = jsonNode.get("frontendCallback").asText();
+                    String candidate = jsonNode.get("frontendCallback").asText();
+                    if (candidate != null && (candidate.startsWith("http://localhost:") || candidate.startsWith("http://127.0.0.1:"))) {
+                        frontendCallback = candidate;
+                    }
                 }
             } catch (Exception ignored) {
                 // state không phải Base64/JSON → dùng default
