@@ -1,6 +1,7 @@
 import {
   ADMIN_LOGIN_ROUTE,
   FORGOT_PASSWORD_ROUTE,
+  GOOGLE_CALLBACK_ROUTE,
   LOCAL_STORAGE_KEYS,
   LOGIN_CAN_BO_ROUTE,
 } from "@/constants";
@@ -49,7 +50,8 @@ export const rootRoute = createRootRoute({
     const isPublic =
       location.pathname.startsWith(ADMIN_LOGIN_ROUTE) ||
       location.pathname.startsWith(FORGOT_PASSWORD_ROUTE) ||
-      location.pathname.startsWith(LOGIN_CAN_BO_ROUTE);
+      location.pathname.startsWith(LOGIN_CAN_BO_ROUTE) ||
+      location.pathname.startsWith(GOOGLE_CALLBACK_ROUTE);
 
     if (!loggedIn && (!isPublic || location.pathname === "/")) {
       throw redirect({

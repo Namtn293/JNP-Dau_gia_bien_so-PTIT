@@ -1,11 +1,15 @@
-import { useMutation } from "react-query";
-import { fakeLoginApi, fakeGoogleLoginApi } from "./api";
+import { useMutation } from "@tanstack/react-query";
+import { loginApi, authenticateGoogleApi } from "./api";
 import type { LoginCredentials } from "./type";
 
 export const useLoginMutation = () => {
-  return useMutation((credentials: LoginCredentials) => fakeLoginApi(credentials));
+  return useMutation({
+    mutationFn: (credentials: LoginCredentials) => loginApi(credentials),
+  });
 };
 
 export const useGoogleLoginMutation = () => {
-  return useMutation(() => fakeGoogleLoginApi());
+  return useMutation({
+    mutationFn: (idToken: string) => authenticateGoogleApi(idToken),
+  });
 };

@@ -35,3 +35,7 @@ declare namespace map4d {
 
   const vn: any;
 }
+
+interface Window {
+  google?: any;
+}

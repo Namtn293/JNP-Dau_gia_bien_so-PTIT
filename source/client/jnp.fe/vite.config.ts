@@ -23,7 +23,7 @@ export default defineConfig({
       urlPrefixes: ['/builders', '/api'],
       middlewares: [
         cookieParser(),
-        bodyParser.json({limit: '50mb'}),
+        bodyParser.json({ limit: '50mb' }),
         bodyParser.urlencoded(),
         bodyParser.text(),
         bodyParser.raw()
