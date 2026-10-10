@@ -7,10 +7,6 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "BID_HISTORY", indexes = {
-        @Index(name = "idx_bid_history_session", columnList = "SESSION_ID"),
-        @Index(name = "idx_bid_history_user", columnList = "USER_ID")
-})
 @Data
 @EqualsAndHashCode(callSuper = true)
 @NoArgsConstructor
@@ -18,13 +14,9 @@ import java.time.LocalDateTime;
 @Builder
 public class BidHistory extends EntityBase {
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "SESSION_ID", nullable = false)
-    private AuctionSession auctionSession;
+    private Long auctionSessionId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "USER_ID", nullable = false)
-    private UserInfo user;
+    private Long userID;
 
     @Column(name = "BID_AMOUNT", nullable = false)
     private Long bidAmount;

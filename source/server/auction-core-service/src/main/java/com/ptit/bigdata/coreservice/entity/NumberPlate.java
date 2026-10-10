@@ -22,9 +22,8 @@ public class NumberPlate extends EntityBase {
     @Column(name = "PLATE_NUMBER", nullable = false, unique = true, length = 20)
     private String plateNumber;
 
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "PROVINCE_ID", nullable = false)
-    private Province province;
+    @Column(name = "PROVINCE_ID")
+    private Long provinceId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "PLATE_TYPE", length = 30)

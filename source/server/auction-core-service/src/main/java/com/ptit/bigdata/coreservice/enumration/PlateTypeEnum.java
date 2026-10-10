@@ -13,6 +13,8 @@ public enum PlateTypeEnum {
 
     private final String description;
 
+
+
     PlateTypeEnum(String description) {
         this.description = description;
     }

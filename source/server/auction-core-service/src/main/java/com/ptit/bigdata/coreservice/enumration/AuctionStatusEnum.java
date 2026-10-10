@@ -10,6 +10,10 @@ public enum AuctionStatusEnum {
 
     private final String description;
 
+    public String toString(){
+        return description;
+    }
+
     AuctionStatusEnum(String description) {
         this.description = description;
     }
