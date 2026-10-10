@@ -42,7 +42,7 @@ public class AuthenticationFilter extends OncePerRequestFilter {
                                     @NonNull HttpServletResponse response,
                                     @NonNull FilterChain filterChain) throws ServletException, IOException {
         String servletPath = request.getServletPath();
-        if (servletPath.contains("/auth") || servletPath.contains("/ws") || servletPath.contains("/auction")) {
+        if (servletPath.contains("/auth") || servletPath.contains("/ws")) {
             filterChain.doFilter(request, response);
             return;
         }
