@@ -25,15 +25,18 @@ public class AuctionSession extends EntityBase {
     @Column(name = "TITLE", nullable = false, length = 255)
     private String title;
 
-    @OneToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "PLATE_ID", nullable = false)
-    private NumberPlate numberPlate;
+    @Column(name = "NUMBER_PLATE_ID")
+    private Long numberPlateId;
 
     @Column(name = "START_PRICE", nullable = false)
     private Long startPrice;
 
     @Column(name = "CURRENT_PRICE", nullable = false)
     private Long currentPrice;
+
+    @Column(name = "END_PRICE", nullable = false)
+    @Builder.Default
+    private Long endPrice = 0L;
 
     @Column(name = "STEP_PRICE", nullable = false)
     private Long stepPrice;
@@ -57,9 +60,8 @@ public class AuctionSession extends EntityBase {
     @Builder.Default
     private Integer bidCount = 0;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "WINNER_USER_ID")
-    private UserInfo winner;
+    @Column(name = "USER_INFO_ID")
+    private Long userInfoId;
 
     @Column(name = "WINNING_PRICE")
     private Long winningPrice;
@@ -69,6 +71,9 @@ public class AuctionSession extends EntityBase {
 
     @Column(name = "UPDATED_AT")
     private LocalDateTime updatedAt;
+
+    @Column(name = "PARTICIPANT_COUNT")
+    private Long participantCount;
 
     @PrePersist
     public void prePersist() {

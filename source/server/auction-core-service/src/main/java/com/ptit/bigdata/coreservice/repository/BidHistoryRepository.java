@@ -8,7 +8,5 @@ import java.util.List;
 
 @Repository
 public interface BidHistoryRepository extends JpaRepository<BidHistory, Long> {
-    List<BidHistory> findByAuctionSession_IdOrderByBidTimeDesc(Long sessionId);
 
-    List<BidHistory> findByUser_Id(Long userId);
 }
