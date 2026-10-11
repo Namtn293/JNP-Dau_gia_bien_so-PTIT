@@ -1,6 +1,6 @@
-package com.auction.ui.panels.monitoring;
+package com.auction.ui.panels.monitoring.rooms;
 
-import static com.auction.ui.Theme.*;
+import static com.auction.ui.common.Theme.*;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -138,7 +138,6 @@ public class RoomTablePanel extends JPanel {
     }
 
     // ===== Dữ liệu =====
-
     /** Nạp lại toàn bộ danh sách phòng, giữ nguyên dòng đang chọn nếu còn tồn tại. */
     public void setRooms(List<RoomInfo> newRooms) {
         String previousId = selectedRoomId();
@@ -217,7 +216,6 @@ public class RoomTablePanel extends JPanel {
     }
 
     // ===== Hiển thị =====
-
     private static class RoomCellRenderer extends DefaultTableCellRenderer {
         @Override
         public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected,
@@ -247,17 +245,7 @@ public class RoomTablePanel extends JPanel {
         };
     }
 
-    private static Color statusColor(RoomStatus status) {
-        return switch (status) {
-            case ACTIVE -> COLOR_SUCCESS;
-            case EXTENDING, WAITING -> COLOR_PRIMARY;
-            case PAUSED -> COLOR_WARNING;
-            default -> COLOR_MUTED;
-        };
-    }
-
     // ===== Tìm kiếm, lọc =====
-
     private void attachFilterListeners() {
         searchField.getDocument().addDocumentListener(new DocumentListener() {
             @Override
