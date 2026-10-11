@@ -1,0 +1,49 @@
+/* MEDIA QUERY MANAGER */
+/*
+            0-600       Phone
+            600-900     Tablet portrait 
+            900-1200    Tablet landscape
+            (1200-1600  Normal styles apply)
+            1600 +      Big Desktop 
+             
+            Breakpoint argument choices:
+            - phone 
+            - tab-port
+            - tab-land
+            - big-desktop
+            */
+
+/* Desktop > 1920px(original design) */
+
+html {
+  font-size: 62.5%; /* 1rem = 10px, 10/16 = 62.5% */
+}
+
+/* 1600px */
+@media only screen and (max-width: 100em) {
+  html {
+    font-size: 62.5%; /* 1 rem = 9px, 9/16 = 56.25% */
+  }
+}
+
+/* 900px */
+@media only screen and (max-width: 56.25em) {
+  html {
+    font-size: 62.5%; /* 1 rem = 8px, 8/16 = 50% */
+  }
+}
+
+/* 600px */
+@media only screen and (max-width: 37.5em) {
+  html {
+    font-size: 62.5%; /* 1 rem = 8px, 8/16 = 50% */
+  }
+}
+
+/* 320px */
+@media only screen and (max-width: 20em) {
+  html {
+    font-size: 62.5%; /* 1 rem = 7px, 7/16 = 43.75% */
+    overflow-x: scroll;
+  }
+}
