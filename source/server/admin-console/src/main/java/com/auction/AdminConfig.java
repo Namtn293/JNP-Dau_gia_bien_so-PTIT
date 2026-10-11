@@ -13,7 +13,7 @@ public final class AdminConfig {
     public static final String REGION = "Hà Nội";
 
     // Người vận hành
-    public static final String OPERATOR_NAME = "Nguyễn Minh Anh";
+    public static final String OPERATOR_NAME = "Nguyễn Gia Bảo";
     public static final String OPERATOR_ROLE = "Quản trị viên • Ca trực 14:00–22:00";
 
     // Mặc định khi mở màn hình

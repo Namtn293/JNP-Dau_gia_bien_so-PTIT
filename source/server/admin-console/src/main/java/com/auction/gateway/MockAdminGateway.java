@@ -48,7 +48,6 @@ public class MockAdminGateway implements AdminGateway {
     }
 
     // ===== Truy vấn =====
-
     @Override
     public CompletableFuture<List<RoomInfo>> fetchRooms() {
         return delayed(this::snapshotRooms);
@@ -75,7 +74,6 @@ public class MockAdminGateway implements AdminGateway {
     }
 
     // ===== Lệnh điều khiển =====
-
     @Override
     public CompletableFuture<CommandResult> halt(String roomId) {
         return delayed(() -> doHalt(roomId));

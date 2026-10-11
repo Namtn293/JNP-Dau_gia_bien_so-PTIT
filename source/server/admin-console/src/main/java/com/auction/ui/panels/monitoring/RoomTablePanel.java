@@ -285,7 +285,6 @@ public class RoomTablePanel extends JPanel {
 
         List<RowFilter<Object, Object>> filters = new ArrayList<>();
 
-        // Pattern.quote: nội dung người dùng gõ là chuỗi thường, không phải regex
         if (!searchText.isEmpty()) {
             filters.add(RowFilter.regexFilter("(?i)" + Pattern.quote(searchText), COL_ID, 1));
         }
