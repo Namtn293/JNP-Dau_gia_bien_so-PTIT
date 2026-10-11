@@ -32,7 +32,7 @@ import com.auction.model.ParticipantInfo;
  * Khi người dùng chọn một dòng, báo ID tài khoản qua userPickedListener.
  */
 public class ParticipantsPanel extends JPanel {
-    private static final int PAGE_SIZE = 5;
+    private static final int PAGE_SIZE = 10;
     private static final String FOOTNOTE = "¹ Số yêu cầu trong 5 giây trước HALT; hiện không nhận giá mới.";
 
     private final Consumer<String> userPickedListener;
