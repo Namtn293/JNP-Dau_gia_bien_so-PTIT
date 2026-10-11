@@ -14,12 +14,15 @@ import com.auction.ui.panels.monitoring.MonitoringPanel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static com.auction.ui.Theme.*;
-import com.auction.ui.panels.LogPanel;
+import static com.auction.ui.common.Theme.*;
+
+import com.auction.ui.common.LogPanel;
+import com.auction.ui.common.RoomSelection;
+import com.auction.ui.panels.control.SessionControlPanel;
 import com.auction.AdminConfig;
 
 import com.auction.gateway.AdminGateway;
-import com.auction.gateway.MockAdminGateway;
+import com.auction.gateway.mock.MockAdminGateway;
 
 
 /**
@@ -35,22 +38,24 @@ public class AdminConsoleUI extends JFrame {
         initializeUI(); // Khởi tạo giao diện
     }
 
-    private void initializeUI() {
+        private void initializeUI() {
         // Cấu hình cửa sổ
         setTitle("Đấu giá biển số • Quản trị viên");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(1300, 920);
         setLocationRelativeTo(null);
 
-        // load data mẫu
+        // Dữ liệu dùng chung
         StyledDocument logDocument = LogPanel.createDocument();
         LogPanel.loadSampleLog(logDocument);
 
-        // Tạo 2 tab
-        tabbedPane = new JTabbedPane(JTabbedPane.TOP);
         AdminGateway gateway = new MockAdminGateway();
-        tabbedPane.addTab("Giám sát đấu giá", new MonitoringPanel(gateway, logDocument));
-        tabbedPane.addTab("Điều khiển phiên", createPlaceholderPanel("Tab 2: Điều khiển phiên"));
+        RoomSelection selection = new RoomSelection();
+
+        // 2 tab
+        tabbedPane = new JTabbedPane(JTabbedPane.TOP);
+        tabbedPane.addTab("Giám sát đấu giá", new MonitoringPanel(gateway, logDocument, selection));
+        tabbedPane.addTab("Điều khiển phiên", new SessionControlPanel(gateway, logDocument, selection));
 
         add(createHeaderPanel(), BorderLayout.NORTH);
         add(tabbedPane, BorderLayout.CENTER);
@@ -60,14 +65,14 @@ public class AdminConsoleUI extends JFrame {
     }
 
     // GENERATE 2 TABS
-    private JPanel createPlaceholderPanel(String text) {
-        JPanel panel = new JPanel(new BorderLayout());
-        JLabel label = new JLabel(text, SwingConstants.CENTER);
+    // private JPanel createPlaceholderPanel(String text) {
+    //     JPanel panel = new JPanel(new BorderLayout());
+    //     JLabel label = new JLabel(text, SwingConstants.CENTER);
 
-        panel.add(label, BorderLayout.CENTER);
+    //     panel.add(label, BorderLayout.CENTER);
 
-        return panel;
-    }
+    //     return panel;
+    // }
 
     // GENERATE HEADER
     private JPanel createHeaderPanel() {

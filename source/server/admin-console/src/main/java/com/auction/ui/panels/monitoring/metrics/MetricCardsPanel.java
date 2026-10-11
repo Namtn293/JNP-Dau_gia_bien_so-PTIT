@@ -1,6 +1,6 @@
-package com.auction.ui.panels.monitoring;
+package com.auction.ui.panels.monitoring.metrics;
 
-import static com.auction.ui.Theme.*;
+import static com.auction.ui.common.Theme.*;
 
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
@@ -97,7 +97,6 @@ public class MetricCardsPanel extends JPanel {
     }
 
     // ===== Lấy dữ liệu =====
-
     /** Chạy trên EDT. Kết quả trả về được đưa lại EDT trước khi cập nhật giao diện. */
     private void refreshMetrics() {
         if (fetching) {
@@ -186,7 +185,6 @@ public class MetricCardsPanel extends JPanel {
     }
 
     // ===== Xây dựng giao diện =====
-
     private JPanel createCardBase() {
         JPanel card = new JPanel();
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
@@ -408,7 +406,6 @@ public class MetricCardsPanel extends JPanel {
     }
 
     // ===== Biểu đồ JFreeChart =====
-
     private ChartPanel createChartPanel(TimeSeries series, Color lineColor, double maxY) {
         TimeSeriesCollection dataset = new TimeSeriesCollection(series);
         JFreeChart chart = ChartFactory.createTimeSeriesChart(null, null, null, dataset, false, false, false);
