@@ -1,0 +1,112 @@
+:root {
+  /* --- NEW DESIGN PALETTE (Primary sampled from Image 2: #9ccade) --- */
+  --design-primary: #256b8c;
+  --design-primary-light: #9ccade;
+  --design-primary-sub: #194e66;
+  --design-primary-gold: #f2a60d;
+  --design-primary-gold-bg: rgba(242, 166, 13, 0.1);
+  --design-primary-text: rgba(255, 255, 255, 1);
+  --design-primary-title: #14202b;
+  --design-primary-subtitle: #586979;
+  --design-primary-bg-highlight: #9ccade;
+  --design-primary-bg: #f4f8fa;
+  --design-primary-bg-sub: #eef6fa;
+  --design-primary-text-highlight: #256b8c;
+  --design-primary-border: rgba(156, 202, 222, 0.4);
+  --design-primary-bg-hover: #e2f0f7;
+
+  /* --- SYSTEM MAPPING --- */
+  --zoom: 1;
+  --device-height: calc(100vh / var(--zoom));
+
+  /* Main Colors Mapped to Design */
+  --primary: var(--design-primary);
+
+  --bg-primary: #ffffff; /* Giữ nền trắng cho content card */
+  --bg-body: var(--design-primary-bg); /* Nền tổng thể app */
+  --bg-secondary: var(--design-primary-bg-sub);
+  --bg-thirt: rgba(242, 242, 242, 0.4);
+  --bg-icon-action: #e7edf0ff;
+  --bg-tooltip: var(--design-primary);
+
+  --bg-disabled: #e7e7e7;
+  --bg-hover-primary: var(--design-primary-bg-hover);
+
+  --bg-success: rgba(52, 199, 89, 0.1);
+  --bg-danger: rgba(230, 50, 50, 0.1);
+  --bg-warning: rgba(179, 190, 18, 0.473);
+
+  /* Text Colors */
+  --text-primary: var(--design-primary-title);
+  --text-secondary: var(--design-primary-subtitle);
+  --text-ternary: #a4a5a6;
+  --text-disabled: #bcbebe;
+  --text-highlight: var(--design-primary-text-highlight);
+  --text-on-primary: var(--design-primary-text);
+
+  --text-success: #34c759;
+  --text-warning: #ff9500;
+  --text-error: #ff3b30;
+
+  /* Button & Interactive */
+  --btn-hover-primary: var(--design-primary-sub);
+  --hover-primary: var(--design-primary-bg-hover);
+
+  /* Tables */
+  --table-header-bg: #e7e7e7;
+  --table-row-hover-color: var(--design-primary-bg-hover);
+  --table-row-disabled: #e7e7e7;
+
+  /* Icons & Borders */
+  --icon-primary: var(--design-primary-subtitle);
+  --icon-secondary: #bcbebe;
+  --icon-gray: #b3b5b5;
+
+  --border-primary: var(--design-primary-border);
+  --border-secondary: #e7e7e7;
+
+  --border-success: rgba(52, 199, 89, 0.5);
+  --border-danger: rgba(230, 50, 50, 0.5);
+  --border-warning: #ff9500;
+
+  /* Misc Colors */
+  --white: #ffffff;
+  --error: #e63232;
+  --hover-error: rgb(255, 79, 79);
+  --info: var(
+    --design-primary
+  ); /* Info thường trùng màu chủ đạo nếu không muốn dùng xanh dương */
+  --yellow: var(--design-primary-gold);
+  --warning: #ff9500;
+  --purple: #af52de;
+  --success: #34c759;
+
+  /* Layout Dimensions */
+  --container: 132rem;
+  --sidebar-width: 32rem;
+  --table-row-height: 4.8rem;
+  --header-height: 4.8rem;
+  --header-admin-height: 7rem;
+  --modal-max-height: calc(95vh - 7.2rem);
+  // --base-input-width: 31.2rem;
+  --base-input-width: 100%;
+  --breadcrumb-height: 6.4rem;
+  --modal-width-lg: 120rem;
+
+  --gap-global: 1.2rem;
+
+  --table-body-height-default: calc(
+    var(--device-height) - var(--header-admin-height) - 22.8rem
+  );
+  --table-tree: calc(
+    var(--device-height) - (4.8rem + 6.4rem + 8.2rem + 11.4rem)
+  );
+
+  --shadow: 0px 2px 8px 1px #00000024;
+
+  /* Charts */
+  --chart-green: #34c759;
+  --chart-yellow: var(--design-primary-gold);
+  --chart-orange: #ff9500;
+  --chart-red: #ff3b30;
+}
