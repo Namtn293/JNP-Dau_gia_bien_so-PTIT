@@ -18,7 +18,7 @@ import java.time.LocalDateTime;
 public class AuctionSessionVO {
     private String plateNumber;
     private String provinceName;
-    private String plateType;
+    private PlateTypeEnum plateType;
     private Long price;
     private String sessionStatus;
     private String startTime;
@@ -41,7 +41,7 @@ public class AuctionSessionVO {
     ) {
         this.plateNumber = plateNumber;
         this.provinceName = provinceName;
-        this.plateType = plateType != null ? plateType.getDescription() : null;
+        this.plateType = plateType;
         this.price = price;
         this.sessionStatus = sessionStatus != null ? sessionStatus.getDescription() : null;
         this.startTime = startTime != null ? startTime.toString() : null;

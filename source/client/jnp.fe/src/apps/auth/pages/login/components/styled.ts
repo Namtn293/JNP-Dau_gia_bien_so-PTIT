@@ -12,6 +12,11 @@ export const LoginContainer = styled.div<{ $isRegistering?: boolean }>`
   box-shadow: 0 24px 50px -12px rgba(37, 107, 140, 0.22), 0 0 0 1px rgba(156, 202, 222, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.95);
   transition: all 0.3s ease;
+
+  @media (max-width: 480px) {
+    padding: 24px 18px;
+    border-radius: 18px;
+  }
 `;
 
 export const LoginHeader = styled.div`

@@ -17,7 +17,14 @@ public class AuctionSessionServiceImplement implements AuctionSessionService {
 
     @Override
     public Page<AuctionSessionVO> getAuctionSessions(Pageable pageable, String auctionStatus) {
-        AuctionStatusEnum statusEnum = AuctionStatusEnum.valueOf(auctionStatus.toUpperCase());
+        AuctionStatusEnum statusEnum = AuctionStatusEnum.SOON;
+        if (auctionStatus != null && !auctionStatus.isBlank()) {
+            try {
+                statusEnum = AuctionStatusEnum.valueOf(auctionStatus.trim().toUpperCase());
+            } catch (IllegalArgumentException ignored) {
+                // Keep default SOON
+            }
+        }
         return auctionSessionRepository.getAuctionSession(pageable, statusEnum);
     }
 }
