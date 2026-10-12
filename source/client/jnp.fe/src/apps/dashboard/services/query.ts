@@ -1,12 +1,22 @@
 import { useQuery } from "react-query";
-import { getAuctionList } from "./api";
-import type { AuctionItem } from "./type";
+import { getAuctionSessionsApi } from "./api";
+import type { AuctionSessionVO, GetAuctionSessionsParams, PageResponse } from "./type";
 
-export const AUCTION_QUERY_KEY = ["auction-list"];
+export const AUCTION_QUERY_KEY = "AUCTION_SESSIONS";
 
-export const useAuctionListQuery = () => {
-  return useQuery<AuctionItem[]>(AUCTION_QUERY_KEY, getAuctionList, {
-    staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
-  });
+export const useAuctionSessionsQuery = (
+  params?: GetAuctionSessionsParams,
+  options?: { enabled?: boolean; refetchInterval?: number }
+) => {
+  return useQuery<PageResponse<AuctionSessionVO>>(
+    [AUCTION_QUERY_KEY, params?.status, params?.page, params?.size],
+    () => getAuctionSessionsApi(params),
+    {
+      staleTime: 10 * 1000,
+      refetchInterval: options?.refetchInterval ?? 30000,
+      refetchOnWindowFocus: false,
+      keepPreviousData: true,
+      enabled: options?.enabled ?? true,
+    }
+  );
 };

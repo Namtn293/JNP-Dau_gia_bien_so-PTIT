@@ -15,16 +15,20 @@ export const AuthWrapper = styled.div`
   left: 0;
   right: 0;
   bottom: 0;
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  min-width: calc(100vw / var(--zoom, 1));
+  min-height: calc(100vh / var(--zoom, 1));
+  overflow-y: auto;
+  overflow-x: hidden;
 
-  /* Background với ảnh watercolor */
+  /* Background với ảnh watercolor phủ trọn màn hình */
   background-color: #fbf5ef;
   background-image: url("/login-bg.png");
   background-size: cover;
   background-position: center center;
   background-repeat: no-repeat;
+  background-attachment: fixed;
 
   /* Flexbox layout */
   display: flex;
@@ -38,11 +42,13 @@ export const ContentOverlay = styled.div`
   position: relative;
   z-index: 10;
   width: 100%;
-  height: 100%;
+  min-height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  padding: 24px 16px;
+  box-sizing: border-box;
 `;
 
 // Vùng chứa nội dung chính (form đăng nhập)
@@ -52,7 +58,7 @@ export const StyledContentArea = styled.div`
   flex-direction: column;
   align-items: center;
   width: 100%;
-  padding: 1.5rem;
+  padding: 0;
 `;
 
 // Nền tổng thể chuyển sắc theo màu thương hiệu mới #6098c7 và #ffffff để làm giao diện sáng sủa hơn

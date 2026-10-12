@@ -7,7 +7,7 @@ import {
   ProjectOutlined,
 } from "@ant-design/icons";
 
-// Child components & styled from ./components
+// Child components & styled from ./style
 import {
   PageContainer,
   MainContent,
@@ -20,7 +20,7 @@ import {
   FilterGrid,
   CardsGrid,
   PaginationWrapper,
-} from "./components/styled";
+} from "./style";
 
 import TopNavbar from "./components/TopNavbar";
 import AuctionCardItem from "./components/AuctionCardItem";
@@ -30,11 +30,12 @@ import BidModal from "./components/BidModal";
 
 // Hooks & utils
 import { useAuctionData } from "./hooks/useAuctionData";
-import { PROVINCES_LIST, PLATE_TYPES_LIST } from "./utils/constants";
+import { PROVINCES_LIST, PLATE_TYPES_OPTIONS, PLATE_TYPES_LIST } from "./utils/constants";
 import type { AuctionStatus } from "./services/type";
 
 export const DashboardPage: React.FC = () => {
   const {
+    currentUser,
     data,
     pagedList,
     total,
@@ -68,7 +69,7 @@ export const DashboardPage: React.FC = () => {
   return (
     <PageContainer>
       {/* Top Navbar */}
-      <TopNavbar userName="Trần Đức An" />
+      <TopNavbar userName={currentUser?.name} />
 
       {/* Main Content */}
       <MainContent>

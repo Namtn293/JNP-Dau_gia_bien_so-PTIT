@@ -11,7 +11,7 @@ interface TopNavbarProps {
 }
 
 export const TopNavbar: React.FC<TopNavbarProps> = ({
-  userName = "Trần Đức An",
+  userName = "Người dùng",
   onLogout,
 }) => {
   const navigate = useNavigate();
