@@ -1,6 +1,14 @@
 package com.auction.ui;
 
 
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
+
+import com.auction.mail.MailConfig;
+import com.auction.mail.MailMessage;
+import com.auction.mail.MailService;
+import com.auction.mail.MailTemplates;
+
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 
@@ -34,6 +42,9 @@ public class AdminConsoleUI extends JFrame {
 
     private JTabbedPane tabbedPane;
 
+    private StyledDocument logDocument;
+    private MailService mailService;
+
     public AdminConsoleUI() {
         initializeUI(); // Khởi tạo giao diện
     }
@@ -46,7 +57,7 @@ public class AdminConsoleUI extends JFrame {
         setLocationRelativeTo(null);
 
         // Dữ liệu dùng chung
-        StyledDocument logDocument = LogPanel.createDocument();
+        logDocument = LogPanel.createDocument();
         LogPanel.loadSampleLog(logDocument);
 
         AdminGateway gateway = new MockAdminGateway();
@@ -134,10 +145,9 @@ public class AdminConsoleUI extends JFrame {
     private JPanel createStatusBarPanel() {
         JPanel statusBar = new JPanel(new BorderLayout());
         statusBar.setBorder(BorderFactory.createCompoundBorder(
-                        BorderFactory.createMatteBorder(1, 0, 0, 0, COLOR_BORDER),
-                        BorderFactory.createEmptyBorder(6, 16, 6, 16)
-                )
-        );
+                BorderFactory.createMatteBorder(1, 0, 0, 0, COLOR_BORDER),
+                BorderFactory.createEmptyBorder(6, 16, 6, 16)
+        ));
 
         JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 16, 0));
         left.setOpaque(false);
@@ -160,11 +170,65 @@ public class AdminConsoleUI extends JFrame {
         left.add(lastUpdate);
         statusBar.add(left, BorderLayout.WEST);
 
+        JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+        right.setOpaque(false);
+
+        JButton mailButton = new JButton("Gửi email mẫu");
+        mailButton.setFont(FONT_SMALL);
+        mailButton.setFocusPainted(false);
+        mailButton.addActionListener(e -> sendSampleMail());
+
         JLabel version = new JLabel("Chỉ quản trị viên • Phiên bản 1.0");
         version.setFont(FONT_SMALL);
         version.setForeground(COLOR_MUTED);
-        statusBar.add(version, BorderLayout.EAST);
+
+        right.add(mailButton);
+        right.add(version);
+        statusBar.add(right, BorderLayout.EAST);
 
         return statusBar;
+    }
+
+        // ===== Gửi email mẫu =====
+
+    /** Hỏi địa chỉ người nhận, gửi email mẫu trên luồng nền và ghi kết quả vào nhật ký. */
+    private void sendSampleMail() {
+        String input = JOptionPane.showInputDialog(this,
+                "Nhập email người nhận:", "Gửi email mẫu", JOptionPane.QUESTION_MESSAGE);
+        if (input == null || input.isBlank()) {
+            return;
+        }
+        String to = input.trim();
+
+        LogPanel.appendTo(logDocument, LogPanel.Level.COMMAND, "> MAIL " + to);
+        try {
+            if (mailService == null) {
+                mailService = new MailService(MailConfig.fromEnv());
+            }
+            // Dữ liệu mẫu theo phiên AUC-1023 trong thiết kế
+            MailMessage message = MailTemplates.winnerNotice(
+                    to, "AUC-1023", "30K - 999.99", 245_000_000L, 40_000_000L);
+
+            mailService.send(message).whenComplete((ignored, ex) -> SwingUtilities.invokeLater(() -> {
+                if (ex == null) {
+                    LogPanel.appendTo(logDocument, LogPanel.Level.SUCCESS, "Đã gửi email mẫu tới " + to);
+                } else {
+                    LogPanel.appendTo(logDocument, LogPanel.Level.ERROR,
+                            "Gửi email thất bại: " + rootMessage(ex));
+                }
+            }));
+        } catch (IllegalStateException | IllegalArgumentException ex) {
+            LogPanel.appendTo(logDocument, LogPanel.Level.ERROR, ex.getMessage());
+        }
+    }
+
+    /** Lấy thông báo lỗi gốc, bỏ các lớp bọc CompletionException / ExecutionException. */
+    private static String rootMessage(Throwable t) {
+        Throwable cur = t;
+        while ((cur instanceof CompletionException || cur instanceof ExecutionException)
+                && cur.getCause() != null) {
+            cur = cur.getCause();
+        }
+        return cur.getMessage() == null ? cur.toString() : cur.getMessage();
     }
 }
