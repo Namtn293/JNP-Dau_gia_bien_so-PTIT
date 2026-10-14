@@ -1,0 +1,22 @@
+.ant-notification-notice-message {
+  font-weight: bold;
+  font-size: 2rem;
+}
+
+.ant-notification {
+  max-height: 90vh !important;
+  overflow-y: auto !important;
+}
+
+.ant-notification-notice-wrapper:has(.close-all-notification) {
+  position: sticky !important;
+  top: 0;
+  z-index: 1000 !important;
+}
+
+.close-all-notification {
+  background-color: var(--bg-primary, #ffffff) !important;
+  border-bottom: 1px solid var(--border-secondary, #e7e7e7) !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03) !important;
+}
+

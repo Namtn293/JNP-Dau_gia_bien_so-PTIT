@@ -1,0 +1,60 @@
+.ant-select-single.ant-select-lg:not(.ant-select-customize-input) .ant-select-selector::after,
+.ant-select-single.ant-select-lg:not(.ant-select-customize-input) .ant-select-selector .ant-select-selection-item,
+.ant-select-single.ant-select-lg:not(.ant-select-customize-input) .ant-select-selector .ant-select-selection-placeholder {
+  line-height: 4.2rem;
+}
+
+.ant-select-selection-placeholder,
+.ant-select-selection-item {
+  font-size: 1.4rem;
+  line-height: 4rem;
+  height: 4rem;
+  color: var(--text-primary);
+  font-weight: 400;
+}
+
+.ant-select-focused .ant-select-selection-placeholder {
+  color: var(--text-primary);
+}
+
+.ant-select-disabled.ant-select:not(.ant-select-customize-input) .ant-select-selector {
+  color: var(--text-primary) !important;
+  background-color: #f5f5f5 !important;
+  -webkit-text-fill-color: var(--text-primary) !important;
+}
+
+// Ant Design giảm opacity toàn select khi disabled → text bị nhạt
+.ant-select-disabled {
+  opacity: 1 !important;
+  
+  .ant-select-selector,
+  .ant-select-selection-item,
+  .ant-select-selection-placeholder,
+  .ant-select-selection-item-content {
+    color: var(--text-primary) !important;
+    font-weight: 400 !important;
+    -webkit-text-fill-color: var(--text-primary) !important;
+  }
+}
+
+.ant-select-selector {
+  height: 3.5rem !important;
+  align-items: center;
+}
+
+// Fix: chữ tiếng Việt có nhiều dấu (Ễ, Ổ...) bị cắt khi gõ tìm kiếm trong Select
+.ant-select-selection-search-input {
+  line-height: 1.6 !important;
+  height: 100% !important;
+  overflow: visible !important;
+}
+
+.ant-select-selection-search {
+  display: flex !important;
+  align-items: center !important;
+}
+
+.ant-select-multiple .ant-select-selector {
+  height: auto !important;
+  align-items: center;
+}

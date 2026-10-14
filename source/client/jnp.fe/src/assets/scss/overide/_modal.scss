@@ -1,0 +1,123 @@
+.ant-modal {
+  .ant-modal-content {
+    padding: 0;
+  }
+
+  .ant-modal-footer {
+    padding: 1.6rem !important;
+    // background-color: var(--bg-primary) !important;
+    display: flex;
+    justify-content: flex-end;
+    position: relative;
+    margin-top: 0;
+
+    .ant-btn .anticon {
+      display: flex;
+    }
+  }
+
+  &.fullScreen {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    margin: 0 -1.6rem;
+
+    .ant-modal-content {
+      height: 100vh;
+    }
+
+    .ant-modal-body {
+      max-height: 100vh !important;
+    }
+
+    .modal-body {
+      max-height: calc(100vh - 6rem) !important;
+      overflow-y: auto;
+      padding: 0;
+    }
+  }
+}
+
+.custom-confirm-modal .ant-modal-confirm {
+  .ant-modal-body {
+    padding: 0;
+
+    .anticon-exclamation-circle {
+      display: none;
+    }
+
+    .ant-modal-confirm-paragraph {
+      max-width: 100%;
+    }
+  }
+
+  .ant-modal-confirm-btns {
+    padding: 1.6rem;
+    margin-top: 0;
+    padding-top: 0;
+  }
+}
+
+.ant-modal-confirm-body .ant-modal-confirm-content {
+  margin-top: 0;
+}
+
+.ant-modal-footer .ant-btn + .ant-btn:not(.ant-dropdown-trigger) {
+  margin-left: 1.2rem;
+}
+
+// Global override for quan-ly-bai-viet module confirm modals to match system's BaseModal design
+.ant-modal.quan-ly-bai-viet-confirm-modal {
+  .ant-modal-content {
+    padding: 0 !important;
+    border-radius: 4px !important;
+    overflow: hidden !important;
+  }
+
+  .ant-modal-body {
+    padding: 0 !important;
+  }
+
+  .ant-modal-close {
+    top: 14px !important;
+    right: 16px !important;
+    color: rgba(255, 255, 255, 0.8) !important;
+    
+    &:hover {
+      color: #ffffff !important;
+      background-color: rgba(255, 255, 255, 0.15) !important;
+    }
+  }
+
+  .ant-modal-confirm-body-wrapper {
+    margin-top: 0 !important;
+    padding: 0 !important;
+  }
+
+  .ant-modal-confirm-body {
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+  }
+
+  .ant-modal-confirm-title {
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+  }
+
+  .ant-modal-confirm-content {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .ant-modal-confirm-btns {
+    margin-top: 20px !important;
+    margin-right: 0 !important;
+    margin-bottom: 0 !important;
+    padding: 0 24px 24px 24px !important;
+    display: flex !important;
+    justify-content: flex-end !important;
+    gap: 8px !important;
+    float: none !important;
+  }
+}

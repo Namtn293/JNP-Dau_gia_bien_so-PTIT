@@ -1,0 +1,19 @@
+.ant-dropdown-menu {
+  .ant-dropdown-menu-item {
+    padding: 0.8rem 1.6rem !important;
+
+    &:hover {
+      background-color: var(--bg-hover-primary) !important;
+    }
+  }
+
+  .ant-dropdown-menu-title-content {
+    line-height: 2.8rem;
+    position: relative;
+    top: 1px;
+
+    .ant-dropdown-menu-item-icon {
+      margin-right: 1.2rem;
+    }
+  }
+}
