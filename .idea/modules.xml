@@ -3,6 +3,8 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/JNP-Dau_gia_bien_so-PTIT.iml" filepath="$PROJECT_DIR$/.idea/JNP-Dau_gia_bien_so-PTIT.iml" />
+      <module fileurl="file://$PROJECT_DIR$/source/server/admin-console/admin-console.iml" filepath="$PROJECT_DIR$/source/server/admin-console/admin-console.iml" />
+      <module fileurl="file://$PROJECT_DIR$/source/server/auction-core-service/auction-core-service.iml" filepath="$PROJECT_DIR$/source/server/auction-core-service/auction-core-service.iml" />
     </modules>
   </component>
 </project>
