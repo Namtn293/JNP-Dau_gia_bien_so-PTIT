@@ -1,0 +1,32 @@
+# Maven
+target/
+*.class
+*.jar
+*.war
+
+# IDE - IntelliJ
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# IDE - Eclipse
+.classpath
+.project
+.settings/
+
+# IDE - VS Code
+.vscode/
+*.code-workspace
+
+# Build outputs
+build/
+dist/
+*.log
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Dependencies (Maven tự download)
+dependency-reduced-pom.xml
