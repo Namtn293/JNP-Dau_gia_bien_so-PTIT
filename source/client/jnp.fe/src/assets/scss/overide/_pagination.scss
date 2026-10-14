@@ -1,0 +1,75 @@
+.ant-pagination-next,
+.ant-pagination-prev,
+.ant-pagination-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 4rem;
+  height: 4rem;
+  white-space: nowrap;
+}
+
+.ant-pagination-options {
+  position: absolute;
+  right: 1.6rem;
+}
+
+.ant-pagination-total-text {
+  line-height: 4rem;
+  height: 4rem;
+  position: absolute;
+  left: 1.6rem;
+}
+
+@media (max-width: 768px) {
+  .ant-pagination.ant-table-pagination {
+    height: auto !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    gap: 8px !important;
+  }
+  
+  .ant-pagination-options {
+    position: static !important;
+    margin: 4px 0 !important;
+  }
+
+  .ant-pagination-total-text {
+    position: static !important;
+    height: auto !important;
+    line-height: normal !important;
+    margin: 4px 0 !important;
+    width: 100% !important;
+    text-align: center !important;
+  }
+}
+
+.ant-table-pagination.ant-pagination {
+  justify-content: center;
+}
+
+.ant-select-single.ant-select-show-arrow .ant-select-selection-item,
+.ant-select-single.ant-select-show-arrow .ant-select-selection-placeholder {
+  line-height: 4rem;
+}
+
+.ant-pagination-prev,
+.ant-pagination-next,
+.ant-pagination-jump-prev,
+.ant-pagination-jump-next {
+  height: 4rem;
+  min-width: 4rem;
+  line-height: 4rem;
+}
+
+.ant-pagination.ant-table-pagination {
+  height: 6.4rem;
+  margin: 0 !important;
+  padding: 1.2rem 1.6rem !important;
+  align-items: center;
+  background-color: #ffffff;
+}
+
+.ant-pagination-options .ant-select-single {
+  height: 4rem;
+}

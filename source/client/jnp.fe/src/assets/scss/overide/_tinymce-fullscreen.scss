@@ -1,0 +1,32 @@
+html.tox-fullscreen {
+  overflow: hidden !important;
+  zoom: 1 !important;
+}
+
+body.tox-fullscreen {
+  overflow: hidden !important;
+}
+
+body:has(.tox-tinymce--fullscreen) {
+  overflow: hidden !important;
+}
+
+html.tox-fullscreen *:not(.tox):not(.tox *),
+body.tox-fullscreen *:not(.tox):not(.tox *),
+body:has(.tox-tinymce--fullscreen) *:not(.tox):not(.tox *) {
+  transform: none !important;
+  will-change: auto !important;
+  filter: none !important;
+  perspective: none !important;
+  transition: none !important;
+  backdrop-filter: none !important;
+  contain: none !important;
+  clip-path: none !important;
+}
+
+.tox.tox-tinymce.tox-tinymce--fullscreen {
+  z-index: 99999 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+
+}

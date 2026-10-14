@@ -1,0 +1,130 @@
+input.ant-input,
+.ant-picker,
+.ant-input-affix-wrapper,
+.ant-select.ant-select-in-form-item,
+.ant-input-number {
+  max-width: 100%;
+  width: var(--base-input-width);
+}
+
+.ant-input,
+.ant-input-number-input {
+  font-size: 1.4rem;
+  line-height: 2.8rem;
+  height: 3.5rem;
+  color: var(--text-primary);
+  font-weight: 400;
+}
+
+// Đồng bộ màu text khi disabled (input, input-number, textarea, và div ReadOnlyText)
+.ant-input[disabled],
+.ant-input-disabled,
+.ant-input-affix-wrapper-disabled .ant-input,
+.ant-input-affix-wrapper[disabled] .ant-input,
+.ant-input-number-disabled .ant-input-number-input {
+  color: var(--text-primary) !important;
+  font-weight: 400 !important;
+  -webkit-text-fill-color: var(--text-primary) !important;
+}
+
+// Ant Design giảm opacity toàn wrapper khi disabled → text bị nhạt
+// Override opacity để text luôn rõ dễ nhìn
+.ant-input[disabled],
+.ant-input-disabled,
+.ant-input-affix-wrapper-disabled,
+.ant-input-affix-wrapper[disabled],
+.ant-input-number-disabled {
+  opacity: 1 !important;
+  background-color: #f5f5f5 !important;
+}
+
+textarea.ant-input {
+  height: auto;
+  line-height: 1.5;
+}
+
+.ant-form-item-label
+  > label.ant-form-item-required:not(
+    .ant-form-item-required-mark-optional
+  ):before {
+  order: 1;
+  position: relative;
+  right: 4px;
+  bottom: 4px;
+}
+
+.ant-form-vertical {
+  .ant-form-item-label
+    > label.ant-form-item-required:not(
+      .ant-form-item-required-mark-optional
+    ):before {
+    right: -4px;
+  }
+}
+
+.ant-input-affix-wrapper {
+  height: 3.5rem;
+
+  .ant-input {
+    height: auto;
+  }
+}
+
+.ant-input-number-handler-wrap {
+  display: none;
+}
+
+.ant-input-number-lg input.ant-input-number-input {
+  height: 3.3rem;
+  padding: 0.2rem 1.1rem;
+}
+
+.ant-input-search-large .ant-input-affix-wrapper,
+.ant-input-search-large .ant-input-search-button {
+  height: 3.5rem;
+}
+.ant-card .ant-card-head {
+  font-weight: 400 !important;
+}
+// .ant-input-group-wrapper {
+//     display: inline-block;
+//     /* width: 100%; */
+//     text-align: start;
+//     vertical-align: top;
+// }
+// .ant-input[disabled]::placeholder {
+//   color: var(--text-primary);
+// }
+
+.ant-form-large .ant-form-item .ant-form-item-label > label {
+  height: 3rem;
+}
+.ant-select-single.ant-select-lg {
+  font-size: 1.6rem;
+  height: 3rem;
+}
+.ant-form-item-vertical .ant-form-item-label,
+.ant-form-item-vertical .ant-col-24.ant-form-item-label,
+.ant-form-item-vertical .ant-col-xl-24.ant-form-item-label {
+  padding: 0;
+  margin: 0;
+  white-space: initial;
+  text-align: start;
+  span {
+    font-weight: 400 !important;
+  }
+}
+.ant-input-affix-wrapper-lg {
+  padding: 0.5rem 1.1rem !important;
+  // padding: 0 1.1rem !important;
+  font-size: 1.6rem;
+  line-height: 1.5;
+  border-radius: 0.6rem;
+}
+.ant-form-item {
+  margin-bottom: 0rem !important;
+}
+// .ant-input-affix-wrapper-lg,
+// textarea.ant-input-lg {
+//   padding-block: 0 !important;
+// }
