@@ -4,9 +4,8 @@
   <component name="MavenProjectsManager">
     <option name="originalFiles">
       <list>
-
         <option value="$PROJECT_DIR$/source/server/auction-core-service/pom.xml" />
- 
+        <option value="$PROJECT_DIR$/source/server/admin-console/pom.xml" />
       </list>
     </option>
   </component>
