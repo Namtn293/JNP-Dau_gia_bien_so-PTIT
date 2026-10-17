@@ -11,8 +11,12 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 
+import java.util.Optional;
+
 @Repository
 public interface AuctionSessionRepository extends JpaRepository<AuctionSession, Long> {
+
+    Optional<AuctionSession> findBySessionCode(String sessionCode);
 
     @Query(value = "select new com.ptit.bigdata.coreservice.model.vo.AuctionSessionVO(n.plateNumber, p.name, n.plateType, a.startPrice, a.status, a.startTime, a.endTime, a.stepPrice, a.participantCount, a.endPrice) " +
             "from AuctionSession a " +

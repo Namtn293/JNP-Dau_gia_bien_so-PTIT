@@ -6,6 +6,7 @@ import lombok.Getter;
 public enum AuctionStatusEnum {
     SOON("Sắp diễn ra"),
     LIVE("Đang diễn ra"),
+    PAUSED("Tạm dừng"),
     END("Đã kết thúc");
 
     private final String description;
