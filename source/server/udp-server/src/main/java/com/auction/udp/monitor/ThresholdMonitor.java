@@ -76,7 +76,7 @@ public final class ThresholdMonitor {
             double value = valueOf(rule.metric(), m);
             State next = value >= rule.critical() ? State.CRITICAL
                     : value >= rule.warning() ? State.WARNING
-                            : State.NORMAL;
+                    : State.NORMAL;
             State prev = states.getOrDefault(rule.metric(), State.NORMAL);
 
             if (next == prev) {

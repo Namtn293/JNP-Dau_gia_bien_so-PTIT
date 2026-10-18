@@ -18,28 +18,25 @@ import com.auction.model.RoomInfo;
 import com.auction.model.ServerMetrics;
 
 /**
- * Gateway dùng số liệu thật từ UDP: CPU, RAM, người trực tuyến từ METRICS; RTT
- * từ PingProbe.
- * Danh sách phòng và các lệnh điều khiển vẫn đi qua MockAdminGateway cho tới
- * khi có TCP 9090.
+ * Gateway dùng số liệu thật từ UDP: CPU, RAM, người trực tuyến từ METRICS; RTT từ PingProbe.
+ * Cảnh báo (ALERT từ server và cảnh báo RTT do admin tự phát hiện) được gửi tới AlertListener.
+ * Danh sách phòng và các lệnh điều khiển vẫn đi qua MockAdminGateway cho tới khi có TCP 9090.
  */
 public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(UdpAdminGateway.class);
 
-    /**
-     * Nhận cảnh báo từ UDP server. Gọi trên luồng nhận, cần invokeLater khi cập
-     * nhật giao diện.
-     */
+    /** Nhận cảnh báo. Gọi trên luồng nền, cần invokeLater khi cập nhật giao diện. */
     public interface AlertListener {
+        /** level: CRITICAL, WARNING hoặc RESOLVED. metric: cpu, ram, core hoặc rtt. */
         void onAlert(String level, String metric, double value, double threshold);
     }
 
-    private record Snapshot(ServerMetrics metrics, long receivedAt) {
-    }
+    private record Snapshot(ServerMetrics metrics, long receivedAt) { }
 
     private final AdminGateway mock = new MockAdminGateway();
-
     private final List<AlertListener> alertListeners = new CopyOnWriteArrayList<>();
+    private final RttMonitor rttMonitor =
+            new RttMonitor(AdminConfig.RTT_WARN_MS, AdminConfig.RTT_CRIT_MS, this::publish);
 
     private final UdpMetricsListener metricsListener;
     private final PingProbe pingProbe;
@@ -59,9 +56,7 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
                 @Override
                 public void onAlert(String level, String metric, double value, double threshold) {
                     log.warn("ALERT {} metric={} value={} threshold={}", level, metric, value, threshold);
-                    for (AlertListener l : alertListeners) {
-                        l.onAlert(level, metric, value, threshold);
-                    }
+                    publish(level, metric, value, threshold);
                 }
             });
 
@@ -72,6 +67,7 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
                         public void onRtt(int ms) {
                             rttMs = ms;
                             rttAt = System.currentTimeMillis();
+                            rttMonitor.update(ms);
                         }
 
                         @Override
@@ -92,9 +88,14 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
         alertListeners.add(listener);
     }
 
+    private void publish(String level, String metric, double value, double threshold) {
+        for (AlertListener l : alertListeners) {
+            l.onAlert(level, metric, value, threshold);
+        }
+    }
+
     /**
-     * Gộp METRICS mới nhất với RTT mới nhất. Nếu một trong hai đã quá hạn thì báo
-     * lỗi,
+     * Gộp METRICS mới nhất với RTT mới nhất. Nếu một trong hai đã quá hạn thì báo lỗi,
      * giao diện sẽ hiển thị "—" như khi mất kết nối.
      */
     @Override
