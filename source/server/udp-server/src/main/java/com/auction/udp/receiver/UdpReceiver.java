@@ -45,6 +45,15 @@ public final class UdpReceiver implements AutoCloseable {
         log.info("Đang nghe UDP cổng {}", port);
     }
 
+    /** Gửi một gói text qua chính socket này (dùng để trả PONG). */
+    public void send(String text, InetSocketAddress to) throws IOException {
+        if (socket == null) {
+            throw new IOException("Receiver chưa được start");
+        }
+        byte[] data = text.getBytes(StandardCharsets.UTF_8);
+        socket.send(new DatagramPacket(data, data.length, to));
+    }
+
     private void loop() {
         byte[] buffer = new byte[MAX_PACKET];
         while (running) {
@@ -64,7 +73,7 @@ public final class UdpReceiver implements AutoCloseable {
 
             try {
                 Message message = MessageParser.parse(text);
-                handler.handle(message, from);
+                handler.handle(message, from, this);
             } catch (ProtocolException e) {
                 log.warn("Bỏ gói lỗi từ {} (cổng {}): {}", from, port, e.getMessage());
             } catch (RuntimeException e) {
