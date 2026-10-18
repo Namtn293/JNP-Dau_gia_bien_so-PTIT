@@ -30,6 +30,7 @@ import com.auction.AdminConfig;
 
 import com.auction.gateway.AdminGateway;
 import com.auction.net.udp.UdpAdminGateway;
+import com.auction.ui.common.AlertLogger;
 
 /**
  * AdminConsoleUI - Cửa sổ chính của Admin Console.
@@ -58,7 +59,9 @@ public class AdminConsoleUI extends JFrame {
         logDocument = LogPanel.createDocument();
         LogPanel.loadSampleLog(logDocument);
 
-        AdminGateway gateway = new UdpAdminGateway();
+        UdpAdminGateway udpGateway = new UdpAdminGateway();
+        udpGateway.addAlertListener(new AlertLogger(logDocument));
+        AdminGateway gateway = udpGateway;
         RoomSelection selection = new RoomSelection();
 
         // 2 tab

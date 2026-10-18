@@ -48,4 +48,14 @@ public final class AdminConfig {
     public static final int UDP_PING_PORT = 9002;
     public static final long PING_INTERVAL_MS = 1000;
     public static final long DATA_STALE_MS = 3000;
+
+    // Ngưỡng cảnh báo RTT (ms), có thể đổi bằng biến môi trường RTT_WARN_MS,
+    // RTT_CRIT_MS
+    public static final int RTT_WARN_MS = envInt("RTT_WARN_MS", 150);
+    public static final int RTT_CRIT_MS = envInt("RTT_CRIT_MS", 300);
+
+    private static int envInt(String name, int defaultValue) {
+        String v = System.getenv(name);
+        return (v == null || v.isBlank()) ? defaultValue : Integer.parseInt(v.trim());
+    }
 }
