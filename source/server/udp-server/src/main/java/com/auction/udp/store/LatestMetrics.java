@@ -35,5 +35,10 @@ public final class LatestMetrics {
         return Optional.of(current);
     }
 
+    /** Thời điểm nhận gói METRICS gần nhất, kể cả khi đã quá hạn. Empty nếu chưa từng nhận. */
+    public synchronized Optional<Long> lastReceivedAt() {
+        return current == null ? Optional.empty() : Optional.of(current.receivedAt());
+    }
+
     public record Snapshot(Message.Metrics metrics, long receivedAt) { }
 }
