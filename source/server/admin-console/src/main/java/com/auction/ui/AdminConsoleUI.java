@@ -1,6 +1,5 @@
 package com.auction.ui;
 
-
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 
@@ -30,8 +29,7 @@ import com.auction.ui.panels.control.SessionControlPanel;
 import com.auction.AdminConfig;
 
 import com.auction.gateway.AdminGateway;
-import com.auction.gateway.mock.MockAdminGateway;
-
+import com.auction.net.udp.UdpAdminGateway;
 
 /**
  * AdminConsoleUI - Cửa sổ chính của Admin Console.
@@ -49,7 +47,7 @@ public class AdminConsoleUI extends JFrame {
         initializeUI(); // Khởi tạo giao diện
     }
 
-        private void initializeUI() {
+    private void initializeUI() {
         // Cấu hình cửa sổ
         setTitle("Đấu giá biển số • Quản trị viên");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -60,7 +58,7 @@ public class AdminConsoleUI extends JFrame {
         logDocument = LogPanel.createDocument();
         LogPanel.loadSampleLog(logDocument);
 
-        AdminGateway gateway = new MockAdminGateway();
+        AdminGateway gateway = new UdpAdminGateway();
         RoomSelection selection = new RoomSelection();
 
         // 2 tab
@@ -77,12 +75,12 @@ public class AdminConsoleUI extends JFrame {
 
     // GENERATE 2 TABS
     // private JPanel createPlaceholderPanel(String text) {
-    //     JPanel panel = new JPanel(new BorderLayout());
-    //     JLabel label = new JLabel(text, SwingConstants.CENTER);
+    // JPanel panel = new JPanel(new BorderLayout());
+    // JLabel label = new JLabel(text, SwingConstants.CENTER);
 
-    //     panel.add(label, BorderLayout.CENTER);
+    // panel.add(label, BorderLayout.CENTER);
 
-    //     return panel;
+    // return panel;
     // }
 
     // GENERATE HEADER
@@ -90,10 +88,8 @@ public class AdminConsoleUI extends JFrame {
         // header
         JPanel header = new JPanel(new BorderLayout());
         header.setBorder(BorderFactory.createCompoundBorder(
-                        BorderFactory.createMatteBorder(0, 0, 1, 0, COLOR_BORDER),
-                        BorderFactory.createEmptyBorder(12, 20, 12, 20)
-                )
-        );
+                BorderFactory.createMatteBorder(0, 0, 1, 0, COLOR_BORDER),
+                BorderFactory.createEmptyBorder(12, 20, 12, 20)));
 
         // left
         JPanel left = new JPanel();
@@ -146,8 +142,7 @@ public class AdminConsoleUI extends JFrame {
         JPanel statusBar = new JPanel(new BorderLayout());
         statusBar.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(1, 0, 0, 0, COLOR_BORDER),
-                BorderFactory.createEmptyBorder(6, 16, 6, 16)
-        ));
+                BorderFactory.createEmptyBorder(6, 16, 6, 16)));
 
         JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 16, 0));
         left.setOpaque(false);
@@ -189,9 +184,12 @@ public class AdminConsoleUI extends JFrame {
         return statusBar;
     }
 
-        // ===== Gửi email mẫu =====
+    // ===== Gửi email mẫu =====
 
-    /** Hỏi địa chỉ người nhận, gửi email mẫu trên luồng nền và ghi kết quả vào nhật ký. */
+    /**
+     * Hỏi địa chỉ người nhận, gửi email mẫu trên luồng nền và ghi kết quả vào nhật
+     * ký.
+     */
     private void sendSampleMail() {
         String input = JOptionPane.showInputDialog(this,
                 "Nhập email người nhận:", "Gửi email mẫu", JOptionPane.QUESTION_MESSAGE);
@@ -222,7 +220,10 @@ public class AdminConsoleUI extends JFrame {
         }
     }
 
-    /** Lấy thông báo lỗi gốc, bỏ các lớp bọc CompletionException / ExecutionException. */
+    /**
+     * Lấy thông báo lỗi gốc, bỏ các lớp bọc CompletionException /
+     * ExecutionException.
+     */
     private static String rootMessage(Throwable t) {
         Throwable cur = t;
         while ((cur instanceof CompletionException || cur instanceof ExecutionException)

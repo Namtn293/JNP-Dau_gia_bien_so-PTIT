@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 
 import com.auction.udp.protocol.Message;
 import com.auction.udp.receiver.MessageHandler;
+import com.auction.udp.receiver.PingResponder;
 import com.auction.udp.receiver.UdpReceiver;
 import com.auction.udp.sender.AdminSender;
 import com.auction.udp.sender.MetricsForwarder;
@@ -15,8 +16,8 @@ import com.auction.udp.store.LatestMetrics;
 
 /**
  * Điểm vào của UDP server.
- * Nhận METRICS từ core (cổng 9001), lưu snapshot mới nhất và gửi định kỳ tới Admin Console.
- * PING/PONG và ALERT sẽ thêm ở bước 3 và 4.
+ * - Cổng 9001: nhận METRICS từ core, lưu snapshot mới nhất, gửi định kỳ tới admin (8888).
+ * - Cổng 9002: nhận PING từ admin, trả PONG.
  */
 public final class UdpMetricsServerApp {
     private static final Logger log = LoggerFactory.getLogger(UdpMetricsServerApp.class);
@@ -33,7 +34,7 @@ public final class UdpMetricsServerApp {
         AdminSender adminSender = new AdminSender(new InetSocketAddress(adminHost, adminPort));
         MetricsForwarder forwarder = new MetricsForwarder(store, adminSender, intervalMs);
 
-        MessageHandler metricsHandler = (message, from) -> {
+        MessageHandler metricsHandler = (message, from, channel) -> {
             if (message instanceof Message.Metrics m) {
                 boolean stored = store.update(m, System.currentTimeMillis());
                 if (stored) {
@@ -45,11 +46,9 @@ public final class UdpMetricsServerApp {
                 log.warn("Bỏ gói {} nhận trên cổng metrics từ {}", message.getClass().getSimpleName(), from);
             }
         };
-        MessageHandler logOnly = (message, from) ->
-                log.info("{} từ {}: {}", message.getClass().getSimpleName(), from, message);
 
         UdpReceiver metrics = new UdpReceiver(metricsPort, metricsHandler);
-        UdpReceiver ping = new UdpReceiver(pingPort, logOnly);
+        UdpReceiver ping = new UdpReceiver(pingPort, new PingResponder());
         metrics.start();
         ping.start();
         forwarder.start();

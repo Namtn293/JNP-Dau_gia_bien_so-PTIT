@@ -5,7 +5,8 @@ package com.auction;
  * Khi đổi IP, tên vận hành hoặc mặc định khác, chỉ cần sửa ở đây.
  */
 public final class AdminConfig {
-    private AdminConfig() { }
+    private AdminConfig() {
+    }
 
     // Máy chủ
     public static final String SERVER_ADDRESS = "10.20.0.15"; // Lấy bằng ifconfig khi chạy thật
@@ -35,9 +36,16 @@ public final class AdminConfig {
     public static final long START_PRICE_VND = 40_000_000L;
     public static final long BID_STEP_VND = 5_000_000L;
 
-    // Khoảng thời gian cuối phiên: có lượt đặt giá thì phiên được gia hạn (theo tổng quan dự án)
+    // Khoảng thời gian cuối phiên: có lượt đặt giá thì phiên được gia hạn (theo
+    // tổng quan dự án)
     public static final int LATE_BID_WINDOW_SECONDS = 10;
 
     // Số lượt đặt giá trong 5 giây được coi là bất thường (dùng để tô đỏ)
     public static final int BID_WARNING_THRESHOLD = 10;
+
+    // Kết nối UDP tới UDP server
+    public static final String UDP_SERVER_HOST = "127.0.0.1";
+    public static final int UDP_PING_PORT = 9002;
+    public static final long PING_INTERVAL_MS = 1000;
+    public static final long DATA_STALE_MS = 3000;
 }
