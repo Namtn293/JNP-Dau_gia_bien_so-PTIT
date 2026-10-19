@@ -74,3 +74,20 @@ export interface AuctionFilterParams {
   sortBy?: "time" | "hi" | "lo" | "bids";
   viewMode?: "grid" | "table" | "board";
 }
+
+export interface WsBidMessage {
+  plateNumber?: string;
+  roomId?: string;
+  userId?: string;
+  userName?: string;
+  bidAmount?: number;
+  currentPrice?: number;
+  stepPrice?: number;
+  bidCount?: number;
+  timestamp?: string;
+  status?: string;
+  type?: "BID" | "EXTEND" | "NEW_HIGHEST" | "STATUS_CHANGE" | string;
+}
+
+export type WsConnectionStatus = "connecting" | "connected" | "disconnected" | "error";
+

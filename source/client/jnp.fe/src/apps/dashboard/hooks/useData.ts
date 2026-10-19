@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import tokenManager from "@/shared/utils/tokenManager";
 import { useAuctionSessionsQuery } from "../services/query";
-import type { AuctionItem, AuctionStatus } from "../services/type";
+import type { AuctionItem, AuctionStatus, WsBidMessage } from "../services/type";
 import { INITIAL_AUCTION_DATA } from "../utils/constants";
 import { mapAuctionSessionVOToItem } from "../utils/format";
+import { useAuctionSocket } from "./useAuctionSocket";
 
 export const useData = () => {
   const [currentUser] = useState<{ name: string; email?: string }>(() => {
@@ -123,6 +124,58 @@ export const useData = () => {
     return filteredList.slice(startIndex, startIndex + pageSize);
   }, [filteredList, page, pageSize, viewMode]);
 
+  // Handle Real-Time WebSocket updates for the license plate list
+  const handleWsPlateUpdate = (msg: WsBidMessage) => {
+    if (!msg) return;
+    const targetPlate = msg.plateNumber || msg.roomId;
+    if (!targetPlate) return;
+
+    setData((prev) => {
+      const exists = prev.some((item) => item.p === targetPlate);
+      if (!exists) {
+        // If not in current list, trigger background refetch
+        refetch();
+        return prev;
+      }
+
+      return prev.map((item) => {
+        if (item.p === targetPlate) {
+          const nextPrice =
+            msg.currentPrice ||
+            (msg.bidAmount ? msg.bidAmount : item.price + item.step);
+          const nextBids =
+            msg.bidCount !== undefined ? msg.bidCount : item.bids + 1;
+
+          let nextStatus = item.st;
+          if (msg.status) {
+            const lower = msg.status.toLowerCase();
+            if (lower === "live" || lower === "soon" || lower === "end") {
+              nextStatus = lower as AuctionStatus;
+            }
+          }
+
+          return {
+            ...item,
+            price: nextPrice,
+            bids: nextBids,
+            st: nextStatus,
+          };
+        }
+        return item;
+      });
+    });
+  };
+
+  const {
+    status: socketStatus,
+    isConnected: isSocketConnected,
+    sendBid,
+    lastMessage: lastWsMessage,
+  } = useAuctionSocket({
+    enabled: true,
+    onPlateUpdate: handleWsPlateUpdate,
+  });
+
   return {
     currentUser,
     data,
@@ -149,7 +202,12 @@ export const useData = () => {
     setPage,
     pageSize,
     setPageSize,
+    socketStatus,
+    isSocketConnected,
+    sendBid,
+    lastWsMessage,
   };
 };
 
 export default useData;
+

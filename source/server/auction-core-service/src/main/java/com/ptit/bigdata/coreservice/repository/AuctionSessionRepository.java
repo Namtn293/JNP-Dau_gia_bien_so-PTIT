@@ -18,7 +18,9 @@ public interface AuctionSessionRepository extends JpaRepository<AuctionSession, 
 
     Optional<AuctionSession> findBySessionCode(String sessionCode);
 
-    @Query(value = "select new com.ptit.bigdata.coreservice.model.vo.AuctionSessionVO(n.plateNumber, p.name, n.plateType, a.startPrice, a.status, a.startTime, a.endTime, a.stepPrice, a.participantCount, a.endPrice) " +
+    Optional<AuctionSession> findFirstByNumberPlateId(Long numberPlateId);
+
+    @Query(value = "select new com.ptit.bigdata.coreservice.model.vo.AuctionSessionVO(n.plateNumber, p.name, n.plateType, coalesce(a.currentPrice, a.startPrice), a.status, a.startTime, a.endTime, a.stepPrice, a.participantCount, a.endPrice) " +
             "from AuctionSession a " +
             "join NumberPlate n on a.numberPlateId = n.id " +
             "join Province p on n.provinceId = p.id " +

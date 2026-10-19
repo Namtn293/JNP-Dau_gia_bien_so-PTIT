@@ -16,6 +16,10 @@ public class BidMessageVO {
     private Long bidAmount;
     private Long currentPrice;
     private String timestamp;
+    private String plateNumber;
+    private Long stepPrice;
+    private Integer bidCount;
+    private String status;
     @Builder.Default
     private String type = "BID"; // BID, EXTEND, NEW_HIGHEST
 }

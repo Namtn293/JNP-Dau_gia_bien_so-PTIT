@@ -14,15 +14,17 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
  * - Hoặc SockJS: http://localhost:8080/ws
  *
  * Kênh nhận dữ liệu (Subscribe):
+ * - /topic/auctions         : Cập nhật thời gian thực toàn hệ thống / danh sách biển số (nhảy giá, số lượt trả, trạng thái)
  * - /topic/auction/{roomId} : Thông tin nhảy giá, đồng hồ đếm ngược, trạng thái phòng
  * - /topic/chat/{roomId}    : Tin nhắn trò chuyện giữa người tham gia
  * - /topic/room/{roomId}    : Sự kiện tham gia / rời phòng (Presence)
  *
  * Kênh gửi dữ liệu (Send):
+ * - /app/auction/bid        : Đặt giá trực tiếp từ trang danh sách biển số
  * - /app/chat/{roomId}      : Gửi tin nhắn chat
  * - /app/room/{roomId}/join : Báo danh vào phòng
  * - /app/room/{roomId}/leave: Báo rời phòng
- * - /app/bid/{roomId}       : Đặt giá mới
+ * - /app/bid/{roomId}       : Đặt giá mới trong phòng
  */
 @Configuration
 @EnableWebSocketMessageBroker

@@ -428,3 +428,85 @@ export const PaginationWrapper = styled.div`
   }
 `;
 
+export const WsStatusBadge = styled.div<{ $status: "connected" | "connecting" | "disconnected" | "error" }>`
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border: 1px solid
+    ${(props) => {
+      switch (props.$status) {
+        case "connected":
+          return "#bbf7d0";
+        case "connecting":
+          return "#fef08a";
+        case "error":
+        case "disconnected":
+        default:
+          return "#fecaca";
+      }
+    }};
+  background: ${(props) => {
+    switch (props.$status) {
+      case "connected":
+        return "#f0fdf4";
+      case "connecting":
+        return "#fefce8";
+      case "error":
+      case "disconnected":
+      default:
+        return "#fef2f2";
+    }
+  }};
+  color: ${(props) => {
+    switch (props.$status) {
+      case "connected":
+        return "#15803d";
+      case "connecting":
+        return "#a16207";
+      case "error":
+      case "disconnected":
+      default:
+        return "#b91c1c";
+    }
+  }};
+`;
+
+export const WsStatusDot = styled.span<{ $status: "connected" | "connecting" | "disconnected" | "error" }>`
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: ${(props) => {
+    switch (props.$status) {
+      case "connected":
+        return "#22c55e";
+      case "connecting":
+        return "#eab308";
+      case "error":
+      case "disconnected":
+      default:
+        return "#ef4444";
+    }
+  }};
+  box-shadow: ${(props) =>
+    props.$status === "connected"
+      ? "0 0 0 3px rgba(34, 197, 94, 0.25)"
+      : "none"};
+  animation: ${(props) =>
+    props.$status === "connected" ? "wsPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" : "none"};
+
+  @keyframes wsPulse {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.5;
+      transform: scale(1.2);
+    }
+  }
+`;
+
