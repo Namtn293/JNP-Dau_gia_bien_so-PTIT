@@ -20,6 +20,8 @@ import {
   FilterGrid,
   CardsGrid,
   PaginationWrapper,
+  WsStatusBadge,
+  WsStatusDot,
 } from "./style";
 
 import TopNavbar from "./components/TopNavbar";
@@ -30,7 +32,7 @@ import BidModal from "./components/BidModal";
 
 // Hooks & utils
 import { useAuctionData } from "./hooks/useAuctionData";
-import { PROVINCES_LIST, PLATE_TYPES_OPTIONS, PLATE_TYPES_LIST } from "./utils/constants";
+import { PROVINCES_LIST, PLATE_TYPES_LIST } from "./utils/constants";
 import type { AuctionStatus } from "./services/type";
 
 export const DashboardPage: React.FC = () => {
@@ -58,6 +60,7 @@ export const DashboardPage: React.FC = () => {
     pageSize,
     setPageSize,
     placeBid,
+    socketStatus,
   } = useAuctionData();
 
   const tabOptions: { key: AuctionStatus; label: string }[] = [
@@ -78,6 +81,13 @@ export const DashboardPage: React.FC = () => {
             <h1>Phiên Đấu Giá Biển Số Xe</h1>
             <p>Hệ thống đấu giá biển số trực tuyến hàng đầu Việt Nam</p>
           </div>
+          <WsStatusBadge $status={socketStatus}>
+            <WsStatusDot $status={socketStatus} />
+            {socketStatus === "connected" && "Trực tiếp"}
+            {socketStatus === "connecting" && "Đang kết nối WebSocket..."}
+            {(socketStatus === "disconnected" || socketStatus === "error") &&
+              "Mất kết nối thời gian thực"}
+          </WsStatusBadge>
         </PageHeader>
 
         {/* Tab & View Mode Controllers */}
