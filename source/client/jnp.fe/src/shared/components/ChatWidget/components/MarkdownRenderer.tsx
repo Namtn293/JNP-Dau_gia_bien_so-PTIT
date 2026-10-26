@@ -2,6 +2,13 @@ import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import styled from 'styled-components';
+import {
+  BulbOutlined,
+  InfoCircleOutlined,
+  ExportOutlined,
+  CopyOutlined,
+  CheckOutlined,
+} from '@ant-design/icons';
 
 interface MarkdownRendererProps {
   content: string;
@@ -17,6 +24,24 @@ const getTextFromReactNode = (node: any): string => {
   return '';
 };
 
+// Helper function to strip raw alert emojis (💡, 📌) from the beginning of nodes
+const stripLeadingAlertEmoji = (node: React.ReactNode): React.ReactNode => {
+  if (typeof node === 'string') {
+    return node.replace(/^[💡📌]\s*/, '');
+  }
+  if (Array.isArray(node)) {
+    return React.Children.map(node, (child, idx) =>
+      idx === 0 ? stripLeadingAlertEmoji(child) : child
+    );
+  }
+  if (React.isValidElement(node) && (node.props as any)?.children) {
+    return React.cloneElement(node as React.ReactElement<any>, {
+      children: stripLeadingAlertEmoji((node.props as any).children),
+    });
+  }
+  return node;
+};
+
 // Copy Button Component for Code Blocks
 const CopyButton: React.FC<{ code: string }> = ({ code }) => {
   const [copied, setCopied] = useState(false);
@@ -30,7 +55,17 @@ const CopyButton: React.FC<{ code: string }> = ({ code }) => {
 
   return (
     <StyledCopyBtn onClick={handleCopy} type="button">
-      {copied ? 'Copied!' : 'Copy'}
+      {copied ? (
+        <>
+          <CheckOutlined style={{ marginRight: 4, color: '#52c41a' }} />
+          Copied!
+        </>
+      ) : (
+        <>
+          <CopyOutlined style={{ marginRight: 4 }} />
+          Copy
+        </>
+      )}
     </StyledCopyBtn>
   );
 };
@@ -185,6 +220,9 @@ const AlertBlock = styled.blockquote<{ $type: 'warning' | 'info' | 'default' }>`
   font-size: 13.5px;
   line-height: 1.5;
   color: #262626;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
 
   background: ${props => {
     if (props.$type === 'warning') return '#fffbe6';
@@ -193,13 +231,31 @@ const AlertBlock = styled.blockquote<{ $type: 'warning' | 'info' | 'default' }>`
   }};
 
   border-left: 4px solid ${props => {
-    if (props.$type === 'warning') return '#ffe58f';
-    if (props.$type === 'info') return '#adc6ff';
+    if (props.$type === 'warning') return '#faad14';
+    if (props.$type === 'info') return '#1677ff';
     return '#d9d9d9';
   }};
 
-  p {
-    margin: 0 !important;
+  .alert-icon {
+    font-size: 16px;
+    margin-top: 2px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    color: ${props => {
+      if (props.$type === 'warning') return '#faad14';
+      if (props.$type === 'info') return '#1677ff';
+      return '#8c8c8c';
+    }};
+  }
+
+  .alert-content {
+    flex: 1;
+    min-width: 0;
+
+    p {
+      margin: 0 !important;
+    }
   }
 `;
 
@@ -284,28 +340,29 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
             }
             return <p>{children}</p>;
           },
-          // Render links with target="_blank" and an external link icon
+          // Render links with target="_blank" and an Ant Design external link icon
           a: ({ href, children }) => (
             <a href={href} target="_blank" rel="noopener noreferrer" className="markdown-link">
               {children}
-              <span className="external-link-icon" style={{ marginLeft: '4px', display: 'inline-flex', alignItems: 'center' }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle' }}>
-                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                  <polyline points="15 3 21 3 21 9" />
-                  <line x1="10" y1="14" x2="21" y2="3" />
-                </svg>
-              </span>
+              <ExportOutlined style={{ marginLeft: 4, fontSize: 11, verticalAlign: 'middle' }} />
             </a>
           ),
-          // Custom render blockquote to handle warning (💡) and info (📌) alerts
+          // Custom render blockquote to handle alerts with Ant Design icons
           blockquote: ({ children }) => {
             const textContent = getTextFromReactNode(children);
-            const isWarning = textContent.includes('💡');
-            const isInfo = textContent.includes('📌');
-            
+            const isWarning = /💡|\[!warning\]|\[!caution\]|cảnh báo|lưu ý|chú ý/i.test(textContent);
+            const isInfo = /📌|\[!info\]|\[!note\]|\[!tip\]|thông tin|ghi chú/i.test(textContent);
+            const alertType: 'warning' | 'info' | 'default' = isWarning ? 'warning' : isInfo ? 'info' : 'default';
+            const cleanChildren = stripLeadingAlertEmoji(children);
+
             return (
-              <AlertBlock $type={isWarning ? 'warning' : isInfo ? 'info' : 'default'}>
-                {children}
+              <AlertBlock $type={alertType}>
+                <span className="alert-icon">
+                  {alertType === 'warning' && <BulbOutlined />}
+                  {alertType === 'info' && <InfoCircleOutlined />}
+                  {alertType === 'default' && <InfoCircleOutlined />}
+                </span>
+                <div className="alert-content">{cleanChildren}</div>
               </AlertBlock>
             );
           },

@@ -11,6 +11,8 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -19,6 +21,12 @@ public interface AuctionSessionRepository extends JpaRepository<AuctionSession, 
     Optional<AuctionSession> findBySessionCode(String sessionCode);
 
     Optional<AuctionSession> findFirstByNumberPlateId(Long numberPlateId);
+
+    List<AuctionSession> findByStatus(AuctionStatusEnum status);
+
+    List<AuctionSession> findByStatusAndEndTimeBefore(AuctionStatusEnum status, LocalDateTime endTime);
+
+    List<AuctionSession> findByStatusAndStartTimeBeforeAndEndTimeAfter(AuctionStatusEnum status, LocalDateTime startTime, LocalDateTime endTime);
 
     @Query(value = "select new com.ptit.bigdata.coreservice.model.vo.AuctionSessionVO(n.plateNumber, p.name, n.plateType, coalesce(a.currentPrice, a.startPrice), a.status, a.startTime, a.endTime, a.stepPrice, a.participantCount, a.endPrice) " +
             "from AuctionSession a " +

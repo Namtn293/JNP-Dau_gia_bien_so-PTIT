@@ -226,14 +226,18 @@ export const FilterGrid = styled.div`
 `;
 
 export const PlateDisplay = styled.span<{ $small?: boolean }>`
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  box-sizing: border-box;
   background: #ffffff;
   color: #111111;
   border: ${(props) => (props.$small ? "3px" : "4px")} solid #9ccade;
   border-radius: ${(props) => (props.$small ? "6px" : "10px")};
-  padding: ${(props) => (props.$small ? "2px 10px" : "4px 18px")};
-  font: 800 ${(props) => (props.$small ? "24px" : "42px")}/1.15 "Barlow Condensed", Impact, sans-serif;
-  letter-spacing: ${(props) => (props.$small ? "1.5px" : "2.5px")};
+  padding: ${(props) => (props.$small ? "2px 10px" : "4px 14px")};
+  font: 800 ${(props) => (props.$small ? "22px" : "32px")}/1.15 "Barlow Condensed", Impact, sans-serif;
+  letter-spacing: ${(props) => (props.$small ? "1px" : "2px")};
   white-space: nowrap;
   box-shadow: inset 0 0 0 ${(props) => (props.$small ? "1.5px" : "2px")} #111111,
     0 6px 16px rgba(37, 107, 140, 0.12);
@@ -242,7 +246,7 @@ export const PlateDisplay = styled.span<{ $small?: boolean }>`
 
 export const CardsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 16px;
 `;
 
@@ -251,6 +255,7 @@ export const AuctionCard = styled.article`
   border: 1px solid #dbe6ee;
   border-radius: 16px;
   padding: 18px;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -269,11 +274,14 @@ export const AuctionCard = styled.article`
 `;
 
 export const PlateBox = styled.div`
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: #f0f7fb;
   border: 1px solid #b8dbeb;
   border-radius: 12px;
-  padding: 20px 10px;
+  padding: 16px 12px;
+  overflow: hidden;
 `;
 
 export const RowBetween = styled.div`

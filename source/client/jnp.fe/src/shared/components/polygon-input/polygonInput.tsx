@@ -324,7 +324,6 @@ const PolygonInput = (props: Props) => {
         if (props.value && props.value != _data.current) {
             _data.current = props.value
             _resetData(props.value)
-            console.log("reset data: ", props.value)
         }
     }, [props.value])
 

@@ -129,14 +129,8 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
             }
         }
 
-        // Fallback default participants for demo if no specific DB bids yet
-        return List.of(
-                new AdminParticipantVO("U-0842", "Trần Quốc Huy", "CHECK_NEEDED", 18, 240_000_000L, 112),
-                new AdminParticipantVO("U-0317", "Lê Hoàng Nam", "CONNECTED", 2, 245_000_000L, 32),
-                new AdminParticipantVO("U-0521", "Nguyễn Thu Hà", "CONNECTED", 1, 235_000_000L, 32),
-                new AdminParticipantVO("U-0678", "Phạm Đức Long", "CONNECTED", 1, 225_000_000L, 32),
-                new AdminParticipantVO("U-0903", "Vũ Minh Phúc", "CONNECTED", 0, 220_000_000L, 326)
-        );
+        // No specific DB bids yet
+        return Collections.emptyList();
     }
 
     @Override

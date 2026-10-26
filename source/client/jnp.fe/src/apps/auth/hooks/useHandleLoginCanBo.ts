@@ -70,7 +70,7 @@ export const useHandleLoginCanBo = () => {
       },
 
       onError: (error: any) => {
-        console.log("LOGIN ERR::", error);
+        console.error("LOGIN ERR::", error);
 
         let errorMsg = "Đã xảy ra lỗi kết nối. Vui lòng kiểm tra lại mạng hoặc máy chủ.";
         const responseData = error?.response?.data;

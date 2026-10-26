@@ -49,6 +49,9 @@ public class AuctionWebSocketController {
     public ChatMessageVO handleChat(
             @DestinationVariable("roomId") String roomId,
             ChatMessageVO message) {
+        if (message.getId() == null || message.getId().isBlank()) {
+            message.setId(java.util.UUID.randomUUID().toString());
+        }
         if (message.getTimestamp() == null || message.getTimestamp().isBlank()) {
             message.setTimestamp(DateTimeFormatter.ofPattern("HH:mm:ss").format(LocalTime.now()));
         }

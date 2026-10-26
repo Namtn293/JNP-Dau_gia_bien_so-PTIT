@@ -91,7 +91,6 @@ export const useVGCASign = (options: UseVGCASignOptions = {}) => {
     }
 
     const fullUrl = `${minioBaseUrl}${url.startsWith('/') ? url.slice(1) : url}`;
-    console.log('[VGCA] Added Minio prefix. Full URL:', fullUrl);
     return fullUrl;
   }, [autoAddMinioPrefix, minioBaseUrl]);
 
@@ -102,14 +101,10 @@ export const useVGCASign = (options: UseVGCASignOptions = {}) => {
     originalFileUrl: string,
     responseString: string
   ) => {
-    console.log('[VGCA] Received callback response:', responseString);
-
     try {
       const response: VGCASignResponse = JSON.parse(responseString);
-      console.log('[VGCA] Parsed response:', response);
 
       if (response.Status === 0) {
-        console.log('[VGCA] Sign successful, new file URL:', response.FileServer);
         showSuccessNotify('Ký số thành công!');
 
         if (onSuccess && response.FileServer) {
@@ -140,9 +135,7 @@ export const useVGCASign = (options: UseVGCASignOptions = {}) => {
   /**
    * Mock signing để test (không cần USB)
    */
-  const mockSign = useCallback(async (fileUrl: string, signType: SignType) => {
-    console.log('[VGCA MOCK] Simulating signing...', signType);
-
+  const mockSign = useCallback(async (fileUrl: string, _signType?: SignType) => {
     // Simulate delay
     await new Promise(resolve => setTimeout(resolve, 2000));
 
@@ -155,7 +148,6 @@ export const useVGCASign = (options: UseVGCASignOptions = {}) => {
       Message: 'Mock signing successful'
     };
 
-    console.log('[VGCA MOCK] Mock response:', mockResponse);
     handleSignCallback(fileUrl, JSON.stringify(mockResponse));
   }, [handleSignCallback, showInfoNotify]);
 
@@ -164,10 +156,6 @@ export const useVGCASign = (options: UseVGCASignOptions = {}) => {
    */
   const handleSign = useCallback(async (params: VGCASignParams, signId?: string) => {
     const { fileUrl, docNumber, sessionId = '', jwtToken, signType = SignType.ISSUED, metaData, issuedDate } = params;
-
-    console.log('[VGCA] handleSign called');
-    console.log('[VGCA] Original file URL:', fileUrl);
-    console.log('[VGCA] Sign type:', signType);
 
     if (!fileUrl) {
       showErrorNotify('Vui lòng tải file lên trước khi ký số');
@@ -198,8 +186,6 @@ export const useVGCASign = (options: UseVGCASignOptions = {}) => {
     const vgcaFunction = vgcaFunctions[signType];
 
     // Kiểm tra VGCA plugin
-    console.log('[VGCA] Checking VGCA function:', signType, vgcaFunction);
-
     if (!vgcaFunction) {
       showWarningNotify('Plugin VGCA chưa được tải. Vui lòng:\n1. Cài đặt phần mềm VGCA\n2. Copy vgcaplugin.js vào thư mục public\n3. Tải lại trang');
       console.error('[VGCA] VGCA function not available:', signType);
@@ -257,11 +243,6 @@ export const useVGCASign = (options: UseVGCASignOptions = {}) => {
     window.WebSocket.prototype = OriginalWebSocket.prototype;
 
     try {
-      console.log('[VGCA] Calling VGCA function:', signType);
-      console.log('[VGCA] Params:', vgcaParams);
-      console.log('[VGCA] File URL to sign (full):', fullUrl);
-      console.log('[VGCA] Starting VGCA plugin...');
-
       // Định nghĩa callback tùy biến để phát hiện ký số thành công
       const customCallback = (responseString: string) => {
         try {
@@ -284,7 +265,6 @@ export const useVGCASign = (options: UseVGCASignOptions = {}) => {
       // Thiết lập timeout bảo vệ tối đa 5 phút nếu tiến trình bị treo ở CONNECTING hoặc treo phần mềm
       safetyTimeout = setTimeout(() => {
         if (!isSuccess) {
-          console.log('[VGCA] Signing process timed out after 5 minutes.');
           setSigning(null);
 
           // Chỉ báo quá hạn khi đã kết nối được tới phần mềm ký số. Nếu chưa mở được
@@ -306,8 +286,6 @@ export const useVGCASign = (options: UseVGCASignOptions = {}) => {
           onTimeout?.();
         }
       }, VGCA_SIGN_TIMEOUT_MS);
-
-      console.log('[VGCA] vgca_sign_issued called successfully, waiting for user to sign...');
     } catch (error) {
       if (safetyTimeout) {
         clearTimeout(safetyTimeout);
@@ -327,12 +305,9 @@ export const useVGCASign = (options: UseVGCASignOptions = {}) => {
     if (activeWs) {
       activeWs.addEventListener('open', () => {
         hasOpened = true;
-        console.log('[VGCA] WebSocket connection opened successfully.');
       });
 
       activeWs.addEventListener('close', () => {
-        console.log('[VGCA] WebSocket connection closed. wasOpened:', hasOpened);
-
         // Xóa safety timeout nếu kết nối đóng bình thường trước 1 phút
         if (safetyTimeout) {
           clearTimeout(safetyTimeout);
@@ -340,7 +315,6 @@ export const useVGCASign = (options: UseVGCASignOptions = {}) => {
 
         setTimeout(() => {
           if (!isSuccess) {
-            console.log('[VGCA] Connection closed without success. Resetting signing state.');
             setSigning(null);
 
             if (!hasOpened) {
