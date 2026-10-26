@@ -15,23 +15,30 @@ import com.auction.AdminConfig;
 import com.auction.gateway.AdminGateway;
 import com.auction.model.RoomInfo;
 import com.auction.model.RoomStatus;
-import com.auction.ui.panels.LogPanel;
+import com.auction.ui.common.RoomSelection;
+import com.auction.ui.common.LogPanel;
+import com.auction.ui.panels.monitoring.metrics.MetricCardsPanel;
+import com.auction.ui.panels.monitoring.rooms.RoomTablePanel;
+import com.auction.ui.panels.monitoring.quick_control.QuickControlPanel;
 
 /**
  * Điều phối các thành phần trên tab Giám sát:
- * lấy dữ liệu phòng từ gateway, đưa vào bảng, đồng bộ khung điều khiển và thẻ chỉ số.
+ * lấy dữ liệu phòng từ gateway, đưa vào bảng, đồng bộ khung điều khiển
+ * và ghi phòng đang chọn vào RoomSelection để tab Điều khiển phiên theo dõi.
  */
 public class MonitoringPanel extends JPanel {
-    private static final int REFRESH_MS = 1000; // Chu kỳ 1 giây theo thiết kế
+    private static final int REFRESH_MS = 1000;
 
     private final AdminGateway gateway;
+    private final RoomSelection selection;
     private final MetricCardsPanel metricCardsPanel;
     private final RoomTablePanel roomTablePanel;
     private final QuickControlPanel quickControlPanel;
     private final Timer refreshTimer;
 
-    public MonitoringPanel(AdminGateway gateway, StyledDocument logDocument) {
+    public MonitoringPanel(AdminGateway gateway, StyledDocument logDocument, RoomSelection selection) {
         this.gateway = gateway;
+        this.selection = selection;
 
         setLayout(new BorderLayout(0, 16));
         setBorder(BorderFactory.createEmptyBorder(16, 20, 16, 20));
@@ -63,7 +70,10 @@ public class MonitoringPanel extends JPanel {
         add(logPanel, BorderLayout.SOUTH);
 
         // Nối các thành phần
-        roomTablePanel.addRoomSelectionListener(quickControlPanel::showRoom);
+        roomTablePanel.addRoomSelectionListener(room -> {
+            selection.select(room.id());
+            quickControlPanel.showRoom(room);
+        });
         quickControlPanel.addRoomPickedListener(this::onRoomPickedFromCombo);
         quickControlPanel.setOnCommandCompleted(this::refreshRooms);
 
@@ -95,11 +105,13 @@ public class MonitoringPanel extends JPanel {
             selected = roomTablePanel.getSelectedRoom();
         }
         if (selected != null) {
+            selection.select(selected.id());
             quickControlPanel.showRoom(selected);
         }
     }
 
     private void onRoomPickedFromCombo(String roomId) {
+        selection.select(roomId);
         roomTablePanel.selectRoom(roomId);
         RoomInfo room = roomTablePanel.findRoom(roomId);
         if (room != null) {

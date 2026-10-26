@@ -1,9 +1,11 @@
-package com.auction.ui;
+package com.auction.ui.common;
 
 import java.awt.Color;
 import java.awt.Font;
 
 import java.util.Locale;
+
+import com.auction.model.RoomStatus;
 
 /*
 
@@ -53,5 +55,15 @@ public final class Theme {
     /** Định dạng tiền VNĐ kiểu 380.000.000. */
     public static String formatVnd(long amount) {
         return String.format(Locale.US, "%,d", amount).replace(',', '.');
+    }
+
+    /** Màu chữ trạng thái phòng, dùng chung cho bảng và tab Điều khiển phiên. */
+    public static Color statusColor(RoomStatus status) {
+        return switch (status) {
+            case ACTIVE -> COLOR_SUCCESS;
+            case EXTENDING, WAITING -> COLOR_PRIMARY;
+            case PAUSED -> COLOR_WARNING;
+            default -> COLOR_MUTED;
+        };
     }
 }

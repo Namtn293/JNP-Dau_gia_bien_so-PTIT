@@ -1,6 +1,6 @@
-package com.auction.ui.panels.monitoring;
+package com.auction.ui.panels.monitoring.quick_control;
 
-import static com.auction.ui.Theme.*;
+import static com.auction.ui.common.Theme.*;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -10,8 +10,8 @@ import java.awt.Font;
 import java.awt.GridLayout;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Consumer;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -33,7 +33,8 @@ import com.auction.AdminConfig;
 import com.auction.gateway.AdminGateway;
 import com.auction.model.CommandResult;
 import com.auction.model.RoomInfo;
-import com.auction.ui.panels.LogPanel;
+import com.auction.ui.common.ButtonStyles;
+import com.auction.ui.common.CommandLogger;
 
 public class QuickControlPanel extends JPanel {
     private final AdminGateway gateway;
@@ -71,7 +72,6 @@ public class QuickControlPanel extends JPanel {
     }
 
     // ===== API cho MonitoringPanel =====
-
     /** Hiển thị thông tin phòng và bật/tắt nút theo trạng thái phòng đó. */
     public void showRoom(RoomInfo room) {
         plateLabel.setText(room.plate());
@@ -120,7 +120,6 @@ public class QuickControlPanel extends JPanel {
     }
 
     // ===== Giao diện =====
-
     private void initializeUI() {
         setLayout(new BorderLayout());
         setBackground(Color.WHITE);
@@ -236,40 +235,22 @@ public class QuickControlPanel extends JPanel {
     }
 
     private JButton createButton(String text, Color bgColor) {
-        JButton button = new JButton(text);
-        button.setFont(FONT_NORMAL.deriveFont(Font.BOLD));
-        button.setForeground(Color.WHITE);
-        button.setBackground(bgColor);
-        button.setOpaque(true);
-        button.setBorderPainted(false);
-        button.setFocusPainted(false);
-        button.setPreferredSize(new Dimension(100, 36));
-        return button;
+        return ButtonStyles.filled(text, bgColor);
     }
 
+
     private JButton createCancelButton(String text) {
-        JButton button = new JButton(text);
-        button.setFont(FONT_NORMAL.deriveFont(Font.BOLD));
-        button.setOpaque(false);
-        button.setContentAreaFilled(false);
-        button.setFocusPainted(false);
-        button.setPreferredSize(new Dimension(100, 36));
-        return button;
+        return ButtonStyles.outline(text);
     }
 
     /** Nút đặc: nền màu khi bật, nền xám khi tắt. */
     private void setButtonEnabled(JButton button, boolean enabled, Color activeColor) {
-        button.setEnabled(enabled);
-        button.setBackground(enabled ? activeColor : COLOR_BORDER);
-        button.setForeground(enabled ? Color.WHITE : COLOR_MUTED);
+        ButtonStyles.setFilled(button, enabled, activeColor);
     }
 
     /** Nút viền: viền và chữ đỏ khi bật, xám khi tắt. */
     private void setCancelEnabled(boolean enabled) {
-        Color color = enabled ? COLOR_DANGER : COLOR_BORDER;
-        cancelButton.setEnabled(enabled);
-        cancelButton.setForeground(enabled ? COLOR_DANGER : COLOR_MUTED);
-        cancelButton.setBorder(BorderFactory.createLineBorder(color, 2));
+        ButtonStyles.setOutline(cancelButton, enabled);
     }
 
     private void refreshKickButton() {
@@ -282,7 +263,6 @@ public class QuickControlPanel extends JPanel {
     }
 
     // ===== Sự kiện =====
-
     private void attachListeners() {
         roomComboBox.addActionListener(e -> {
             if (syncing) {
@@ -352,20 +332,10 @@ public class QuickControlPanel extends JPanel {
      * Mọi cập nhật giao diện đều được chuyển về EDT.
      */
     private void sendCommand(String commandLog, CompletableFuture<CommandResult> future) {
-        LogPanel.appendTo(logDocument, LogPanel.Level.COMMAND, commandLog);
-
-        future.thenAccept(result -> SwingUtilities.invokeLater(() -> {
-            LogPanel.appendTo(logDocument,
-                    result.success() ? LogPanel.Level.SUCCESS : LogPanel.Level.ERROR,
-                    result.message());
+        CommandLogger.dispatch(logDocument, commandLog, future, () -> {
             if (commandCompletedListener != null) {
                 commandCompletedListener.run();
             }
-        })).exceptionally(ex -> {
-            SwingUtilities.invokeLater(() ->
-                    LogPanel.appendTo(logDocument, LogPanel.Level.ERROR,
-                            "Không gửi được lệnh: " + ex.getMessage()));
-            return null;
         });
     }
 }
