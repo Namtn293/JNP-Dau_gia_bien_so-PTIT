@@ -1,13 +1,16 @@
-package com.auction.gateway;
+package com.auction.gateway.mock;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 
 import com.auction.AdminConfig;
+import com.auction.gateway.AdminGateway;
 import com.auction.model.CommandResult;
 import com.auction.model.ConnectionState;
 import com.auction.model.ParticipantInfo;
@@ -17,20 +20,29 @@ import com.auction.model.ServerMetrics;
 
 /**
  * Bản giả lập: giữ trạng thái trong bộ nhớ, trả kết quả sau một khoảng trễ ngắn.
- * Mỗi lần khởi động lại app thì dữ liệu về trạng thái ban đầu.
+ * Số người tham gia mỗi phòng khớp với participantCount của phòng đó.
  */
 public class MockAdminGateway implements AdminGateway {
     private static final long LATENCY_MS = 120;
     private static final String DEMO_ROOM = "AUC-1023";
 
-    private final Map<String, RoomInfo> rooms = new LinkedHashMap<>();
-
-    private final List<ParticipantInfo> participants = List.of(
+    // 5 người đầu của AUC-1023, khớp thiết kế
+    private static final List<ParticipantInfo> DEMO_PARTICIPANTS = List.of(
             new ParticipantInfo("U-0842", "Trần Quốc Huy", ConnectionState.CHECK_NEEDED, 18, 240_000_000L, 112),
             new ParticipantInfo("U-0317", "Lê Hoàng Nam", ConnectionState.CONNECTED, 2, 245_000_000L, 32),
             new ParticipantInfo("U-0521", "Nguyễn Thu Hà", ConnectionState.CONNECTED, 1, 235_000_000L, 32),
             new ParticipantInfo("U-0678", "Phạm Đức Long", ConnectionState.CONNECTED, 1, 225_000_000L, 32),
             new ParticipantInfo("U-0903", "Vũ Minh Phúc", ConnectionState.CONNECTED, 0, 220_000_000L, 326));
+
+    private static final String[] SURNAMES = {
+            "Nguyễn", "Trần", "Lê", "Phạm", "Hoàng", "Vũ", "Đặng", "Bùi"
+    };
+    private static final String[] GIVEN_NAMES = {
+            "An", "Bình", "Châu", "Dũng", "Hà", "Khánh", "Linh", "Minh", "Nam", "Phương", "Quân", "Thảo"
+    };
+
+    private final Map<String, RoomInfo> rooms = new LinkedHashMap<>();
+    private final Map<String, List<ParticipantInfo>> participantsByRoom = new LinkedHashMap<>();
 
     public MockAdminGateway() {
         seed(new RoomInfo("AUC-1021", "51L - 888.88", "TP.HCM", RoomStatus.ACTIVE, 68, 380_000_000L, "04:52", 32));
@@ -45,6 +57,36 @@ public class MockAdminGateway implements AdminGateway {
 
     private void seed(RoomInfo room) {
         rooms.put(room.id(), room);
+        participantsByRoom.put(room.id(), buildParticipants(room.id(), room.participantCount()));
+    }
+
+    /** Sinh đúng {@code count} người. Seed theo mã phòng nên mỗi lần chạy ra cùng danh sách. */
+    private static List<ParticipantInfo> buildParticipants(String roomId, int count) {
+        if (count <= 0) {
+            return List.of();
+        }
+
+        List<ParticipantInfo> list = new ArrayList<>();
+        if (DEMO_ROOM.equals(roomId)) {
+            list.addAll(DEMO_PARTICIPANTS);
+        }
+
+        Random random = new Random(roomId.hashCode());
+        for (int i = list.size(); i < count; i++) {
+            // U-1000 trở lên, không trùng với 5 ID mẫu
+            String userId = String.format("U-%04d", 1000 + i);
+            String fullName = SURNAMES[random.nextInt(SURNAMES.length)] + " "
+                    + GIVEN_NAMES[random.nextInt(GIVEN_NAMES.length)];
+            ConnectionState connection = random.nextInt(10) == 0
+                    ? ConnectionState.CHECK_NEEDED
+                    : ConnectionState.CONNECTED;
+            // Phần lớn người chơi đặt ít, thỉnh thoảng có người spam để demo cảnh báo
+            int bids = random.nextInt(10) == 0 ? 6 + random.nextInt(8) : random.nextInt(3);
+            long price = AdminConfig.START_PRICE_VND + AdminConfig.BID_STEP_VND * random.nextInt(42);
+            int rtt = random.nextInt(8) == 0 ? 112 + random.nextInt(200) : 32;
+            list.add(new ParticipantInfo(userId, fullName, connection, bids, price, rtt));
+        }
+        return List.copyOf(list);
     }
 
     // ===== Truy vấn =====
@@ -55,7 +97,7 @@ public class MockAdminGateway implements AdminGateway {
 
     @Override
     public CompletableFuture<List<ParticipantInfo>> fetchParticipants(String roomId) {
-        return delayed(() -> DEMO_ROOM.equals(roomId) ? participants : List.of());
+        return delayed(() -> participantsOf(roomId));
     }
 
     @Override
@@ -121,10 +163,12 @@ public class MockAdminGateway implements AdminGateway {
                 + " giây; đếm ngược " + newRemaining + ".");
     }
 
-    private CommandResult doKick(String userId, String roomId) {
-        // Mock: chỉ kiểm tra tài khoản có trong danh sách mẫu
-        boolean exists = participants.stream().anyMatch(p -> p.userId().equals(userId));
-        if (!exists) {
+    private synchronized CommandResult doKick(String userId, String roomId) {
+        if (!rooms.containsKey(roomId)) {
+            return CommandResult.fail("Không tìm thấy phòng " + roomId);
+        }
+        boolean inRoom = participantsOf(roomId).stream().anyMatch(p -> p.userId().equals(userId));
+        if (!inRoom) {
             return CommandResult.fail("Không tìm thấy tài khoản " + userId + " trong " + roomId);
         }
         return CommandResult.ok("Đã ngắt kết nối WebSocket của " + userId + " khỏi " + roomId + ".");
@@ -143,9 +187,12 @@ public class MockAdminGateway implements AdminGateway {
     }
 
     // ===== Tiện ích =====
-
     private synchronized List<RoomInfo> snapshotRooms() {
         return List.copyOf(rooms.values());
+    }
+
+    private synchronized List<ParticipantInfo> participantsOf(String roomId) {
+        return participantsByRoom.getOrDefault(roomId, List.of());
     }
 
     /** Cộng thêm số giây vào nhãn dạng mm:ss, ví dụ 02:18 + 30 = 02:48. */
