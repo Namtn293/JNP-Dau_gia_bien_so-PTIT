@@ -1,23 +1,8 @@
-# Dependencies
-node_modules/
-**/node_modules/
+# Maven build output
+target/
 
-# Build outputs
-dist/
-build/
-
-# Environment files
-.env
-.env.local
-.env.*.local
-
-# Logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# OS metadata
+# IDE
+.idea/
+*.iml
+.vscode/
 .DS_Store
-Thumbs.db
-

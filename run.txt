@@ -1,0 +1,59 @@
+HUONG DAN CHAY UDP -> CORE -> ADMIN
+==================================
+
+Dieu kien:
+- Mo 3 terminal rieng, tat ca bat dau tu thu muc goc repository.
+- Da cai Maven va JDK 27; kiem tra bang `java -version`.
+- Database Neon da duoc cau hinh. Khong ghi password Neon vao file nay.
+- Cac service chay tren cung may, dung dia chi 127.0.0.1.
+
+1. Terminal 1 - UDP Server
+--------------------------
+
+cd source/server/udp-server
+mvn exec:java -Dexec.mainClass=com.auction.udp.UdpMetricsServerApp
+
+Giu terminal nay mo. UDP Server nhan metrics tu Core tren UDP 9001,
+gui metrics toi Admin tren UDP 8888, va nhan ping tu Admin tren UDP 9002.
+
+2. Terminal 2 - Auction Core Service
+------------------------------------
+
+cd source/server/auction-core-service
+
+# Nhap password Neon tai dau nhac an; khong hien thi tren man hinh.
+read -rs "DB_PASSWORD?Nhap password Neon: "
+printf '\n'
+export DB_PASSWORD
+
+export UDP_METRICS_ENABLED=true
+export UDP_METRICS_HOST=127.0.0.1
+export UDP_METRICS_PORT=9001
+
+./mvnw spring-boot:run
+
+Giu terminal nay mo. Core can ket noi Neon thanh cong truoc khi gui metrics.
+Neu thay "password authentication failed", kiem tra/reset password cua role
+neondb_owner trong Neon Console va chay lai voi password moi.
+
+3. Terminal 3 - Admin Console
+-----------------------------
+
+cd source/server/admin-console
+mvn package
+java -jar target/admin-console-1.0.0-jar-with-dependencies.jar
+
+Trong giao dien, mo tab "Giam sat dau gia".
+
+Kiem tra ket noi:
+- UDP Server: log co METRICS seq=... tu Core da luu.
+- Core: log bao gui METRICS toi /127.0.0.1:9001; neu khong thay, kiem tra
+  UDP_METRICS_ENABLED=true va ket noi Neon.
+- Admin: metrics va RTT xuat hien trong tab giam sat. Admin nhan metrics o
+  UDP 8888 va ping UDP Server o UDP 9002.
+
+Neu Maven bao khong tim thay, kiem tra da cd vao dung module. Neu loi class
+version, chuyen JAVA_HOME/PATH sang JDK 27 roi mo terminal moi.
+
+Luu y: cac lenh dieu khien phien trong Admin hien chua duoc ket noi voi raw
+TCP cua Core; file nay chi huong dan test luong UDP metrics va RTT.

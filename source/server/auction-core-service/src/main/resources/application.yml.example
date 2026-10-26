@@ -1,0 +1,26 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: auction-core-service
+
+  datasource:
+    url: "${DB_URL:jdbc:postgresql://ep-little-snow-a13y3z11-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channelBinding=require}"
+    username: ${DB_USERNAME:neondb_owner}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    show-sql: false
+
+  sql:
+    init:
+      mode: never
+
+tcp:
+  control:
+    port: 9090
