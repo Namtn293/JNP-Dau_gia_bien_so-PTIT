@@ -19,13 +19,15 @@ public class AuctionSessionVO {
     private String plateNumber;
     private String provinceName;
     private String plateType;
-    private Long price;
-    private String sessionStatus;
+    private Long price;             // giữ nguyên: startPrice
+    private String sessionStatus;   // giữ nguyên: mô tả tiếng Việt
     private String startTime;
     private String endTime;
     private Long stepPrice;
     private Long participantCount;
     private Long endPrice;
+    private String statusCode;      // mới: tên enum SOON | LIVE | END
+    private Long currentPrice;      // mới: giá hiện tại
 
     public AuctionSessionVO(
             String plateNumber,
@@ -37,7 +39,8 @@ public class AuctionSessionVO {
             LocalDateTime endTime,
             Long stepPrice,
             Long participantCount,
-            Long endPrice
+            Long endPrice,
+            Long currentPrice
     ) {
         this.plateNumber = plateNumber;
         this.provinceName = provinceName;
@@ -49,5 +52,7 @@ public class AuctionSessionVO {
         this.stepPrice = stepPrice;
         this.participantCount = participantCount;
         this.endPrice = endPrice;
+        this.statusCode = sessionStatus != null ? sessionStatus.name() : null;
+        this.currentPrice = currentPrice;
     }
 }
