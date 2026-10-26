@@ -1,6 +1,6 @@
-package com.auction.ui.panels;
+package com.auction.ui.common;
 
-import static com.auction.ui.Theme.*;
+import static com.auction.ui.common.Theme.*;
 
 import java.awt.BorderLayout;
 import java.awt.Color;

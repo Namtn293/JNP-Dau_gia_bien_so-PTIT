@@ -1,6 +1,6 @@
-package com.auction.ui.panels.monitoring;
+package com.auction.ui.panels.monitoring.metrics;
 
-import static com.auction.ui.Theme.*;
+import static com.auction.ui.common.Theme.*;
 
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
@@ -44,7 +44,6 @@ import com.auction.model.ServerMetrics;
 public class MetricCardsPanel extends JPanel {
     private static final int HISTORY_SECONDS = 60;
     private static final int REFRESH_MS = 1000;
-    private static final double GB = 1024.0 * 1024.0 * 1024.0;
 
     private final AdminGateway gateway;
 
@@ -68,9 +67,6 @@ public class MetricCardsPanel extends JPanel {
     private JProgressBar cpuProgressBar;
     private JProgressBar ramProgressBar;
 
-    private int totalRooms;
-    private int activeRooms;
-
     public MetricCardsPanel(AdminGateway gateway) {
         this.gateway = gateway;
 
@@ -91,13 +87,10 @@ public class MetricCardsPanel extends JPanel {
 
     /** Cập nhật số phòng trong thẻ hoạt động, do MonitoringPanel gọi mỗi khi có danh sách phòng mới. */
     public void setRoomSummary(int totalRooms, int activeRooms) {
-        this.totalRooms = totalRooms;
-        this.activeRooms = activeRooms;
         activityCaptionLabel.setText(totalRooms + " phòng • " + activeRooms + " phiên đang nhận giá");
     }
 
     // ===== Lấy dữ liệu =====
-
     /** Chạy trên EDT. Kết quả trả về được đưa lại EDT trước khi cập nhật giao diện. */
     private void refreshMetrics() {
         if (fetching) {
@@ -186,7 +179,6 @@ public class MetricCardsPanel extends JPanel {
     }
 
     // ===== Xây dựng giao diện =====
-
     private JPanel createCardBase() {
         JPanel card = new JPanel();
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
@@ -408,7 +400,6 @@ public class MetricCardsPanel extends JPanel {
     }
 
     // ===== Biểu đồ JFreeChart =====
-
     private ChartPanel createChartPanel(TimeSeries series, Color lineColor, double maxY) {
         TimeSeriesCollection dataset = new TimeSeriesCollection(series);
         JFreeChart chart = ChartFactory.createTimeSeriesChart(null, null, null, dataset, false, false, false);
