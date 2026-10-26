@@ -57,10 +57,8 @@ const Header: React.FC<IHeader> = ({ sidebarCollapsed }) => {
   const handleUserMenuClick: MenuProps['onClick'] = ({ key }) => {
     switch (key) {
       case 'profile':
-        console.log('Navigate to profile');
         break;
       case 'settings':
-        console.log('Navigate to settings');
         break;
       case 'logout':
         handleLogOut();

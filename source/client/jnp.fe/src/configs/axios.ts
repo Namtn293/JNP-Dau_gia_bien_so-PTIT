@@ -48,7 +48,7 @@ const handleResponse = (response: AxiosResponse) => {
 
 
 const handleResponseError = async (error: AxiosError<IResponse<any>>) => {
-  console.log('Request error: ', { error });
+  console.error('Request error: ', error);
 
   const originalRequest = error.config as IOriginRequest;
 

@@ -79,7 +79,7 @@ export const handleRefreshToken = async (originalRequest: IOriginRequest) => {
           isRefreshing = false;
         })
         .catch((err:any) => {
-          console.log('refresh token err: ', err);
+          console.error('refresh token err: ', err);
           tokenManager.removeAccessToken();
           tokenManager.removeRefreshToken();
           window.location.href = ADMIN_LOGIN_ROUTE;

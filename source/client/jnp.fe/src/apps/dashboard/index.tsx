@@ -33,9 +33,11 @@ import BidModal from "./components/BidModal";
 // Hooks & utils
 import { useAuctionData } from "./hooks/useAuctionData";
 import { PROVINCES_LIST, PLATE_TYPES_LIST } from "./utils/constants";
-import type { AuctionStatus } from "./services/type";
+import { useNavigate } from "@tanstack/react-router";
+import type { AuctionItem, AuctionStatus } from "./services/type";
 
 export const DashboardPage: React.FC = () => {
+  const navigate = useNavigate();
   const {
     currentUser,
     data,
@@ -62,6 +64,13 @@ export const DashboardPage: React.FC = () => {
     placeBid,
     socketStatus,
   } = useAuctionData();
+
+  const handleEnterRoom = (item: AuctionItem) => {
+    navigate({
+      to: `/phong-dau-gia/${item.p}` as any,
+    });
+  };
+
 
   const tabOptions: { key: AuctionStatus; label: string }[] = [
     { key: "live", label: "Đang diễn ra" },
@@ -177,7 +186,7 @@ export const DashboardPage: React.FC = () => {
               <AuctionCardItem
                 key={item.p}
                 item={item}
-                onOpenBid={setSelectedPlate}
+                onOpenBid={handleEnterRoom}
               />
             ))}
           </CardsGrid>
@@ -186,14 +195,14 @@ export const DashboardPage: React.FC = () => {
         {viewMode === "table" && (
           <AuctionTableItem
             items={pagedList}
-            onOpenBid={setSelectedPlate}
+            onOpenBid={handleEnterRoom}
           />
         )}
 
         {viewMode === "board" && (
           <AuctionBoardItem
             data={data}
-            onOpenBid={setSelectedPlate}
+            onOpenBid={handleEnterRoom}
           />
         )}
 

@@ -37,13 +37,10 @@ const NotificationItem: React.FC<Props> = ({ item, onMarkRead, onNavigate }) => 
     if (canNavigate) {
       await onNavigate(item);
     } else {
-      console.log("adasdasdas");
       notification.error({
         message: "Đã xem,chưa có thiết lập",
       });
     }
-
-    console.log("check navigate>>>", canNavigate);
   };
 
   const isDauGia = nghiepVu === "DAU_GIA";
