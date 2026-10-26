@@ -25,6 +25,8 @@ pnpm-debug.log*
 # IDE and Editor files
 .idea/
 .vscode/
+.github/
+.ai/
 
 # OS metadata
 .DS_Store
