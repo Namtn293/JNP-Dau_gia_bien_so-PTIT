@@ -10,21 +10,35 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-
 import java.util.Optional;
 
 @Repository
 public interface AuctionSessionRepository extends JpaRepository<AuctionSession, Long> {
 
-    Optional<AuctionSession> findBySessionCode(String sessionCode);
-
     Optional<AuctionSession> findFirstByNumberPlateId(Long numberPlateId);
 
-    @Query(value = "select new com.ptit.bigdata.coreservice.model.vo.AuctionSessionVO(n.plateNumber, p.name, n.plateType, coalesce(a.currentPrice, a.startPrice), a.status, a.startTime, a.endTime, a.stepPrice, a.participantCount, a.endPrice) " +
+    Optional<AuctionSession> findBySessionCode(String sessionCode);
+
+    @Query(value = "select new com.ptit.bigdata.coreservice.model.vo.AuctionSessionVO(n.plateNumber, p.name, n.plateType, a.startPrice, a.status, a.startTime, a.endTime, a.stepPrice, a.participantCount, a.endPrice, a.currentPrice) "
+            +
             "from AuctionSession a " +
             "join NumberPlate n on a.numberPlateId = n.id " +
             "join Province p on n.provinceId = p.id " +
-            "where a.status = :sessionStatus",
-            countQuery = "select count(a) from AuctionSession a where a.status = :sessionStatus")
-    Page<AuctionSessionVO> getAuctionSession(Pageable pageable, @Param("sessionStatus") AuctionStatusEnum sessionStatus);
+            "where a.status = :sessionStatus", countQuery = "select count(a) from AuctionSession a where a.status = :sessionStatus")
+    Page<AuctionSessionVO> getAuctionSession(Pageable pageable,
+            @Param("sessionStatus") AuctionStatusEnum sessionStatus);
+
+    /**
+     * Tổng số người tham gia của các phiên đang ở trạng thái cho trước (dùng cho
+     * METRICS.online).
+     */
+    @Query("select coalesce(sum(a.participantCount), 0L) from AuctionSession a where a.status = :status")
+    Long sumParticipantsByStatus(@Param("status") AuctionStatusEnum status);
+
+    /**
+     * Tổng số lượt đặt giá của mọi phiên (dùng cho METRICS.bps, cần chênh lệch theo
+     * thời gian).
+     */
+    @Query("select coalesce(sum(a.bidCount), 0L) from AuctionSession a")
+    Long sumBidCount();
 }

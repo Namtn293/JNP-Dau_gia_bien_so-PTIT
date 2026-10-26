@@ -7,7 +7,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
 import java.time.LocalDateTime;
 
 @Builder
@@ -18,7 +17,7 @@ import java.time.LocalDateTime;
 public class AuctionSessionVO {
     private String plateNumber;
     private String provinceName;
-    private PlateTypeEnum plateType;
+    private String plateType;
     private Long price;
     private String sessionStatus;
     private String startTime;
@@ -26,6 +25,8 @@ public class AuctionSessionVO {
     private Long stepPrice;
     private Long participantCount;
     private Long endPrice;
+    private String statusCode; // mới: tên enum SOON | LIVE | END
+    private Long currentPrice; // mới: giá hiện tại
 
     public AuctionSessionVO(
             String plateNumber,
@@ -37,11 +38,11 @@ public class AuctionSessionVO {
             LocalDateTime endTime,
             Long stepPrice,
             Long participantCount,
-            Long endPrice
-    ) {
+            Long endPrice,
+            Long currentPrice) {
         this.plateNumber = plateNumber;
         this.provinceName = provinceName;
-        this.plateType = plateType;
+        this.plateType = plateType != null ? plateType.getDescription() : null;
         this.price = price;
         this.sessionStatus = sessionStatus != null ? sessionStatus.getDescription() : null;
         this.startTime = startTime != null ? startTime.toString() : null;
@@ -49,5 +50,7 @@ public class AuctionSessionVO {
         this.stepPrice = stepPrice;
         this.participantCount = participantCount;
         this.endPrice = endPrice;
+        this.statusCode = sessionStatus != null ? sessionStatus.name() : null;
+        this.currentPrice = currentPrice;
     }
 }
