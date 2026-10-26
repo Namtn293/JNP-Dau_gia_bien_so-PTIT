@@ -25,6 +25,29 @@ Server chịu trách nhiệm:
 
 ## 🚀 HƯỚNG DẪN CHẠY
 
+### Kết nối Neon cho `auction-core-service`
+
+Tạo file cấu hình từ mẫu trong thư mục module:
+
+```bash
+cd source/server/auction-core-service
+cp src/main/resources/application.yml.example src/main/resources/application.yml
+```
+
+Đặt mật khẩu Neon trong biến môi trường (không ghi mật khẩu vào file cấu hình hoặc commit lên Git):
+
+```bash
+export DB_PASSWORD='MAT_KHAU_NEON_MOI'
+```
+
+`DB_USERNAME` mặc định là `neondb_owner`. Có thể đặt `DB_USERNAME` hoặc `DB_URL` nếu cần ghi đè giá trị mặc định. URL mặc định đã bật `sslmode=require` và `channelBinding=require`.
+
+Khởi động service từ thư mục `auction-core-service`:
+
+```bash
+./mvnw spring-boot:run
+```
+
 ### Cài đặt
 ```bash
 # Ví dụ với Python
