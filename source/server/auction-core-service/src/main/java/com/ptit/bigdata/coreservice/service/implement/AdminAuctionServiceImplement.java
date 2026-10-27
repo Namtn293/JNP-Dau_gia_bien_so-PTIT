@@ -49,7 +49,7 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
     public List<AdminRoomVO> getRooms() {
         List<AuctionSession> sessions = auctionSessionRepository.findAll();
         if (sessions.isEmpty()) {
-            return getDefaultMockRooms();
+            return List.of();
         }
 
         List<AdminRoomVO> result = new ArrayList<>();
@@ -101,7 +101,8 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
     public List<AdminParticipantVO> getParticipants(String roomId) {
         Optional<AuctionSession> sessionOpt = auctionSessionRepository.findBySessionCode(roomId);
         if (sessionOpt.isPresent()) {
-            List<BidHistory> bids = bidHistoryRepository.findByAuctionSessionIdOrderByBidTimeDesc(sessionOpt.get().getId());
+            List<BidHistory> bids = bidHistoryRepository
+                    .findByAuctionSessionIdOrderByBidTimeDesc(sessionOpt.get().getId());
             if (!bids.isEmpty()) {
                 Map<Long, List<BidHistory>> userBids = new LinkedHashMap<>();
                 for (BidHistory b : bids) {
@@ -130,13 +131,7 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
         }
 
         // Fallback default participants for demo if no specific DB bids yet
-        return List.of(
-                new AdminParticipantVO("U-0842", "Trần Quốc Huy", "CHECK_NEEDED", 18, 240_000_000L, 112),
-                new AdminParticipantVO("U-0317", "Lê Hoàng Nam", "CONNECTED", 2, 245_000_000L, 32),
-                new AdminParticipantVO("U-0521", "Nguyễn Thu Hà", "CONNECTED", 1, 235_000_000L, 32),
-                new AdminParticipantVO("U-0678", "Phạm Đức Long", "CONNECTED", 1, 225_000_000L, 32),
-                new AdminParticipantVO("U-0903", "Vũ Minh Phúc", "CONNECTED", 0, 220_000_000L, 326)
-        );
+        return List.of();
     }
 
     @Override
@@ -147,8 +142,8 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
         double ramTotalGb = 16.0;
 
         try {
-            com.sun.management.OperatingSystemMXBean osBean =
-                    (com.sun.management.OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
+            com.sun.management.OperatingSystemMXBean osBean = (com.sun.management.OperatingSystemMXBean) ManagementFactory
+                    .getOperatingSystemMXBean();
             double cpuLoad = osBean.getCpuLoad();
             if (cpuLoad >= 0) {
                 cpuPercent = Math.round(cpuLoad * 1000.0) / 10.0;
@@ -166,7 +161,8 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
                 .filter(s -> s.getStatus() == AuctionStatusEnum.LIVE)
                 .mapToLong(s -> s.getParticipantCount() != null ? s.getParticipantCount() : 0L)
                 .sum();
-        if (online == 0) online = 251;
+        if (online == 0)
+            online = 251;
 
         return AdminServerMetricsVO.builder()
                 .cpuPercent(cpuPercent)
@@ -186,7 +182,8 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
         if (messagingTemplate != null) {
             String time = DateTimeFormatter.ofPattern("HH:mm:ss").format(LocalTime.now());
             messagingTemplate.convertAndSend("/topic/room/" + roomId,
-                    new RoomEventVO(roomId, "HALT", "Phiên đấu giá đã bị tạm dừng khẩn cấp bởi quản trị viên.", null, time));
+                    new RoomEventVO(roomId, "HALT", "Phiên đấu giá đã bị tạm dừng khẩn cấp bởi quản trị viên.", null,
+                            time));
         }
         return AdminCommandResultVO.ok("Đã tạm dừng phiên " + roomId + ". Đóng băng đồng hồ và khóa lệnh đặt giá.");
     }
@@ -212,7 +209,8 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
         if (messagingTemplate != null) {
             String time = DateTimeFormatter.ofPattern("HH:mm:ss").format(LocalTime.now());
             messagingTemplate.convertAndSend("/topic/room/" + roomId,
-                    new RoomEventVO(roomId, "RESUME", "Phiên đấu giá đã được tiếp tục. Đồng hồ đếm ngược cộng thêm 30 giây.", null, time));
+                    new RoomEventVO(roomId, "RESUME",
+                            "Phiên đấu giá đã được tiếp tục. Đồng hồ đếm ngược cộng thêm 30 giây.", null, time));
         }
         return AdminCommandResultVO.ok("Đã tiếp tục phiên " + roomId + ". Đồng hồ đếm ngược đã cộng thêm 30 giây.");
     }
@@ -223,9 +221,11 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
         if (messagingTemplate != null) {
             String time = DateTimeFormatter.ofPattern("HH:mm:ss").format(LocalTime.now());
             messagingTemplate.convertAndSend("/topic/room/" + roomId,
-                    new RoomEventVO(roomId, "KICK", "Tài khoản " + userId + " đã bị ngắt kết nối khỏi phòng.", null, time));
+                    new RoomEventVO(roomId, "KICK", "Tài khoản " + userId + " đã bị ngắt kết nối khỏi phòng.", null,
+                            time));
         }
-        return AdminCommandResultVO.ok("Đã cưỡng chế ngắt kết nối WebSocket của tài khoản " + userId + " ra khỏi phòng " + roomId);
+        return AdminCommandResultVO
+                .ok("Đã cưỡng chế ngắt kết nối WebSocket của tài khoản " + userId + " ra khỏi phòng " + roomId);
     }
 
     @Override
@@ -241,7 +241,8 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
         if (messagingTemplate != null) {
             String time = DateTimeFormatter.ofPattern("HH:mm:ss").format(LocalTime.now());
             messagingTemplate.convertAndSend("/topic/room/" + roomId,
-                    new RoomEventVO(roomId, "CANCEL", "Phiên đấu giá đã bị hủy. Quy trình hoàn cọc 100% đã được kích hoạt.", null, time));
+                    new RoomEventVO(roomId, "CANCEL",
+                            "Phiên đấu giá đã bị hủy. Quy trình hoàn cọc 100% đã được kích hoạt.", null, time));
         }
         return AdminCommandResultVO.ok("Đã hủy phiên " + roomId + ". Đã kích hoạt hoàn trả 100% tiền cọc.");
     }
@@ -298,7 +299,8 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
     }
 
     private String extractPlateFromTitle(String title) {
-        if (title == null) return "Chưa cập nhật";
+        if (title == null)
+            return "Chưa cập nhật";
         // Try to extract pattern like 30K-999.99
         int idx = title.indexOf("biển số xe ô tô ");
         if (idx != -1) {
@@ -317,9 +319,9 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
                 new AdminRoomVO("AUC-1023", "30K - 999.99", "Hà Nội", "PAUSED", 42, 245_000_000L, "02:18", 32),
                 new AdminRoomVO("AUC-1024", "30L - 686.86", "Hà Nội", "ACTIVE", 51, 120_000_000L, "07:36", 326),
                 new AdminRoomVO("AUC-1025", "51M - 123.45", "TP.HCM", "WAITING", 29, 40_000_000L, "Chưa bắt đầu", 32),
-                new AdminRoomVO("AUC-1026", "43B - 888.89", "Đà Nẵng", "SCHEDULED", 0, 40_000_000L, "15:00 hôm nay", 32),
+                new AdminRoomVO("AUC-1026", "43B - 888.89", "Đà Nẵng", "SCHEDULED", 0, 40_000_000L, "15:00 hôm nay",
+                        32),
                 new AdminRoomVO("AUC-1019", "30K - 567.89", "Hà Nội", "CLOSED", 12, 210_000_000L, "00:00", 32),
-                new AdminRoomVO("AUC-1018", "51L - 666.68", "TP.HCM", "SETTLED", 11, 195_000_000L, "00:00", 32)
-        );
+                new AdminRoomVO("AUC-1018", "51L - 666.68", "TP.HCM", "SETTLED", 11, 195_000_000L, "00:00", 32));
     }
 }

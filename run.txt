@@ -1,10 +1,12 @@
-HUONG DAN CHAY UDP -> CORE -> ADMIN
+HUONG DAN CHAY UDP -> CORE -> ADMIN -> CLIENT
 ==================================
 
 Dieu kien:
 - Mo 3 terminal rieng, tat ca bat dau tu thu muc goc repository.
+- Mo them terminal thu tu tu de chay client.
 - Da cai Maven va JDK 27; kiem tra bang `java -version`.
-- Database Neon da duoc cau hinh. Khong ghi password Neon vao file nay.
+- Da cai Node.js va dependencies cua client (`cd source/client/jnp.fe && npm install`).
+- Database Neon da duoc cau hinh trong `source/server/auction-core-service/src/main/resources/application.yml`.
 - Cac service chay tren cung may, dung dia chi 127.0.0.1.
 
 1. Terminal 1 - UDP Server
@@ -20,21 +22,11 @@ gui metrics toi Admin tren UDP 8888, va nhan ping tu Admin tren UDP 9002.
 ------------------------------------
 
 cd source/server/auction-core-service
-
-# Nhap password Neon tai dau nhac an; khong hien thi tren man hinh.
-read -rs "DB_PASSWORD?Nhap password Neon: "
-printf '\n'
-export DB_PASSWORD
-
-export UDP_METRICS_ENABLED=true
-export UDP_METRICS_HOST=127.0.0.1
-export UDP_METRICS_PORT=9001
-
 ./mvnw spring-boot:run
 
 Giu terminal nay mo. Core can ket noi Neon thanh cong truoc khi gui metrics.
-Neu thay "password authentication failed", kiem tra/reset password cua role
-neondb_owner trong Neon Console va chay lai voi password moi.
+Neu thay "password authentication failed", cap nhat password cua role
+neondb_owner trong `application.yml`.
 
 3. Terminal 3 - Admin Console
 -----------------------------
@@ -44,6 +36,15 @@ mvn package
 java -jar target/admin-console-1.0.0-jar-with-dependencies.jar
 
 Trong giao dien, mo tab "Giam sat dau gia".
+
+4. Terminal 4 - Client
+----------------------
+
+cd source/client/jnp.fe
+npm run dev
+
+Mo dia chi local do Vite in ra trong terminal (mac dinh `http://localhost:5173`).
+Client da doc API URL `http://localhost:8080` tu `.env.development`.
 
 Kiem tra ket noi:
 - UDP Server: log co METRICS seq=... tu Core da luu.

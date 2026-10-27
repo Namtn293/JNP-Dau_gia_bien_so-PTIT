@@ -25,28 +25,17 @@ Server chịu trách nhiệm:
 
 ## 🚀 HƯỚNG DẪN CHẠY
 
-### Kết nối Neon cho `auction-core-service`
+### Khởi chạy toàn bộ server
 
-Tạo file cấu hình từ mẫu trong thư mục module:
-
-```bash
-cd source/server/auction-core-service
-cp src/main/resources/application.yml.example src/main/resources/application.yml
-```
-
-Đặt mật khẩu Neon trong biến môi trường (không ghi mật khẩu vào file cấu hình hoặc commit lên Git):
+Từ thư mục gốc repository, mở ba terminal và chạy mỗi lệnh một terminal:
 
 ```bash
-export DB_PASSWORD='MAT_KHAU_NEON_MOI'
+./run-udp.sh
+./run-core.sh
+./run-admin.sh
 ```
 
-`DB_USERNAME` mặc định là `neondb_owner`. Có thể đặt `DB_USERNAME` hoặc `DB_URL` nếu cần ghi đè giá trị mặc định. URL mặc định đã bật `sslmode=require` và `channelBinding=require`.
-
-Khởi động service từ thư mục `auction-core-service`:
-
-```bash
-./mvnw spring-boot:run
-```
+Các giá trị DB và UDP mặc định được đọc từ `auction-core-service/src/main/resources/application.yml`; không cần nạp biến môi trường hay tạo file cấu hình phụ. Cần có JDK 27 và Maven cài sẵn. Thư mục gốc đã có `run-udp.sh`, `run-core.sh`, `run-admin.sh` thì dùng được trực tiếp; nếu không, chạy lệnh Maven/Java ở từng module như `run.txt`.
 
 ### Cài đặt
 ```bash

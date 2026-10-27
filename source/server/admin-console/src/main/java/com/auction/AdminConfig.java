@@ -58,4 +58,18 @@ public final class AdminConfig {
         String v = System.getenv(name);
         return (v == null || v.isBlank()) ? defaultValue : Integer.parseInt(v.trim());
     }
+
+    // ===== Kết nối tới auction-core-service (dữ liệu thật) =====
+    /** core (mặc định): lấy từ core. mock: dùng dữ liệu giả để demo. */
+    public static final String DATA_SOURCE = envString("ADMIN_DATA_SOURCE", "core");
+    public static final String CORE_BASE_URL = envString("CORE_BASE_URL", "http://localhost:8080");
+    public static final String CORE_TCP_HOST = envString("CORE_TCP_HOST", "localhost");
+    public static final int CORE_TCP_PORT = Integer.parseInt(envString("CORE_TCP_PORT", "9090"));
+    public static final String CORE_ADMIN_USER = envString("CORE_ADMIN_USER", "");
+    public static final String CORE_ADMIN_PASSWORD = envString("CORE_ADMIN_PASSWORD", "");
+
+    private static String envString(String name, String defaultValue) {
+        String v = System.getenv(name);
+        return (v == null || v.isBlank()) ? defaultValue : v.trim();
+    }
 }

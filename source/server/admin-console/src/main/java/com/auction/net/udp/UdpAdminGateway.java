@@ -11,32 +11,37 @@ import org.slf4j.LoggerFactory;
 
 import com.auction.AdminConfig;
 import com.auction.gateway.AdminGateway;
-import com.auction.gateway.mock.MockAdminGateway;
 import com.auction.model.CommandResult;
 import com.auction.model.ParticipantInfo;
 import com.auction.model.RoomInfo;
 import com.auction.model.ServerMetrics;
 
 /**
- * Gateway dùng số liệu thật từ UDP: CPU, RAM, người trực tuyến từ METRICS; RTT từ PingProbe.
- * Cảnh báo (ALERT từ server và cảnh báo RTT do admin tự phát hiện) được gửi tới AlertListener.
- * Danh sách phòng và các lệnh điều khiển vẫn đi qua MockAdminGateway cho tới khi có TCP 9090.
+ * Gateway dùng số liệu thật từ UDP: CPU, RAM, người trực tuyến từ METRICS; RTT
+ * từ PingProbe.
+ * Cảnh báo (ALERT từ server và cảnh báo RTT do admin tự phát hiện) được gửi tới
+ * AlertListener.
+ * Danh sách phòng và các lệnh điều khiển vẫn đi qua MockAdminGateway cho tới
+ * khi có TCP 9090.
  */
 public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(UdpAdminGateway.class);
 
-    /** Nhận cảnh báo. Gọi trên luồng nền, cần invokeLater khi cập nhật giao diện. */
+    /**
+     * Nhận cảnh báo. Gọi trên luồng nền, cần invokeLater khi cập nhật giao diện.
+     */
     public interface AlertListener {
         /** level: CRITICAL, WARNING hoặc RESOLVED. metric: cpu, ram, core hoặc rtt. */
         void onAlert(String level, String metric, double value, double threshold);
     }
 
-    private record Snapshot(ServerMetrics metrics, long receivedAt) { }
+    private record Snapshot(ServerMetrics metrics, long receivedAt) {
+    }
 
-    private final AdminGateway mock = new MockAdminGateway();
+    private final AdminGateway delegate;
     private final List<AlertListener> alertListeners = new CopyOnWriteArrayList<>();
-    private final RttMonitor rttMonitor =
-            new RttMonitor(AdminConfig.RTT_WARN_MS, AdminConfig.RTT_CRIT_MS, this::publish);
+    private final RttMonitor rttMonitor = new RttMonitor(AdminConfig.RTT_WARN_MS, AdminConfig.RTT_CRIT_MS,
+            this::publish);
 
     private final UdpMetricsListener metricsListener;
     private final PingProbe pingProbe;
@@ -45,7 +50,9 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
     private volatile int rttMs;
     private volatile long rttAt;
 
-    public UdpAdminGateway() {
+    public UdpAdminGateway(AdminGateway delegate) {
+        this.delegate = delegate;
+
         try {
             metricsListener = new UdpMetricsListener(AdminConfig.UDP_PORT, new UdpMetricsListener.Listener() {
                 @Override
@@ -95,7 +102,8 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
     }
 
     /**
-     * Gộp METRICS mới nhất với RTT mới nhất. Nếu một trong hai đã quá hạn thì báo lỗi,
+     * Gộp METRICS mới nhất với RTT mới nhất. Nếu một trong hai đã quá hạn thì báo
+     * lỗi,
      * giao diện sẽ hiển thị "—" như khi mất kết nối.
      */
     @Override
@@ -127,32 +135,32 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
 
     @Override
     public CompletableFuture<List<RoomInfo>> fetchRooms() {
-        return mock.fetchRooms();
+        return delegate.fetchRooms();
     }
 
     @Override
     public CompletableFuture<List<ParticipantInfo>> fetchParticipants(String roomId) {
-        return mock.fetchParticipants(roomId);
+        return delegate.fetchParticipants(roomId);
     }
 
     @Override
     public CompletableFuture<CommandResult> halt(String roomId) {
-        return mock.halt(roomId);
+        return delegate.halt(roomId);
     }
 
     @Override
     public CompletableFuture<CommandResult> resume(String roomId) {
-        return mock.resume(roomId);
+        return delegate.resume(roomId);
     }
 
     @Override
     public CompletableFuture<CommandResult> kick(String userId, String roomId) {
-        return mock.kick(userId, roomId);
+        return delegate.kick(userId, roomId);
     }
 
     @Override
     public CompletableFuture<CommandResult> cancel(String roomId) {
-        return mock.cancel(roomId);
+        return delegate.cancel(roomId);
     }
 
     @Override

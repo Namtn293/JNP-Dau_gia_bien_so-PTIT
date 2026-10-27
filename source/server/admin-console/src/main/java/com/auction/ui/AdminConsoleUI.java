@@ -7,6 +7,11 @@ import com.auction.mail.MailConfig;
 import com.auction.mail.MailMessage;
 import com.auction.mail.MailService;
 import com.auction.mail.MailTemplates;
+import com.auction.AdminConfig;
+import com.auction.gateway.mock.MockAdminGateway;
+import com.auction.net.core.CoreAdminGateway;
+import com.auction.net.core.CoreHttpClient;
+import com.auction.net.core.CoreTcpClient;
 
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
@@ -26,7 +31,6 @@ import static com.auction.ui.common.Theme.*;
 import com.auction.ui.common.LogPanel;
 import com.auction.ui.common.RoomSelection;
 import com.auction.ui.panels.control.SessionControlPanel;
-import com.auction.AdminConfig;
 
 import com.auction.gateway.AdminGateway;
 import com.auction.net.udp.UdpAdminGateway;
@@ -59,7 +63,8 @@ public class AdminConsoleUI extends JFrame {
         logDocument = LogPanel.createDocument();
         LogPanel.loadSampleLog(logDocument);
 
-        UdpAdminGateway udpGateway = new UdpAdminGateway();
+        AdminGateway dataGateway = createDataGateway();
+        UdpAdminGateway udpGateway = new UdpAdminGateway(dataGateway);
         udpGateway.addAlertListener(new AlertLogger(logDocument));
         AdminGateway gateway = udpGateway;
         RoomSelection selection = new RoomSelection();
@@ -234,5 +239,21 @@ public class AdminConsoleUI extends JFrame {
             cur = cur.getCause();
         }
         return cur.getMessage() == null ? cur.toString() : cur.getMessage();
+    }
+
+    /** core (mặc định) hoặc mock khi ADMIN_DATA_SOURCE=mock. */
+    private static AdminGateway createDataGateway() {
+        if ("mock".equalsIgnoreCase(AdminConfig.DATA_SOURCE)) {
+            logger.warn("Đang dùng dữ liệu MOCK (ADMIN_DATA_SOURCE=mock)");
+            return new MockAdminGateway();
+        }
+
+        logger.info("Lấy dữ liệu từ core {} và lệnh qua TCP {}:{}",
+                AdminConfig.CORE_BASE_URL, AdminConfig.CORE_TCP_HOST, AdminConfig.CORE_TCP_PORT);
+
+        return new CoreAdminGateway(
+                new CoreHttpClient(AdminConfig.CORE_BASE_URL,
+                        AdminConfig.CORE_ADMIN_USER, AdminConfig.CORE_ADMIN_PASSWORD),
+                new CoreTcpClient(AdminConfig.CORE_TCP_HOST, AdminConfig.CORE_TCP_PORT));
     }
 }
