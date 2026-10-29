@@ -63,7 +63,7 @@ public class CoreAdminGateway implements AdminGateway, AutoCloseable {
 
     @Override
     public CompletableFuture<CommandResult> halt(String roomId) {
-        return command("HALT" + roomId);
+        return command("HALT " + roomId);
     }
 
     @Override

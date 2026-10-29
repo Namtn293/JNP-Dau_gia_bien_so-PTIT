@@ -3,6 +3,8 @@ package com.ptit.bigdata.coreservice.controller;
 import com.ptit.bigdata.coreservice.entity.AuctionSession;
 import com.ptit.bigdata.coreservice.entity.BidHistory;
 import com.ptit.bigdata.coreservice.entity.NumberPlate;
+import com.ptit.bigdata.coreservice.entity.UserInfo;
+import com.ptit.bigdata.coreservice.repository.UserInfoRepository;
 import com.ptit.bigdata.coreservice.model.vo.BidMessageVO;
 import com.ptit.bigdata.coreservice.model.vo.ChatMessageVO;
 import com.ptit.bigdata.coreservice.model.vo.RoomEventVO;
@@ -39,6 +41,7 @@ public class AuctionWebSocketController {
     private final AuctionSessionRepository auctionSessionRepository;
     private final NumberPlateRepository numberPlateRepository;
     private final BidHistoryRepository bidHistoryRepository;
+    private final UserInfoRepository userInfoRepository;
 
     /**
      * Nhận tin nhắn chat từ Client gửi lên /app/chat/{roomId}
@@ -98,7 +101,8 @@ public class AuctionWebSocketController {
 
     /**
      * Nhận lượt đặt giá mới từ Client trong phòng gửi lên /app/bid/{roomId}
-     * Broadcast tới /topic/auction/{roomId} VÀ đồng thời broadcast tới /topic/auctions (cho trang danh sách biển số)
+     * Broadcast tới /topic/auction/{roomId} VÀ đồng thời broadcast tới
+     * /topic/auctions (cho trang danh sách biển số)
      */
     @MessageMapping("/bid/{roomId}")
     @SendTo("/topic/auction/{roomId}")
@@ -111,17 +115,20 @@ public class AuctionWebSocketController {
         log.info("[BID-ROOM] Phòng {}: [{}] đặt giá {} VNĐ (Giá hiện tại: {})",
                 roomId, bid.getUserName(), bid.getBidAmount(), bid.getCurrentPrice());
 
-        // Broadcast tới kênh danh sách biển số chung để trang Dashboard cập nhật real-time
+        // Broadcast tới kênh danh sách biển số chung để trang Dashboard cập nhật
+        // real-time
         messagingTemplate.convertAndSend("/topic/auctions", bid);
 
         return bid;
     }
 
     /**
-     * Nhận lượt đặt giá trực tiếp từ Trang Danh Sách Biển Số gửi lên /app/auction/bid (hoặc /app/bid)
-     * Broadcast tới /topic/auctions cho tất cả client đang mở trang danh sách biển số
+     * Nhận lượt đặt giá trực tiếp từ Trang Danh Sách Biển Số gửi lên
+     * /app/auction/bid (hoặc /app/bid)
+     * Broadcast tới /topic/auctions cho tất cả client đang mở trang danh sách biển
+     * số
      */
-    @MessageMapping({"/auction/bid", "/bid"})
+    @MessageMapping({ "/auction/bid", "/bid" })
     @SendTo("/topic/auctions")
     public BidMessageVO handleDashboardBid(BidMessageVO bid) {
         processBidPersistence(bid);
@@ -138,7 +145,8 @@ public class AuctionWebSocketController {
     }
 
     /**
-     * Broadcast sự kiện cập nhật trạng thái phiên (ví dụ: SOON -> LIVE, LIVE -> END)
+     * Broadcast sự kiện cập nhật trạng thái phiên (ví dụ: SOON -> LIVE, LIVE ->
+     * END)
      */
     @MessageMapping("/auction/status")
     @SendTo("/topic/auctions")
@@ -149,7 +157,8 @@ public class AuctionWebSocketController {
         if (statusMessage.getType() == null) {
             statusMessage.setType("STATUS_CHANGE");
         }
-        log.info("[STATUS-UPDATE] Biển {}: Trạng thái -> {}", statusMessage.getPlateNumber(), statusMessage.getStatus());
+        log.info("[STATUS-UPDATE] Biển {}: Trạng thái -> {}", statusMessage.getPlateNumber(),
+                statusMessage.getStatus());
         return statusMessage;
     }
 
@@ -181,7 +190,8 @@ public class AuctionWebSocketController {
 
             // 3. Nếu tìm thấy session trong CSDL, cập nhật giá và số lượt trả
             if (session != null) {
-                long currentPrice = session.getCurrentPrice() != null ? session.getCurrentPrice() : session.getStartPrice();
+                long currentPrice = session.getCurrentPrice() != null ? session.getCurrentPrice()
+                        : session.getStartPrice();
                 long step = session.getStepPrice() != null ? session.getStepPrice() : 5_000_000L;
                 long newPrice = (bid.getBidAmount() != null && bid.getBidAmount() > 0)
                         ? bid.getBidAmount()
@@ -196,6 +206,7 @@ public class AuctionWebSocketController {
                 // Lưu lịch sử đấu giá
                 BidHistory history = BidHistory.builder()
                         .auctionSessionId(session.getId())
+                        .userID(resolveBidderId(bid.getUserId()))
                         .bidAmount(newPrice)
                         .bidTime(LocalDateTime.now())
                         .isWinningBid(true)
@@ -223,5 +234,27 @@ public class AuctionWebSocketController {
                 bid.setCurrentPrice(bid.getBidAmount());
             }
         }
+    }
+
+    /**
+     * Client gửi userId là email (hoặc username). Tra ra ID trong main_user_info
+     * để lưu vào bid_history. Không tìm thấy thì trả null, lượt đặt giá vẫn được
+     * lưu.
+     */
+    private Long resolveBidderId(String identity) {
+        if (identity == null || identity.isBlank()) {
+            return null;
+        }
+
+        Optional<UserInfo> user = userInfoRepository.findByEmail(identity);
+        if (user.isEmpty()) {
+            user = userInfoRepository.findByUserName(identity);
+        }
+        if (user.isEmpty()) {
+            log.warn("Không tìm thấy người dùng '{}' khi lưu lượt đặt giá", identity);
+            return null;
+        }
+
+        return user.get().getId();
     }
 }

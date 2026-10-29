@@ -16,6 +16,7 @@ public class BidHistory extends EntityBase {
 
     private Long auctionSessionId;
 
+    @Column(name = "userid")
     private Long userID;
 
     @Column(name = "BID_AMOUNT", nullable = false)

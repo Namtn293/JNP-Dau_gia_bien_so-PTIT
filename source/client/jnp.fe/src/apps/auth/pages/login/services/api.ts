@@ -20,7 +20,7 @@ export const loginApi = async (credentials: LoginCredentials): Promise<string> =
     }
   );
 
-  const responseData = (res as any)?.data || res;
+  const responseData = res as any;
   if (responseData?.code === 200 || responseData?.success) {
     return responseData.data;
   }

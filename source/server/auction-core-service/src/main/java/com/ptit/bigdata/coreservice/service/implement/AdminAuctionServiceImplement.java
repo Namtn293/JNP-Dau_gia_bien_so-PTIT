@@ -100,38 +100,56 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
     @Override
     public List<AdminParticipantVO> getParticipants(String roomId) {
         Optional<AuctionSession> sessionOpt = auctionSessionRepository.findBySessionCode(roomId);
-        if (sessionOpt.isPresent()) {
-            List<BidHistory> bids = bidHistoryRepository
-                    .findByAuctionSessionIdOrderByBidTimeDesc(sessionOpt.get().getId());
-            if (!bids.isEmpty()) {
-                Map<Long, List<BidHistory>> userBids = new LinkedHashMap<>();
-                for (BidHistory b : bids) {
-                    userBids.computeIfAbsent(b.getUserID(), k -> new ArrayList<>()).add(b);
-                }
-
-                List<AdminParticipantVO> list = new ArrayList<>();
-                for (Map.Entry<Long, List<BidHistory>> entry : userBids.entrySet()) {
-                    Long userId = entry.getKey();
-                    List<BidHistory> hist = entry.getValue();
-                    Optional<UserInfo> userOpt = userInfoRepository.findById(userId);
-                    String name = userOpt.map(UserInfo::getFullName).orElse("Người dùng #" + userId);
-                    long maxBid = hist.stream().mapToLong(BidHistory::getBidAmount).max().orElse(0L);
-
-                    list.add(AdminParticipantVO.builder()
-                            .userId("U-" + String.format("%04d", userId))
-                            .fullName(name)
-                            .connection("CONNECTED")
-                            .bidsInLast5s(hist.size())
-                            .lastPrice(maxBid)
-                            .rttMs(32)
-                            .build());
-                }
-                return list;
-            }
+        if (sessionOpt.isEmpty()) {
+            return List.of();
         }
 
-        // Fallback default participants for demo if no specific DB bids yet
-        return List.of();
+        List<BidHistory> bids = bidHistoryRepository
+                .findByAuctionSessionIdOrderByBidTimeDesc(sessionOpt.get().getId());
+
+        // Nhóm theo người dùng, bỏ qua lượt đặt giá cũ chưa gắn người dùng (userID
+        // null)
+        Map<Long, List<BidHistory>> userBids = new LinkedHashMap<>();
+        for (BidHistory b : bids) {
+            if (b.getUserID() == null) {
+                continue;
+            }
+            userBids.computeIfAbsent(b.getUserID(), k -> new ArrayList<>()).add(b);
+        }
+        if (userBids.isEmpty()) {
+            return List.of();
+        }
+
+        // Một truy vấn cho tất cả người dùng, tránh gọi DB từng người mỗi lần làm mới
+        Map<Long, UserInfo> users = new HashMap<>();
+        for (UserInfo u : userInfoRepository.findAllById(userBids.keySet())) {
+            users.put(u.getId(), u);
+        }
+
+        LocalDateTime since = LocalDateTime.now().minusSeconds(5);
+        List<AdminParticipantVO> list = new ArrayList<>();
+        for (Map.Entry<Long, List<BidHistory>> entry : userBids.entrySet()) {
+            Long userId = entry.getKey();
+            List<BidHistory> hist = entry.getValue();
+            UserInfo user = users.get(userId);
+            String name = (user != null && user.getFullName() != null)
+                    ? user.getFullName()
+                    : "Người dùng #" + userId;
+            long maxBid = hist.stream().mapToLong(BidHistory::getBidAmount).max().orElse(0L);
+            int recentBids = (int) hist.stream()
+                    .filter(b -> b.getBidTime() != null && b.getBidTime().isAfter(since))
+                    .count();
+
+            list.add(AdminParticipantVO.builder()
+                    .userId(String.valueOf(userId)) // ID thật trong main_user_info
+                    .fullName(name)
+                    .connection("CONNECTED") // chưa có dữ liệu thật, xem ghi chú bên dưới
+                    .bidsInLast5s(recentBids) // trước đây là tổng số lượt đặt giá
+                    .lastPrice(maxBid)
+                    .rttMs(32) // chưa có dữ liệu thật
+                    .build());
+        }
+        return list;
     }
 
     @Override

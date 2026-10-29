@@ -52,7 +52,7 @@ public final class CoreHttpClient {
     private CompletableFuture<JsonNode> handle(HttpResponse<String> res, String path, boolean retryOnAuthFailure) {
         int code = res.statusCode();
 
-        if (code == 4001 || code == 403) {
+        if (code == 401 || code == 403) {
             token.set(null);
             if (retryOnAuthFailure) {
                 return send(path, false);
@@ -99,11 +99,14 @@ public final class CoreHttpClient {
             }
 
             try {
-                JsonNode data = mapper.readTree(res.body()).path("data");
+                JsonNode root = mapper.readTree(res.body());
+                JsonNode data = root.path("data");
 
                 if (!data.isTextual() || data.asText().isBlank()) {
+                    // Core trả HTTP 200 kèm body lỗi khi sai tài khoản/mật khẩu
+                    String reason = root.path("message").asText("không rõ lý do");
                     return CompletableFuture.<String>failedFuture(
-                            new IOException("Phản hồi đăng nhập không có token trong trường data"));
+                            new IOException("Đăng nhập core thất bại: " + reason));
                 }
 
                 String newToken = data.asText();
