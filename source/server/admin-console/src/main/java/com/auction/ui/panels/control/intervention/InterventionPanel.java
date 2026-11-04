@@ -47,7 +47,7 @@ public class InterventionPanel extends JPanel {
     private RoomInfo room;
 
     private final JLabel targetRoomLabel = new JLabel("—");
-    private final JTextField kickField = new JTextField(AdminConfig.DEFAULT_KICK_ACCOUNT);
+    private final JTextField kickField = new JTextField();
     private final JButton haltButton = ButtonStyles.filled("HALT", COLOR_DANGER);
     private final JButton resumeButton = ButtonStyles.filled("RESUME", COLOR_PRIMARY);
     private final JButton kickButton = ButtonStyles.filled("KICK", COLOR_DANGER);
@@ -73,7 +73,10 @@ public class InterventionPanel extends JPanel {
         updateButtons();
     }
 
-    /** Điền ID tài khoản cho KICK, thường là dòng vừa chọn trong bảng người tham gia. */
+    /**
+     * Điền ID tài khoản cho KICK, thường là dòng vừa chọn trong bảng người tham
+     * gia.
+     */
     public void setKickAccount(String userId) {
         kickField.setText(userId);
     }
@@ -103,9 +106,9 @@ public class InterventionPanel extends JPanel {
         JPanel controls = new JPanel(new GridLayout(1, 2, 10, 0));
         controls.setOpaque(false);
         controls.setAlignmentX(Component.LEFT_ALIGNMENT);
-                controls.add(actionGroup(haltButton,
+        controls.add(actionGroup(haltButton,
                 "<html>HALT khóa đặt giá.<br>Đếm ngược<br>bị đóng băng.</html>"));
-                controls.add(actionGroup(resumeButton,
+        controls.add(actionGroup(resumeButton,
                 "<html>RESUME mở lại<br>đặt giá,<br>cộng " + AdminConfig.EXTENSION_SECONDS + " giây.</html>"));
         column.add(controls);
         column.add(Box.createVerticalStrut(16));
@@ -118,7 +121,7 @@ public class InterventionPanel extends JPanel {
         column.add(kickField);
         column.add(Box.createVerticalStrut(8));
 
-               column.add(actionGroup(kickButton,
+        column.add(actionGroup(kickButton,
                 "<html>KICK cưỡng chế ngắt kết nối WebSocket của tài khoản.</html>"));
         column.add(Box.createVerticalStrut(16));
 

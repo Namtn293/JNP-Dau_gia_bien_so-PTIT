@@ -174,7 +174,7 @@ public class QuickControlPanel extends JPanel {
         panel.add(createLeftLabel("ID tài khoản cần ngắt kết nối", FONT_NORMAL, COLOR_TEXT));
         panel.add(Box.createVerticalStrut(4));
 
-        kickAccountField = new JTextField(AdminConfig.DEFAULT_KICK_ACCOUNT);
+        kickAccountField = new JTextField();
         kickAccountField.setFont(FONT_NORMAL);
         kickAccountField.setAlignmentX(Component.LEFT_ALIGNMENT);
         kickAccountField.setMaximumSize(new Dimension(Short.MAX_VALUE, 32));
@@ -237,7 +237,6 @@ public class QuickControlPanel extends JPanel {
     private JButton createButton(String text, Color bgColor) {
         return ButtonStyles.filled(text, bgColor);
     }
-
 
     private JButton createCancelButton(String text) {
         return ButtonStyles.outline(text);

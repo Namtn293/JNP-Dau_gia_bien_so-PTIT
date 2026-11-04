@@ -17,10 +17,6 @@ public final class AdminConfig {
     public static final String OPERATOR_NAME = "Nguyễn Gia Bảo";
     public static final String OPERATOR_ROLE = "Quản trị viên • Ca trực 14:00–22:00";
 
-    // Mặc định khi mở màn hình
-    public static final String DEFAULT_ROOM_ID = "AUC-1023";
-    public static final String DEFAULT_KICK_ACCOUNT = "U-0842";
-
     // Trạng thái phòng dùng để bật tắt nút điều khiển
     public static final String STATUS_PAUSED = "Tạm dừng";
 

@@ -26,8 +26,10 @@ import com.auction.ui.panels.control.session.SessionHeader;
 import com.auction.ui.panels.control.session.SessionInfoCard;
 
 /**
- * Tab "Điều khiển phiên": điều phối các thành phần con và làm mới dữ liệu mỗi giây.
- * Chỉ lớp này biết gateway và RoomSelection; các thành phần con nhận dữ liệu và báo sự kiện qua callback.
+ * Tab "Điều khiển phiên": điều phối các thành phần con và làm mới dữ liệu mỗi
+ * giây.
+ * Chỉ lớp này biết gateway và RoomSelection; các thành phần con nhận dữ liệu và
+ * báo sự kiện qua callback.
  */
 public class SessionControlPanel extends JPanel implements InterventionPanel.Listener {
     private static final int REFRESH_MS = 1000;
@@ -40,8 +42,8 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
     private final SessionHeader header = new SessionHeader();
     private final SessionInfoCard sessionCard = new SessionInfoCard();
     private final InterventionPanel intervention = new InterventionPanel(this);
-    private final ParticipantsPanel participantsPanel =
-            new ParticipantsPanel(userId -> intervention.setKickAccount(userId));
+    private final ParticipantsPanel participantsPanel = new ParticipantsPanel(
+            userId -> intervention.setKickAccount(userId));
 
     private boolean busy;
     private String loadedRoomId;
@@ -114,12 +116,17 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
                 });
     }
 
-    /** Lấy phòng, chỉ số và người tham gia cùng lúc. Người tham gia chỉ lấy khi đã chọn phòng. */
+    /**
+     * Lấy phòng, chỉ số và người tham gia cùng lúc. Người tham gia chỉ lấy khi đã
+     * chọn phòng.
+     */
     private CompletableFuture<Snapshot> fetchSnapshot() {
         String roomId = selection.roomId();
 
         CompletableFuture<List<RoomInfo>> rooms = gateway.fetchRooms();
-        CompletableFuture<ServerMetrics> metrics = gateway.fetchMetrics();
+        // Thiếu METRICS (UDP chập chờn) không được làm mất danh sách phòng và người
+        // tham gia
+        CompletableFuture<ServerMetrics> metrics = gateway.fetchMetrics().exceptionally(ex -> null);
         CompletableFuture<List<ParticipantInfo>> people = roomId == null
                 ? CompletableFuture.<List<ParticipantInfo>>completedFuture(List.of())
                 : gateway.fetchParticipants(roomId);
@@ -130,7 +137,11 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
 
     /** Chạy trên EDT. */
     private void apply(Snapshot snapshot) {
-        header.updateMetrics(snapshot.metrics());
+        if (snapshot.metrics() != null) {
+            header.updateMetrics(snapshot.metrics());
+        } else {
+            header.showOffline();
+        }
 
         // Người dùng đã chọn phòng khác trong lúc chờ: bỏ dữ liệu cũ của phòng trước
         if (!Objects.equals(snapshot.roomId(), selection.roomId())) {

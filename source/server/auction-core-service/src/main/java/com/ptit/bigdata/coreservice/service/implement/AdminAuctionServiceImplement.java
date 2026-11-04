@@ -29,6 +29,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import com.ptit.bigdata.coreservice.model.vo.RoomEventVO;
 import java.time.LocalTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -55,22 +56,32 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
         List<AdminRoomVO> result = new ArrayList<>();
         LocalDateTime now = LocalDateTime.now();
 
-        // Cache provinces and number plates to minimize DB queries
+        // Lấy biển số và tỉnh theo lô (2 truy vấn) thay vì mỗi phòng một truy vấn
+        Set<Long> plateIds = sessions.stream()
+                .map(AuctionSession::getNumberPlateId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
         Map<Long, NumberPlate> plateMap = new HashMap<>();
+        for (NumberPlate p : numberPlateRepository.findAllById(plateIds)) {
+            plateMap.put(p.getId(), p);
+        }
+
+        Set<Long> provinceIds = plateMap.values().stream()
+                .map(NumberPlate::getProvinceId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
         Map<Long, Province> provinceMap = new HashMap<>();
+        for (Province p : provinceRepository.findAllById(provinceIds)) {
+            provinceMap.put(p.getId(), p);
+        }
 
         for (AuctionSession session : sessions) {
-            NumberPlate plate = null;
-            Province province = null;
-
-            if (session.getNumberPlateId() != null) {
-                plate = plateMap.computeIfAbsent(session.getNumberPlateId(),
-                        id -> numberPlateRepository.findById(id).orElse(null));
-                if (plate != null && plate.getProvinceId() != null) {
-                    province = provinceMap.computeIfAbsent(plate.getProvinceId(),
-                            id -> provinceRepository.findById(id).orElse(null));
-                }
-            }
+            NumberPlate plate = session.getNumberPlateId() != null
+                    ? plateMap.get(session.getNumberPlateId())
+                    : null;
+            Province province = (plate != null && plate.getProvinceId() != null)
+                    ? provinceMap.get(plate.getProvinceId())
+                    : null;
 
             String plateNumber = plate != null ? plate.getPlateNumber() : extractPlateFromTitle(session.getTitle());
             String regionName = province != null ? province.getName() : "Toàn quốc";

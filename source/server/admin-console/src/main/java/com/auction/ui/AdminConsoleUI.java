@@ -61,7 +61,7 @@ public class AdminConsoleUI extends JFrame {
 
         // Dữ liệu dùng chung
         logDocument = LogPanel.createDocument();
-        LogPanel.loadSampleLog(logDocument);
+        LogPanel.appendTo(logDocument, LogPanel.Level.INFO, "Admin Console đã khởi động");
 
         AdminGateway dataGateway = createDataGateway();
         UdpAdminGateway udpGateway = new UdpAdminGateway(dataGateway);

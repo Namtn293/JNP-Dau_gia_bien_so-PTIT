@@ -84,8 +84,7 @@ public class MonitoringPanel extends JPanel {
     }
 
     private void refreshRooms() {
-        gateway.fetchRooms().thenAccept(rooms ->
-                SwingUtilities.invokeLater(() -> applyRooms(rooms)));
+        gateway.fetchRooms().thenAccept(rooms -> SwingUtilities.invokeLater(() -> applyRooms(rooms)));
     }
 
     private void applyRooms(List<RoomInfo> rooms) {
@@ -100,8 +99,14 @@ public class MonitoringPanel extends JPanel {
 
         RoomInfo selected = roomTablePanel.getSelectedRoom();
         if (selected == null) {
-            // Lần đầu hoặc phòng đang chọn đã biến mất: chọn phòng mặc định
-            roomTablePanel.selectRoom(AdminConfig.DEFAULT_ROOM_ID);
+            // Lần đầu hoặc phòng đang chọn đã biến mất: ưu tiên phòng đang chạy,
+            // không có thì lấy phòng đầu tiên trong danh sách
+            rooms.stream()
+                    .filter(r -> r.status().canHalt())
+                    .findFirst()
+                    .or(() -> rooms.stream().findFirst())
+                    .ifPresent(r -> roomTablePanel.selectRoom(r.id()));
+
             selected = roomTablePanel.getSelectedRoom();
         }
         if (selected != null) {
