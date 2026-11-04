@@ -12,12 +12,26 @@ const pulseRed = keyframes`
 `;
 
 export const PageWrapper = styled.div`
-  min-height: 100vh;
+  height: var(--device-height, calc(100vh / var(--zoom, 1)));
+  min-height: var(--device-height, calc(100vh / var(--zoom, 1)));
+  max-height: var(--device-height, calc(100vh / var(--zoom, 1)));
+  width: 100%;
+  min-width: 100%;
+  max-width: 100%;
   background: #f4f8fa;
   color: #14202b;
   font-family: "Be Vietnam Pro", system-ui, -apple-system, sans-serif;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+
+  @media (max-width: 900px) {
+    height: auto;
+    min-height: 100vh;
+    max-height: none;
+    overflow-y: auto;
+  }
 `;
 
 export const HeaderBar = styled.header`
@@ -192,26 +206,38 @@ export const UserTrigger = styled.div`
 
 export const MainGrid = styled.main`
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr) 350px;
-  gap: 16px;
-  padding: 16px;
-  max-width: 1440px;
-  margin: 0 auto;
+  grid-template-columns: minmax(250px, 19vw) minmax(0, 1fr) minmax(320px, 25vw);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 14px;
+  padding: 12px 20px 14px;
   width: 100%;
-  height: calc(100vh - 58px);
-  min-height: 640px;
+  max-width: 100%;
+  margin: 0;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 
-  @media (max-width: 1100px) {
-    grid-template-columns: 210px minmax(0, 1fr) 320px;
-    gap: 12px;
-    padding: 12px;
+  @media (min-width: 1920px) {
+    grid-template-columns: minmax(280px, 18vw) minmax(0, 1fr) minmax(380px, 24vw);
+    gap: 16px;
+    padding: 14px 24px 16px;
+  }
+
+  @media (max-width: 1200px) {
+    grid-template-columns: 220px minmax(0, 1fr) 300px;
+    gap: 10px;
+    padding: 10px 14px 12px;
   }
 
   @media (max-width: 900px) {
     display: flex;
     flex-direction: column;
     height: auto;
+    overflow: visible;
     padding: 12px;
+    gap: 12px;
   }
 `;
 
@@ -223,7 +249,15 @@ export const Panel = styled.div`
   display: flex;
   flex-direction: column;
   min-height: 0;
+  height: 100%;
+  max-height: 100%;
+  box-sizing: border-box;
   box-shadow: 0 4px 16px rgba(37, 107, 140, 0.05);
+
+  @media (max-width: 900px) {
+    height: auto;
+    max-height: none;
+  }
 `;
 
 export const PanelHeader = styled.div`
@@ -301,12 +335,18 @@ export const StageContainer = styled.div`
   overflow-y: auto;
   padding: 0;
   flex: 1;
+  min-height: 0;
+  height: 100%;
   display: flex;
   flex-direction: column;
 `;
 
 export const PlateMockupStage = styled.div`
-  height: 190px;
+  height: 180px;
+  flex-shrink: 0;
+  @media (max-height: 750px) {
+    height: 140px;
+  }
   background: linear-gradient(135deg, #133a4d 0%, #256b8c 50%, #4a8fae 100%);
   display: flex;
   flex-direction: column;

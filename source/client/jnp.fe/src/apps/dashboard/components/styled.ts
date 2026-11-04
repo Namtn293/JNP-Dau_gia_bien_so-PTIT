@@ -17,14 +17,16 @@ export const TopNav = styled.header`
   box-shadow: 0 4px 20px rgba(37, 107, 140, 0.05);
 `;
 
-export const NavInner = styled.div`
-  max-width: 1240px;
+export const NavInner = styled.div<{ $fluid?: boolean }>`
+  max-width: ${(props) => (props.$fluid ? "100%" : "1240px")};
   margin: 0 auto;
-  padding: 12px 18px;
+  padding: ${(props) => (props.$fluid ? "10px 24px" : "12px 18px")};
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
 `;
 
 export const Brand = styled.div`

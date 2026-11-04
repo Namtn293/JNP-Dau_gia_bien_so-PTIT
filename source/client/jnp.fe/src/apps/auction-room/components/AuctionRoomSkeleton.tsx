@@ -24,9 +24,9 @@ export const AuctionRoomSkeleton: React.FC = () => {
       <div style={{ background: "rgba(255, 255, 255, 0.95)", borderBottom: "1px solid #dbe6ee" }}>
         <div
           style={{
-            maxWidth: 1240,
-            margin: "0 auto",
-            padding: "12px 18px",
+            maxWidth: "100%",
+            margin: "0",
+            padding: "10px 24px",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",

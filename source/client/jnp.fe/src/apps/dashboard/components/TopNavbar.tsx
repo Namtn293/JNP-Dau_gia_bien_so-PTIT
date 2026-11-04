@@ -8,11 +8,13 @@ import { ADMIN_LOGIN_ROUTE } from "@/constants";
 interface TopNavbarProps {
   userName?: string;
   onLogout?: () => void;
+  fluid?: boolean;
 }
 
 export const TopNavbar: React.FC<TopNavbarProps> = ({
   userName = "Người dùng",
   onLogout,
+  fluid = false,
 }) => {
   const navigate = useNavigate();
 
@@ -37,7 +39,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
 
   return (
     <TopNav>
-      <NavInner>
+      <NavInner $fluid={fluid}>
         <Brand onClick={() => navigate({ to: "/" })}>
           
           <BrandText>
