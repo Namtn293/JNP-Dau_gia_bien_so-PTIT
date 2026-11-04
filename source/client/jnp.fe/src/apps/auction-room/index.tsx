@@ -48,6 +48,17 @@ export const AuctionRoomPage: React.FC = () => {
     setChatMessages: data.setChatMessages,
   });
 
+  React.useEffect(() => {
+    const isMobile = window.innerWidth < 900;
+    if (!isMobile) {
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = prevOverflow;
+      };
+    }
+  }, []);
+
   if (data.isLoading) {
     return <AuctionRoomSkeleton />;
   }
