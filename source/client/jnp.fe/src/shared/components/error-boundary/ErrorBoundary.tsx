@@ -7,7 +7,7 @@ const MyErrorBoundary = ({ children }: IReactChildren) => {
     <ErrorBoundary
       FallbackComponent={ErrorFallback}
       onError={(...errors) => {
-        console.log({ errors });
+        console.error('ErrorBoundary caught:', ...errors);
       }}
     >
       {children}

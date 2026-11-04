@@ -5,7 +5,8 @@ export const LOCAL_STORAGE_KEYS = {
   roles: 'adzxcuoig',
   layout: "_layout",
   menu: "mahfdfe",
-  language: 'language'
+  language: 'language',
+  user: 'auction_user',
   // autoLogin: 'auto_login',
 };
 

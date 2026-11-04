@@ -121,17 +121,23 @@ function App() {
   //Auto zoom to fit the screen - chỉ áp dụng trên desktop lớn (1400px-1920px)
   // Tablet và laptop nhỏ (< 1400px) không dùng zoom để font-size giữ nguyên
   useLayoutEffect(() => {
-    const viewportWidth =
-      window.innerWidth || window.document.documentElement.clientWidth;
-    const isMobile = viewportWidth < 768;
+    const updateZoom = () => {
+      const viewportWidth =
+        window.innerWidth || window.document.documentElement.clientWidth;
+      const isMobile = viewportWidth < 768;
 
-    if (!isMobile) {
-      // getZoomRatio tự handle: screen width + OS scale (devicePixelRatio) compensation
-      const zoom = getZoomRatio();
-      document.documentElement.style.setProperty("--zoom", zoom.toString());
-    } else {
-      document.documentElement.style.setProperty("--zoom", "1");
-    }
+      if (!isMobile) {
+        // getZoomRatio tự handle: screen width + OS scale (devicePixelRatio) compensation
+        const zoom = getZoomRatio();
+        document.documentElement.style.setProperty("--zoom", zoom.toString());
+      } else {
+        document.documentElement.style.setProperty("--zoom", "1");
+      }
+    };
+
+    updateZoom();
+    window.addEventListener("resize", updateZoom);
+    return () => window.removeEventListener("resize", updateZoom);
   }, []);
 
   return (
