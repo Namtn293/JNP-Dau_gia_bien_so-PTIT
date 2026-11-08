@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Client } from "@stomp/stompjs";
+import tokenManager from "@/shared/utils/tokenManager";
+import { useNotification } from "@/shared/hooks/useNotification";
 import type {
   WsAuctionMessage,
   WsChatMessage,
@@ -23,6 +25,7 @@ export const useAuctionRoomSocket = ({
 }: UseAuctionRoomSocketProps) => {
   const [status, setStatus] = useState<"connecting" | "connected" | "disconnected" | "error">("disconnected");
   const clientRef = useRef<Client | null>(null);
+  const { showErrorNotify } = useNotification();
 
   const onAuctionUpdateRef = useRef(onAuctionUpdate);
   onAuctionUpdateRef.current = onAuctionUpdate;
@@ -53,6 +56,13 @@ export const useAuctionRoomSocket = ({
       reconnectDelay: 4000,
       heartbeatIncoming: 10000,
       heartbeatOutgoing: 10000,
+      beforeConnect: () => {
+        // Lấy token mới nhất trước mỗi lần kết nối / kết nối lại
+        const token = tokenManager.getAccessToken();
+        client.connectHeaders = {
+          Authorization: token ? `Bearer ${token}` : "",
+        };
+      },
       debug: (msg) => {
         if (import.meta.env.DEV && (msg.includes("ERROR") || msg.includes("Opening Web Socket"))) {
           console.debug("[WS-ROOM]", msg);
@@ -106,7 +116,26 @@ export const useAuctionRoomSocket = ({
         } catch (e) {}
       },
       onStompError: (frame) => {
-        console.error("[WS-ROOM] STOMP Error:", frame.headers["message"]);
+        const errorCode = frame.headers["error-code"];
+        const errorMessage = frame.headers["message"] || "Lỗi kết nối máy chủ đấu giá";
+        console.error("[WS-ROOM] STOMP Error:", errorCode, errorMessage);
+
+        // Nếu lỗi xác thực hoặc cấm quyền, hủy kết nối ngay lập tức để tránh lặp reconnect vô tận
+        const authErrors = [
+          "AUTH_REQUIRED",
+          "TOKEN_EXPIRED",
+          "TOKEN_INVALID",
+          "USER_BANNED",
+          "FORBIDDEN_DESTINATION",
+          "FORBIDDEN_ADMIN_ONLY",
+        ];
+        if (errorCode && authErrors.includes(errorCode)) {
+          client.deactivate();
+          setStatus("error");
+          showErrorNotify(errorMessage);
+          return;
+        }
+
         setStatus("error");
       },
       onWebSocketClose: () => {
@@ -133,7 +162,7 @@ export const useAuctionRoomSocket = ({
       clientRef.current = null;
       setStatus("disconnected");
     };
-  }, [roomId, enabled]);
+  }, [roomId, enabled, showErrorNotify]);
 
   const sendBid = useCallback(
     (payload: {

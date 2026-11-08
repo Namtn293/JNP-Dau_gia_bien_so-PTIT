@@ -1,8 +1,12 @@
 package com.ptit.bigdata.coreservice.controller;
 
+import com.ptit.bigdata.coreservice.configuration.security.AuctionUserPrincipal;
+import com.ptit.bigdata.coreservice.configuration.security.WebSocketAuthChannelInterceptor;
+import com.ptit.bigdata.coreservice.configuration.security.WebSocketSecurityException;
 import com.ptit.bigdata.coreservice.entity.AuctionSession;
 import com.ptit.bigdata.coreservice.entity.BidHistory;
 import com.ptit.bigdata.coreservice.entity.NumberPlate;
+import com.ptit.bigdata.coreservice.enumration.RoleEnum;
 import com.ptit.bigdata.coreservice.model.vo.BidMessageVO;
 import com.ptit.bigdata.coreservice.model.vo.ChatMessageVO;
 import com.ptit.bigdata.coreservice.model.vo.RoomEventVO;
@@ -17,6 +21,7 @@ import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
+import java.security.Principal;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -43,12 +48,19 @@ public class AuctionWebSocketController {
     /**
      * Nhận tin nhắn chat từ Client gửi lên /app/chat/{roomId}
      * Broadcast tới tất cả người tham gia đang subscribe /topic/chat/{roomId}
+     * Tên người gửi được bảo đảm ghi đè từ danh tính đã xác thực (UserInfo.fullName).
      */
     @MessageMapping("/chat/{roomId}")
     @SendTo("/topic/chat/{roomId}")
     public ChatMessageVO handleChat(
             @DestinationVariable("roomId") String roomId,
-            ChatMessageVO message) {
+            ChatMessageVO message,
+            Principal principal) {
+        AuctionUserPrincipal userPrincipal = WebSocketAuthChannelInterceptor.extractPrincipal(principal);
+        String senderName = (userPrincipal != null && !userPrincipal.isAnonymous())
+                ? userPrincipal.getFullName()
+                : "Người dùng";
+
         if (message.getId() == null || message.getId().isBlank()) {
             message.setId(java.util.UUID.randomUUID().toString());
         }
@@ -56,10 +68,11 @@ public class AuctionWebSocketController {
             message.setTimestamp(DateTimeFormatter.ofPattern("HH:mm:ss").format(LocalTime.now()));
         }
         message.setRoomId(roomId);
+        message.setSenderName(senderName); // Ghi đè danh tính từ server
         if (message.getType() == null) {
             message.setType("CHAT");
         }
-        log.info("[CHAT] Phòng {}: [{}] -> {}", roomId, message.getSenderName(), message.getContent());
+        log.info("[CHAT] Phòng {}: [{}] -> {}", roomId, senderName, message.getContent());
         return message;
     }
 
@@ -71,13 +84,20 @@ public class AuctionWebSocketController {
     @SendTo("/topic/room/{roomId}")
     public RoomEventVO handleJoin(
             @DestinationVariable("roomId") String roomId,
-            RoomEventVO event) {
+            RoomEventVO event,
+            Principal principal) {
+        AuctionUserPrincipal userPrincipal = WebSocketAuthChannelInterceptor.extractPrincipal(principal);
+        String participantName = (userPrincipal != null && !userPrincipal.isAnonymous())
+                ? userPrincipal.getFullName()
+                : "Người tham gia";
+
         event.setRoomId(roomId);
         event.setEvent("JOIN");
+        event.setMessage(participantName + " đã tham gia phòng");
         if (event.getTimestamp() == null || event.getTimestamp().isBlank()) {
             event.setTimestamp(DateTimeFormatter.ofPattern("HH:mm:ss").format(LocalTime.now()));
         }
-        log.info("[PHÒNG] Người dùng tham gia phòng: {}", roomId);
+        log.info("[PHÒNG] {} tham gia phòng: {}", participantName, roomId);
         return event;
     }
 
@@ -89,30 +109,47 @@ public class AuctionWebSocketController {
     @SendTo("/topic/room/{roomId}")
     public RoomEventVO handleLeave(
             @DestinationVariable("roomId") String roomId,
-            RoomEventVO event) {
+            RoomEventVO event,
+            Principal principal) {
+        AuctionUserPrincipal userPrincipal = WebSocketAuthChannelInterceptor.extractPrincipal(principal);
+        String participantName = (userPrincipal != null && !userPrincipal.isAnonymous())
+                ? userPrincipal.getFullName()
+                : "Người tham gia";
+
         event.setRoomId(roomId);
         event.setEvent("LEAVE");
+        event.setMessage(participantName + " đã rời phòng");
         if (event.getTimestamp() == null || event.getTimestamp().isBlank()) {
             event.setTimestamp(DateTimeFormatter.ofPattern("HH:mm:ss").format(LocalTime.now()));
         }
-        log.info("[PHÒNG] Người dùng rời khỏi phòng: {}", roomId);
+        log.info("[PHÒNG] {} rời khỏi phòng: {}", participantName, roomId);
         return event;
     }
 
     /**
      * Nhận lượt đặt giá mới từ Client trong phòng gửi lên /app/bid/{roomId}
-     * Broadcast tới /topic/auction/{roomId} VÀ đồng thời broadcast tới /topic/auctions (cho trang danh sách biển số)
+     * Broadcast tới /topic/auction/{roomId} VÀ đồng thời broadcast tới /topic/auctions
      */
     @MessageMapping("/bid/{roomId}")
     @SendTo("/topic/auction/{roomId}")
     public BidMessageVO handleBid(
             @DestinationVariable("roomId") String roomId,
-            BidMessageVO bid) {
+            BidMessageVO bid,
+            Principal principal) {
+        AuctionUserPrincipal userPrincipal = WebSocketAuthChannelInterceptor.extractPrincipal(principal);
+        String bidderName = (userPrincipal != null && !userPrincipal.isAnonymous())
+                ? userPrincipal.getFullName()
+                : "Người đặt giá";
+        Long userId = userPrincipal != null ? userPrincipal.getUserId() : null;
+
         bid.setRoomId(roomId);
-        processBidPersistence(bid);
+        bid.setUserName(bidderName);
+        bid.setUserId(userId != null ? String.valueOf(userId) : null);
+
+        processBidPersistence(bid, userId);
 
         log.info("[BID-ROOM] Phòng {}: [{}] đặt giá {} VNĐ (Giá hiện tại: {})",
-                roomId, bid.getUserName(), bid.getBidAmount(), bid.getCurrentPrice());
+                roomId, bidderName, bid.getBidAmount(), bid.getCurrentPrice());
 
         // Broadcast tới kênh danh sách biển số chung để trang Dashboard cập nhật real-time
         messagingTemplate.convertAndSend("/topic/auctions", bid);
@@ -126,11 +163,20 @@ public class AuctionWebSocketController {
      */
     @MessageMapping({"/auction/bid", "/bid"})
     @SendTo("/topic/auctions")
-    public BidMessageVO handleDashboardBid(BidMessageVO bid) {
-        processBidPersistence(bid);
+    public BidMessageVO handleDashboardBid(BidMessageVO bid, Principal principal) {
+        AuctionUserPrincipal userPrincipal = WebSocketAuthChannelInterceptor.extractPrincipal(principal);
+        String bidderName = (userPrincipal != null && !userPrincipal.isAnonymous())
+                ? userPrincipal.getFullName()
+                : "Người đặt giá";
+        Long userId = userPrincipal != null ? userPrincipal.getUserId() : null;
+
+        bid.setUserName(bidderName);
+        bid.setUserId(userId != null ? String.valueOf(userId) : null);
+
+        processBidPersistence(bid, userId);
 
         log.info("[BID-DASHBOARD] Biển {}: [{}] đặt giá {} VNĐ (Giá mới: {})",
-                bid.getPlateNumber(), bid.getUserName(), bid.getBidAmount(), bid.getCurrentPrice());
+                bid.getPlateNumber(), bidderName, bid.getBidAmount(), bid.getCurrentPrice());
 
         // Nếu có roomId tương ứng, cũng broadcast tới phòng đấu giá cụ thể
         if (bid.getRoomId() != null && !bid.getRoomId().isBlank()) {
@@ -142,10 +188,19 @@ public class AuctionWebSocketController {
 
     /**
      * Broadcast sự kiện cập nhật trạng thái phiên (ví dụ: SOON -> LIVE, LIVE -> END)
+     * CHỈ CHO PHÉP ADMIN THỰC HIỆN
      */
     @MessageMapping("/auction/status")
     @SendTo("/topic/auctions")
-    public BidMessageVO handleAuctionStatusUpdate(BidMessageVO statusMessage) {
+    public BidMessageVO handleAuctionStatusUpdate(BidMessageVO statusMessage, Principal principal) {
+        AuctionUserPrincipal userPrincipal = WebSocketAuthChannelInterceptor.extractPrincipal(principal);
+        if (userPrincipal == null || userPrincipal.getRoleEnum() != RoleEnum.ADMIN) {
+            log.warn("[STATUS-UPDATE] Từ chối: User {} không có quyền ADMIN",
+                    principal != null ? principal.getName() : "Anonymous");
+            throw new WebSocketSecurityException("ADMIN_REQUIRED",
+                    "Chỉ quản trị viên mới có quyền cập nhật trạng thái phiên đấu giá");
+        }
+
         if (statusMessage.getTimestamp() == null || statusMessage.getTimestamp().isBlank()) {
             statusMessage.setTimestamp(DateTimeFormatter.ofPattern("HH:mm:ss").format(LocalTime.now()));
         }
@@ -157,9 +212,9 @@ public class AuctionWebSocketController {
     }
 
     /**
-     * Cập nhật dữ liệu vào Database nếu có bản ghi tương ứng
+     * Cập nhật dữ liệu vào Database nếu có bản ghi tương ứng và lưu đúng userID người đặt
      */
-    private void processBidPersistence(BidMessageVO bid) {
+    private void processBidPersistence(BidMessageVO bid, Long userId) {
         if (bid.getTimestamp() == null || bid.getTimestamp().isBlank()) {
             bid.setTimestamp(DateTimeFormatter.ofPattern("HH:mm:ss").format(LocalTime.now()));
         }
@@ -196,9 +251,10 @@ public class AuctionWebSocketController {
                 session.setWinningPrice(newPrice);
                 auctionSessionRepository.save(session);
 
-                // Lưu lịch sử đấu giá
+                // Lưu lịch sử đấu giá gắn liền với userID thực tế của người đặt
                 BidHistory history = BidHistory.builder()
                         .auctionSessionId(session.getId())
+                        .userID(userId)
                         .bidAmount(newPrice)
                         .bidTime(LocalDateTime.now())
                         .isWinningBid(true)

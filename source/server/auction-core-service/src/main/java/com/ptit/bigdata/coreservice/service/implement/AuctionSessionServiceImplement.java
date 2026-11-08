@@ -6,6 +6,7 @@ import com.ptit.bigdata.coreservice.entity.NumberPlate;
 import com.ptit.bigdata.coreservice.entity.Province;
 import com.ptit.bigdata.coreservice.entity.UserInfo;
 import com.ptit.bigdata.coreservice.enumration.AuctionStatusEnum;
+import com.ptit.bigdata.coreservice.enumration.PlateTypeEnum;
 import com.ptit.bigdata.coreservice.model.vo.AuctionLotVO;
 import com.ptit.bigdata.coreservice.model.vo.AuctionRoomDetailVO;
 import com.ptit.bigdata.coreservice.model.vo.AuctionSessionVO;
@@ -64,6 +65,44 @@ public class AuctionSessionServiceImplement implements AuctionSessionService {
                     sessionOpt = auctionSessionRepository.findFirstByNumberPlateId(plateOpt.get().getId());
                 }
             }
+        }
+
+        if (sessionOpt.isEmpty() && roomId != null && !roomId.isBlank()) {
+            // Thay vì fallback lấy phòng ngẫu nhiên khác dẫn tới lệch biển số (ví dụ vào 30K-555.55 lại hiện 30K-888.88),
+            // khởi tạo hoặc liên kết phiên đấu giá cho chính biển số/phòng mà client yêu cầu:
+            Optional<NumberPlate> plateOpt = numberPlateRepository.findByPlateNumber(roomId);
+            NumberPlate plate;
+            if (plateOpt.isPresent()) {
+                plate = plateOpt.get();
+            } else {
+                Province prov = provinceRepository.findAll().stream()
+                        .filter(p -> p.getCode() != null && roomId.length() >= 2 && p.getCode().contains(roomId.substring(0, 2)))
+                        .findFirst()
+                        .orElse(null);
+                plate = NumberPlate.builder()
+                        .plateNumber(roomId)
+                        .provinceId(prov != null ? prov.getId() : null)
+                        .plateType(PlateTypeEnum.NGU_QUY)
+                        .vehicleType("Ô tô con")
+                        .build();
+                plate = numberPlateRepository.save(plate);
+            }
+
+            AuctionSession newSession = AuctionSession.builder()
+                    .sessionCode(roomId)
+                    .title("Đấu giá biển số xe ô tô " + roomId)
+                    .numberPlateId(plate.getId())
+                    .startPrice(40_000_000L)
+                    .currentPrice(40_000_000L)
+                    .stepPrice(5_000_000L)
+                    .depositAmount(40_000_000L)
+                    .startTime(LocalDateTime.now())
+                    .endTime(LocalDateTime.now().plusSeconds(1240))
+                    .status(AuctionStatusEnum.LIVE)
+                    .bidCount(0)
+                    .participantCount(1L)
+                    .build();
+            sessionOpt = Optional.of(auctionSessionRepository.save(newSession));
         }
 
         if (sessionOpt.isEmpty()) {

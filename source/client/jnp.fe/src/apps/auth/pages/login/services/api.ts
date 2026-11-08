@@ -73,13 +73,14 @@ export const completeGoogleRegistrationApi = async (values: {
   dob: string;
   phoneNumber: string;
   address: string;
+  password: string;
 }): Promise<{ token: string; user: AuthUserData }> => {
   const res = await axiosClient.post<any>(
     "/api/auth/google/complete-registration",
     {
       tempToken: values.tempToken,
       userName: values.email.split("@")[0],
-      password: "GoogleUser123@",
+      password: values.password,
       fullName: values.fullName,
       phoneNumber: values.phoneNumber,
       dob: values.dob,

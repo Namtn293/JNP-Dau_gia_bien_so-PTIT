@@ -301,6 +301,7 @@ export const useLogin = () => {
         dob: formattedDob,
         phoneNumber: values.phoneNumber,
         address: values.address,
+        password: values.password.trim(),
       });
 
       showSuccessNotify("Đăng ký thông tin thành công! Đang chuyển hướng...");

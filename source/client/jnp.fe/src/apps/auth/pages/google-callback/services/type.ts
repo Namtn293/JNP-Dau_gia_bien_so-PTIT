@@ -14,7 +14,7 @@ export interface CompleteGoogleRegistrationPayload {
   dob?: string;
   address?: string;
   userName?: string;
-  password?: string;
+  password: string;
 }
 
 export interface CompleteGoogleRegistrationResponse {
@@ -29,6 +29,8 @@ export interface GoogleRegisterFormValues {
   phoneNumber: string;
   dob?: any;
   address?: string;
+  password: string;
+  confirmPassword?: string;
 }
 
 export interface UserSessionProfile {
