@@ -7,6 +7,9 @@ import {
   CalendarOutlined,
   CheckCircleFilled,
   ArrowLeftOutlined,
+  LockOutlined,
+  EyeInvisibleOutlined,
+  EyeTwoTone,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import IconGoogle from "@assets/icons/IconGoogle";
@@ -147,7 +150,54 @@ export const GoogleRegisterForm: React.FC<GoogleRegisterFormProps> = ({
           />
         </Form.Item>
 
-        {/* 5. Địa chỉ */}
+        {/* 5. Mật khẩu đăng nhập */}
+        <Form.Item
+          name="password"
+          label={<span style={{ fontWeight: 600, color: "#2d3748" }}>Mật khẩu đăng nhập <span style={{ color: "#ef4444" }}>*</span></span>}
+          rules={[
+            { required: true, message: "Vui lòng nhập mật khẩu!" },
+            { min: 6, message: "Mật khẩu tối thiểu 6 ký tự!" },
+          ]}
+          extra={<span style={{ fontSize: 12, color: "#6b7280" }}>Mật khẩu dùng để bạn đăng nhập bằng Email/Username mà không cần Google.</span>}
+        >
+          <Input.Password
+            prefix={<LockOutlined style={{ color: "#9ca3af" }} />}
+            placeholder="Tối thiểu 6 ký tự"
+            iconRender={(visible) =>
+              visible ? <EyeTwoTone twoToneColor="#256b8c" /> : <EyeInvisibleOutlined />
+            }
+            style={{ borderRadius: 12, height: 48 }}
+          />
+        </Form.Item>
+
+        {/* 6. Xác nhận mật khẩu */}
+        <Form.Item
+          name="confirmPassword"
+          label={<span style={{ fontWeight: 600, color: "#2d3748" }}>Xác nhận mật khẩu <span style={{ color: "#ef4444" }}>*</span></span>}
+          dependencies={["password"]}
+          rules={[
+            { required: true, message: "Vui lòng xác nhận mật khẩu!" },
+            ({ getFieldValue }) => ({
+              validator(_, value) {
+                if (!value || getFieldValue("password") === value) {
+                  return Promise.resolve();
+                }
+                return Promise.reject(new Error("Mật khẩu xác nhận không khớp!"));
+              },
+            }),
+          ]}
+        >
+          <Input.Password
+            prefix={<LockOutlined style={{ color: "#9ca3af" }} />}
+            placeholder="Nhập lại mật khẩu"
+            iconRender={(visible) =>
+              visible ? <EyeTwoTone twoToneColor="#256b8c" /> : <EyeInvisibleOutlined />
+            }
+            style={{ borderRadius: 12, height: 48 }}
+          />
+        </Form.Item>
+
+        {/* 7. Địa chỉ */}
         <Form.Item
           name="address"
           label={<span style={{ fontWeight: 600, color: "#2d3748" }}>Địa chỉ</span>}

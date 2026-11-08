@@ -65,31 +65,33 @@ export const BrandText = styled.div`
   }
 `;
 
-export const UserTrigger = styled.div`
+export const UserTrigger = styled.div<{ $isGuest?: boolean }>`
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   cursor: pointer;
-  padding: 6px 12px;
+  padding: ${({ $isGuest }) => ($isGuest ? "6px 10px" : "6px 12px")};
   border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
-  color: #2d3748;
+  color: #1b6284;
+  background: #edf6fa;
   transition: all 0.2s ease;
 
   &:hover {
-    color: #256b8c;
-    background: #f0f7fb;
+    color: #154c66;
+    background: #e2f0f7;
   }
 
   .user-icon {
-    font-size: 16px;
-    color: #4a5568;
+    font-size: 18px;
+    color: #1b6284;
   }
 
   .caret-icon {
     font-size: 11px;
-    color: #a0aec0;
+    color: #1b6284;
     transition: transform 0.2s ease;
   }
 

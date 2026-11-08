@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Client } from "@stomp/stompjs";
+import tokenManager from "@/shared/utils/tokenManager";
+import { useNotification } from "@/shared/hooks/useNotification";
 import type { WsBidMessage, WsConnectionStatus } from "../services/type";
 
 interface UseAuctionSocketProps {
@@ -13,6 +15,7 @@ export const useAuctionSocket = ({
 }: UseAuctionSocketProps = {}) => {
   const [status, setStatus] = useState<WsConnectionStatus>("disconnected");
   const [lastMessage, setLastMessage] = useState<WsBidMessage | null>(null);
+  const { showErrorNotify } = useNotification();
 
   const clientRef = useRef<Client | null>(null);
   const onUpdateRef = useRef(onPlateUpdate);
@@ -39,6 +42,16 @@ export const useAuctionSocket = ({
       reconnectDelay: 5000,
       heartbeatIncoming: 10000,
       heartbeatOutgoing: 10000,
+      beforeConnect: () => {
+        const token = tokenManager.getAccessToken();
+        if (token) {
+          client.connectHeaders = {
+            Authorization: `Bearer ${token}`,
+          };
+        } else {
+          client.connectHeaders = {};
+        }
+      },
       debug: (msg) => {
         if (import.meta.env.DEV) {
           // Log only errors or connection status
@@ -63,7 +76,25 @@ export const useAuctionSocket = ({
         });
       },
       onStompError: (frame) => {
-        console.error("[WS-STOMP] STOMP Error:", frame.headers["message"]);
+        const errorCode = frame.headers["error-code"];
+        const errorMessage = frame.headers["message"] || "Lỗi WebSocket STOMP";
+        console.error("[WS-STOMP] STOMP Error:", errorCode, errorMessage);
+
+        // Với token lỗi/hết hạn, ngắt kết nối để không retry spam
+        const authErrors = [
+          "AUTH_REQUIRED",
+          "TOKEN_EXPIRED",
+          "TOKEN_INVALID",
+          "USER_BANNED",
+          "FORBIDDEN_DESTINATION",
+        ];
+        if (errorCode && authErrors.includes(errorCode)) {
+          client.deactivate();
+          setStatus("error");
+          showErrorNotify(errorMessage);
+          return;
+        }
+
         setStatus("error");
       },
       onWebSocketClose: () => {
@@ -82,14 +113,20 @@ export const useAuctionSocket = ({
       clientRef.current = null;
       setStatus("disconnected");
     };
-  }, [enabled]);
+  }, [enabled, showErrorNotify]);
 
   /**
    * Gửi lượt đặt giá trực tiếp từ trang danh sách biển số qua WebSocket
    */
   const sendBid = useCallback((bid: WsBidMessage): boolean => {
+    const token = tokenManager.getAccessToken();
+    if (!token) {
+      showErrorNotify("Vui lòng đăng nhập để tham gia đấu giá!");
+      return false;
+    }
+
     if (!clientRef.current || !clientRef.current.connected) {
-      console.warn("[WS-STOMP] WebSocket chưa kết nối, không thể gửi tin nhắn");
+      showErrorNotify("Kết nối WebSocket gián đoạn, vui lòng tải lại trang!");
       return false;
     }
 
@@ -101,9 +138,10 @@ export const useAuctionSocket = ({
       return true;
     } catch (e) {
       console.error("[WS-STOMP] Lỗi gửi bid:", e);
+      showErrorNotify("Không thể gửi lượt đặt giá");
       return false;
     }
-  }, []);
+  }, [showErrorNotify]);
 
   /**
    * Đăng ký nhận thông tin một phòng đấu giá cụ thể nếu cần

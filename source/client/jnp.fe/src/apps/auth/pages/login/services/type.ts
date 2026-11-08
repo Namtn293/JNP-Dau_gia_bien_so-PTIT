@@ -26,6 +26,8 @@ export interface GoogleRegistrationFormValues {
   dob: any;
   phoneNumber: string;
   address: string;
+  password: string;
+  confirmPassword?: string;
 }
 
 export interface GoogleAuthCheckResult {

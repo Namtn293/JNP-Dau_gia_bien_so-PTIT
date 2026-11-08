@@ -102,7 +102,7 @@ export const useAction = () => {
           dob: formattedDob || undefined,
           address: values.address ? values.address.trim() : undefined,
           userName: "", // Backend tự sinh theo chuẩn
-          password: "", // Backend tự sinh theo chuẩn
+          password: values.password.trim(),
         });
 
         // Lưu phiên đăng nhập chính thức
