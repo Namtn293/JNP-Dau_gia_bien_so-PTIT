@@ -154,7 +154,7 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
         }
 
         // Kênh /topic/admin/** chỉ dành riêng cho ADMIN
-        if (destination != null && destination.startsWith("/topic/admin/")) {
+        if (destination != null && destination.startsWith("/topic/admin")) {
             if (customPrincipal == null || customPrincipal.getRoleEnum() != RoleEnum.ADMIN) {
                 throw new WebSocketSecurityException("ADMIN_REQUIRED",
                         "Chỉ quản trị viên mới được phép đăng ký nhận tin từ kênh quản trị");

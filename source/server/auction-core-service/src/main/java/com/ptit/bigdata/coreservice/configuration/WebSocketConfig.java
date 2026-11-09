@@ -33,6 +33,9 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
         // Tiền tố cho các request Client gửi lên Server (@MessageMapping)
         config.setApplicationDestinationPrefixes("/app");
+
+        // Tiền tố cho các kênh gửi riêng tới từng user (/user/queue/**)
+        config.setUserDestinationPrefix("/user");
     }
 
     @Override

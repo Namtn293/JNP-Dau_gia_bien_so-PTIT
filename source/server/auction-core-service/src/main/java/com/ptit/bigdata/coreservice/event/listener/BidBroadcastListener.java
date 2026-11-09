@@ -26,7 +26,7 @@ public class BidBroadcastListener {
         BidMessageVO message = BidMessageVO.builder()
                 .roomId(event.sessionCode())
                 .userId(String.valueOf(event.userId()))
-                .userName(event.fullName())
+                .userName(maskUserName(event.fullName()))
                 .bidAmount(event.newPrice())
                 .currentPrice(event.newPrice())
                 .stepPrice(event.nextStep())
@@ -49,6 +49,12 @@ public class BidBroadcastListener {
 
         log.debug("[BROADCAST] Phiên {}: Giá mới {} đã gửi tới /topic/auction/{} và /topic/auctions",
                 event.sessionCode(), event.newPrice(), event.sessionCode());
+    }
+
+    private String maskUserName(String name) {
+        if (name == null || name.isBlank()) return "u***";
+        if (name.length() <= 3) return name.charAt(0) + "***";
+        return name.charAt(0) + "***" + name.substring(name.length() - 2);
     }
 }
 
