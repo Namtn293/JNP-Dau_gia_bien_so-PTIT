@@ -1,5 +1,7 @@
 package com.ptit.bigdata.coreservice.service.implement;
 
+import com.ptit.bigdata.coreservice.core.configuration.ThreadContext;
+import com.ptit.bigdata.coreservice.entity.AuctionRegistration;
 import com.ptit.bigdata.coreservice.entity.AuctionSession;
 import com.ptit.bigdata.coreservice.entity.BidHistory;
 import com.ptit.bigdata.coreservice.entity.NumberPlate;
@@ -7,16 +9,21 @@ import com.ptit.bigdata.coreservice.entity.Province;
 import com.ptit.bigdata.coreservice.entity.UserInfo;
 import com.ptit.bigdata.coreservice.enumration.AuctionStatusEnum;
 import com.ptit.bigdata.coreservice.enumration.PlateTypeEnum;
+import com.ptit.bigdata.coreservice.enumration.RegistrationStatusEnum;
+import com.ptit.bigdata.coreservice.enumration.RoomRoleEnum;
 import com.ptit.bigdata.coreservice.model.vo.AuctionLotVO;
 import com.ptit.bigdata.coreservice.model.vo.AuctionRoomDetailVO;
 import com.ptit.bigdata.coreservice.model.vo.AuctionSessionVO;
 import com.ptit.bigdata.coreservice.model.vo.BidHistoryItemVO;
+import com.ptit.bigdata.coreservice.repository.AuctionRegistrationRepository;
 import com.ptit.bigdata.coreservice.repository.AuctionSessionRepository;
 import com.ptit.bigdata.coreservice.repository.BidHistoryRepository;
 import com.ptit.bigdata.coreservice.repository.NumberPlateRepository;
 import com.ptit.bigdata.coreservice.repository.ProvinceRepository;
 import com.ptit.bigdata.coreservice.repository.UserInfoRepository;
 import com.ptit.bigdata.coreservice.service.AuctionSessionService;
+import com.ptit.bigdata.coreservice.service.RoomRoleResolver;
+import com.ptit.bigdata.coreservice.service.StepPriceCalculator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -38,6 +45,11 @@ public class AuctionSessionServiceImplement implements AuctionSessionService {
     private final ProvinceRepository provinceRepository;
     private final BidHistoryRepository bidHistoryRepository;
     private final UserInfoRepository userInfoRepository;
+    private final StepPriceCalculator stepPriceCalculator;
+    private final RoomRoleResolver roomRoleResolver;
+    private final AuctionRegistrationRepository auctionRegistrationRepository;
+    private final com.ptit.bigdata.coreservice.service.WatchService watchService;
+    private final com.ptit.bigdata.coreservice.service.RoomAnnouncementService roomAnnouncementService;
 
     @Override
     public Page<AuctionSessionVO> getAuctionSessions(Pageable pageable, String auctionStatus) {
@@ -49,7 +61,24 @@ public class AuctionSessionServiceImplement implements AuctionSessionService {
                 // Keep default SOON
             }
         }
-        return auctionSessionRepository.getAuctionSession(pageable, statusEnum);
+        Page<AuctionSessionVO> page = auctionSessionRepository.getAuctionSession(pageable, statusEnum);
+        Long currentUserId = ThreadContext.getCurrentUserId();
+        // Bổ sung nextStep, nextMinBid và isWatched
+        page.forEach(vo -> {
+            long curPrice = vo.getCurrentPrice() != null ? vo.getCurrentPrice() : (vo.getPrice() != null ? vo.getPrice() : 40_000_000L);
+            long step = stepPriceCalculator.stepFor(curPrice);
+            vo.setNextStep(step);
+            vo.setNextMinBid(curPrice + step);
+            vo.setStepPrice(step);
+            if (currentUserId != null && vo.getSessionCode() != null) {
+                auctionSessionRepository.findBySessionCode(vo.getSessionCode()).ifPresent(s -> {
+                    vo.setIsWatched(watchService.isWatched(currentUserId, s.getId()));
+                });
+            } else {
+                vo.setIsWatched(false);
+            }
+        });
+        return page;
     }
 
     @Override
@@ -139,8 +168,18 @@ public class AuctionSessionServiceImplement implements AuctionSessionService {
 
         long currentPrice = session.getCurrentPrice() != null ? session.getCurrentPrice() : session.getStartPrice();
         long startPrice = session.getStartPrice() != null ? session.getStartPrice() : 40_000_000L;
-        long stepPrice = session.getStepPrice() != null ? session.getStepPrice() : 5_000_000L;
+        long nextStep = stepPriceCalculator.stepFor(currentPrice);
+        long nextMinBid = currentPrice + nextStep;
+        long stepPrice = nextStep;
         long deposit = session.getDepositAmount() != null ? session.getDepositAmount() : 40_000_000L;
+
+        Long currentUserId = ThreadContext.getCurrentUserId();
+        RoomRoleEnum myRole = roomRoleResolver.resolve(currentUserId, session.getId());
+        boolean isRegistered = false;
+        if (currentUserId != null) {
+            isRegistered = auctionRegistrationRepository.existsByUserIdAndSessionIdAndStatus(
+                    currentUserId, session.getId(), RegistrationStatusEnum.ACTIVE);
+        }
 
         // Bids history
         List<BidHistoryItemVO> bidItems = new ArrayList<>();
@@ -160,10 +199,16 @@ public class AuctionSessionServiceImplement implements AuctionSessionService {
                 if (leader == null) {
                     leader = masked;
                 }
+                long prevPrice = b.getPreviousPrice() != null ? b.getPreviousPrice() : startPrice;
+                long inc = Math.max(0L, b.getBidAmount() - prevPrice);
                 bidItems.add(BidHistoryItemVO.builder()
+                        .userId(b.getUserID())
                         .userName(masked)
                         .bidAmount(b.getBidAmount())
+                        .increment(inc)
+                        .source(b.getSource() != null ? b.getSource().name() : "MANUAL")
                         .time(b.getBidTime() != null ? b.getBidTime().format(timeFmt) : timeFmt.format(now))
+                        .bidTime(b.getBidTime() != null ? b.getBidTime().toString() : now.toString())
                         .isWinning(b.getIsWinningBid())
                         .build());
             }
@@ -203,6 +248,13 @@ public class AuctionSessionServiceImplement implements AuctionSessionService {
                     .build());
         }
 
+        String pinnedNotice = "Host Đấu Giá: Người trúng đấu giá có nghĩa vụ nộp đủ tiền trúng đấu giá trong thời hạn 15 ngày kể từ ngày có văn bản phê duyệt kết quả.";
+        var pinnedAnnounce = roomAnnouncementService.getPinnedAnnouncement(session.getSessionCode());
+        if (pinnedAnnounce != null && pinnedAnnounce.getContent() != null && !pinnedAnnounce.getContent().isBlank()) {
+            pinnedNotice = pinnedAnnounce.getContent();
+        }
+        var announcements = roomAnnouncementService.getRecentAnnouncements(session.getSessionCode());
+
         return AuctionRoomDetailVO.builder()
                 .sessionCode(session.getSessionCode())
                 .title(session.getTitle())
@@ -214,7 +266,11 @@ public class AuctionSessionServiceImplement implements AuctionSessionService {
                 .currentPrice(currentPrice)
                 .endPrice(session.getEndPrice())
                 .stepPrice(stepPrice)
+                .nextStep(nextStep)
+                .nextMinBid(nextMinBid)
                 .depositAmount(deposit)
+                .myRole(myRole.name())
+                .isRegistered(isRegistered)
                 .startTime(session.getStartTime() != null ? session.getStartTime().toString() : null)
                 .endTime(session.getEndTime() != null ? session.getEndTime().toString() : null)
                 .remainingSeconds(remaining)
@@ -223,7 +279,8 @@ public class AuctionSessionServiceImplement implements AuctionSessionService {
                 .participantCount(session.getParticipantCount() != null ? session.getParticipantCount() : 0L)
                 .leadingUser(leader)
                 .reserveMet(true)
-                .pinnedNotice("Host Đấu Giá: Người trúng đấu giá có nghĩa vụ nộp đủ tiền trúng đấu giá trong thời hạn 15 ngày kể từ ngày có văn bản phê duyệt kết quả.")
+                .pinnedNotice(pinnedNotice)
+                .announcements(announcements)
                 .lots(lots)
                 .initialBids(bidItems)
                 .build();

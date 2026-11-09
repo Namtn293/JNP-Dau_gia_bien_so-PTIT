@@ -40,6 +40,9 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
     private final ProvinceRepository provinceRepository;
     private final BidHistoryRepository bidHistoryRepository;
     private final UserInfoRepository userInfoRepository;
+    private final com.ptit.bigdata.coreservice.service.WalletService walletService;
+    private final com.ptit.bigdata.coreservice.repository.AuctionRegistrationRepository auctionRegistrationRepository;
+    private final com.ptit.bigdata.coreservice.service.RoomRoleResolver roomRoleResolver;
     private final Set<String> pausedRooms = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     @Autowired(required = false)
@@ -101,20 +104,32 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
     public List<AdminParticipantVO> getParticipants(String roomId) {
         Optional<AuctionSession> sessionOpt = auctionSessionRepository.findBySessionCode(roomId);
         if (sessionOpt.isPresent()) {
-            List<BidHistory> bids = bidHistoryRepository.findByAuctionSessionIdOrderByBidTimeDesc(sessionOpt.get().getId());
-            if (!bids.isEmpty()) {
+            Long sessionId = sessionOpt.get().getId();
+            List<BidHistory> bids = bidHistoryRepository.findByAuctionSessionIdOrderByBidTimeDesc(sessionId);
+            List<com.ptit.bigdata.coreservice.entity.AuctionRegistration> registrations =
+                    auctionRegistrationRepository.findBySessionId(sessionId);
+
+            Set<Long> allUserIds = new LinkedHashSet<>();
+            for (com.ptit.bigdata.coreservice.entity.AuctionRegistration reg : registrations) {
+                allUserIds.add(reg.getUserId());
+            }
+            for (BidHistory b : bids) {
+                allUserIds.add(b.getUserID());
+            }
+
+            if (!allUserIds.isEmpty()) {
                 Map<Long, List<BidHistory>> userBids = new LinkedHashMap<>();
                 for (BidHistory b : bids) {
                     userBids.computeIfAbsent(b.getUserID(), k -> new ArrayList<>()).add(b);
                 }
 
                 List<AdminParticipantVO> list = new ArrayList<>();
-                for (Map.Entry<Long, List<BidHistory>> entry : userBids.entrySet()) {
-                    Long userId = entry.getKey();
-                    List<BidHistory> hist = entry.getValue();
+                for (Long userId : allUserIds) {
+                    List<BidHistory> hist = userBids.getOrDefault(userId, Collections.emptyList());
                     Optional<UserInfo> userOpt = userInfoRepository.findById(userId);
                     String name = userOpt.map(UserInfo::getFullName).orElse("Người dùng #" + userId);
                     long maxBid = hist.stream().mapToLong(BidHistory::getBidAmount).max().orElse(0L);
+                    String role = roomRoleResolver.resolve(userId, sessionId).name();
 
                     list.add(AdminParticipantVO.builder()
                             .userId("U-" + String.format("%04d", userId))
@@ -123,13 +138,14 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
                             .bidsInLast5s(hist.size())
                             .lastPrice(maxBid)
                             .rttMs(32)
+                            .role(role)
                             .build());
                 }
                 return list;
             }
         }
 
-        // No specific DB bids yet
+        // No participants yet
         return Collections.emptyList();
     }
 
@@ -177,6 +193,12 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
     public AdminCommandResultVO halt(String roomId) {
         log.info("Admin HALT command requested for room: {}", roomId);
         pausedRooms.add(roomId);
+        Optional<AuctionSession> opt = auctionSessionRepository.findBySessionCode(roomId);
+        if (opt.isPresent()) {
+            AuctionSession s = opt.get();
+            s.setStatus(AuctionStatusEnum.PAUSED);
+            auctionSessionRepository.save(s);
+        }
         if (messagingTemplate != null) {
             String time = DateTimeFormatter.ofPattern("HH:mm:ss").format(LocalTime.now());
             messagingTemplate.convertAndSend("/topic/room/" + roomId,
@@ -192,6 +214,7 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
         Optional<AuctionSession> opt = auctionSessionRepository.findBySessionCode(roomId);
         if (opt.isPresent()) {
             AuctionSession s = opt.get();
+            s.setStatus(AuctionStatusEnum.LIVE);
             if (s.getEndTime() != null && s.getEndTime().isBefore(LocalDateTime.now())) {
                 s.setEndTime(LocalDateTime.now().plusSeconds(30));
             } else if (s.getEndTime() != null) {
@@ -231,6 +254,11 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
             AuctionSession s = opt.get();
             s.setStatus(AuctionStatusEnum.END);
             auctionSessionRepository.save(s);
+            try {
+                walletService.handleSessionCancelled(s.getId());
+            } catch (Exception e) {
+                log.error("Could not refund deposits for session {}: {}", roomId, e.getMessage());
+            }
         }
         if (messagingTemplate != null) {
             String time = DateTimeFormatter.ofPattern("HH:mm:ss").format(LocalTime.now());

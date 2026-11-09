@@ -32,6 +32,11 @@ public class AuctionRoomDetailVO {
     private String leadingUser;
     private Boolean reserveMet;
     private String pinnedNotice;
+    private String myRole;
+    private Boolean isRegistered;
+    private Long nextStep;
+    private Long nextMinBid;
+    private List<?> announcements;
     private List<AuctionLotVO> lots;
     private List<BidHistoryItemVO> initialBids;
 }

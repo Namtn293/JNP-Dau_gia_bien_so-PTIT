@@ -15,7 +15,7 @@ public class CompleteRegistrationDTO {
     // Không bắt buộc — tự sinh ngẫu nhiên nếu FE không truyền
     private String userName;
 
-    @NotBlank(message = "Mật khẩu không được để trống")
+    // Không bắt buộc — tự sinh ngẫu nhiên nếu FE không truyền (nếu truyền thì tối thiểu 6 ký tự)
     @Size(min = 6, message = "Mật khẩu tối thiểu 6 ký tự")
     private String password;
 
