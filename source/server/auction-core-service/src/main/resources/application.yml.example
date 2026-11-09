@@ -23,4 +23,29 @@ spring:
 
 tcp:
   control:
+    host: 127.0.0.1
     port: 9090
+
+auction:
+  step-tiers:
+    - { up-to: 99999999,  step: 5000000 }
+    - { up-to: 500000000, step: 10000000 }
+    - { step: 20000000 }
+  room:
+    viewer-can-chat: false
+  notify:
+    starting-soon-minutes: 15
+    ending-soon-minutes: 5
+    new-bid-throttle-seconds: 60
+  wallet:
+    initial-balance: 1000000000
+    max-topup: 500000000
+  auto-bid:
+    base-delay-ms: 5000
+    jitter-ms: 1500
+  chart:
+    max-points: 1000
+  shill:
+    min-alternating-bids: 6
+    max-gap-seconds: 15
+
