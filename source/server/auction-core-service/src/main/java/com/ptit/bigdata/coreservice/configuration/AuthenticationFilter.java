@@ -43,12 +43,20 @@ public class AuthenticationFilter extends OncePerRequestFilter {
                                     @NonNull FilterChain filterChain) throws ServletException, IOException {
         String servletPath = request.getServletPath();
         if (servletPath.contains("/auth") || servletPath.contains("/ws") || servletPath.contains("/swagger") || servletPath.contains("/v3/api-docs")) {
+            try {
             filterChain.doFilter(request, response);
+        } finally {
+            ThreadContext.userHolder.remove();
+        }
             return;
         }
         String header = request.getHeader("Authorization");
         if (header == null || !header.startsWith("Bearer ")) {
+            try {
             filterChain.doFilter(request, response);
+        } finally {
+            ThreadContext.userHolder.remove();
+        }
             return;
         }
 
@@ -76,6 +84,10 @@ public class AuthenticationFilter extends OncePerRequestFilter {
                 ThreadContext.setUserDetail(userDetails);
             }
         }
-        filterChain.doFilter(request, response);
+        try {
+            filterChain.doFilter(request, response);
+        } finally {
+            ThreadContext.userHolder.remove();
+        }
     }
 }
