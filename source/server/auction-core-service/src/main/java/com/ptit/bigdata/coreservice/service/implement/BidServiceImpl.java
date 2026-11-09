@@ -51,6 +51,12 @@ public class BidServiceImpl implements BidService {
             throw new BusinessException(ErrorCode.BID_UNAUTHORIZED);
         }
 
+        // Quản trị viên không được phép trực tiếp tham gia đặt giá
+        User currentUser = userRepository.findById(userId).orElse(null);
+        if (currentUser != null && currentUser.getRoleEnum() == com.ptit.bigdata.coreservice.enumration.RoleEnum.ADMIN) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+
         // 2. Khóa dòng phiên đấu giá để chống race condition
         AuctionSession session = auctionSessionRepository.findBySessionCodeForUpdate(sessionCode)
                 .orElseThrow(() -> new BusinessException(ErrorCode.AUCTION_NOT_FOUND));
@@ -120,7 +126,6 @@ public class BidServiceImpl implements BidService {
         auctionSessionRepository.save(session);
 
         // Lấy thông tin người đặt & người dẫn giá trước
-        User currentUser = userRepository.findById(userId).orElse(null);
         String username = currentUser != null ? currentUser.getUsername() : String.valueOf(userId);
         UserInfo currentUserInfo = (currentUser != null)
                 ? userInfoRepository.findByUserName(currentUser.getUsername()).orElse(null)

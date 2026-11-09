@@ -195,7 +195,7 @@ public class WalletServiceImpl implements WalletService {
                 userId, session.getId(), RegistrationStatusEnum.ACTIVE)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_REGISTERED));
 
-        long deposit = reg.getDepositAmount();
+        long deposit = reg.getDepositAmount() != null ? reg.getDepositAmount() : 40_000_000L;
         Wallet wallet = getOrCreateWallet(userId);
         long newHeld = Math.max(0L, wallet.getHeldAmount() - deposit);
         wallet.setHeldAmount(newHeld);
@@ -280,7 +280,7 @@ public class WalletServiceImpl implements WalletService {
         for (AuctionRegistration reg : activeRegs) {
             try {
                 Wallet w = getOrCreateWallet(reg.getUserId());
-                long dep = reg.getDepositAmount();
+                long dep = reg.getDepositAmount() != null ? reg.getDepositAmount() : 40_000_000L;
 
                 if (winnerUserId != null && winnerUserId.equals(reg.getUserId())) {
                     // CAPTURE cọc người thắng
@@ -325,7 +325,7 @@ public class WalletServiceImpl implements WalletService {
         for (AuctionRegistration reg : activeRegs) {
             try {
                 Wallet w = getOrCreateWallet(reg.getUserId());
-                long dep = reg.getDepositAmount();
+                long dep = reg.getDepositAmount() != null ? reg.getDepositAmount() : 40_000_000L;
                 long newHeld = Math.max(0L, w.getHeldAmount() - dep);
                 w.setHeldAmount(newHeld);
                 walletRepository.save(w);

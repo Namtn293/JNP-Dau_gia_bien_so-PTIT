@@ -160,8 +160,12 @@ public class AuctionSessionServiceImplement implements AuctionSessionService {
 
         LocalDateTime now = LocalDateTime.now();
         long remaining = 0;
-        if (session.getEndTime() != null && session.getEndTime().isAfter(now)) {
-            remaining = Math.max(0, Duration.between(now, session.getEndTime()).getSeconds());
+        if (session.getEndTime() != null) {
+            if (session.getEndTime().isAfter(now)) {
+                remaining = Math.max(0, Duration.between(now, session.getEndTime()).getSeconds());
+            } else {
+                remaining = 0;
+            }
         } else if (session.getStatus() == AuctionStatusEnum.LIVE) {
             remaining = 180;
         }
