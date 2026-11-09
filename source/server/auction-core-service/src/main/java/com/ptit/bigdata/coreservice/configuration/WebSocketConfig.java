@@ -17,6 +17,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final WebSocketAuthChannelInterceptor authChannelInterceptor;
     private final WebSocketStompErrorHandler stompErrorHandler;
+    private final ClientIpHandshakeInterceptor clientIpHandshakeInterceptor;
 
     private static final String[] ALLOWED_ORIGIN_PATTERNS = {
             "http://localhost:5173",
@@ -41,11 +42,13 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
         // Endpoint WebSocket thuần
         registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns(ALLOWED_ORIGIN_PATTERNS);
+                .setAllowedOriginPatterns(ALLOWED_ORIGIN_PATTERNS)
+                .addInterceptors(clientIpHandshakeInterceptor);
 
         // Endpoint WebSocket hỗ trợ SockJS fallback
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns(ALLOWED_ORIGIN_PATTERNS)
+                .addInterceptors(clientIpHandshakeInterceptor)
                 .withSockJS();
     }
 

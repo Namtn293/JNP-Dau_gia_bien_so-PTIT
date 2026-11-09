@@ -215,10 +215,14 @@ public class AuthenticationService {
             throw new BusinessException(ErrorCode.PHONE_NUMBER_EXISTS);
         }
 
-        if (dto.getPassword() == null || dto.getPassword().trim().length() < 6) {
+        String rawPassword;
+        if (dto.getPassword() == null || dto.getPassword().trim().isBlank()) {
+            rawPassword = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+        } else if (dto.getPassword().trim().length() < 6) {
             throw new BusinessException(ErrorCode.PASSWORD_NOT_CORRECT);
+        } else {
+            rawPassword = dto.getPassword().trim();
         }
-        String rawPassword = dto.getPassword().trim();
 
         // 1. Tạo tài khoản đăng nhập (AUTH_USER)
         User user = new User();

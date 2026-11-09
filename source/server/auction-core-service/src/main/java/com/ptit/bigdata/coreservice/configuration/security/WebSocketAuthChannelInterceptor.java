@@ -152,6 +152,14 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
                         "Bạn cần đăng nhập để tham gia và theo dõi chi tiết phòng đấu giá");
             }
         }
+
+        // Kênh /topic/admin/** chỉ dành riêng cho ADMIN
+        if (destination != null && destination.startsWith("/topic/admin/")) {
+            if (customPrincipal == null || customPrincipal.getRoleEnum() != RoleEnum.ADMIN) {
+                throw new WebSocketSecurityException("ADMIN_REQUIRED",
+                        "Chỉ quản trị viên mới được phép đăng ký nhận tin từ kênh quản trị");
+            }
+        }
     }
 
     private void handleSend(StompHeaderAccessor accessor) {

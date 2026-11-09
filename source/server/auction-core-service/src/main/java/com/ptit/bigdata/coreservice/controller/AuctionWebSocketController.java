@@ -1,28 +1,36 @@
 package com.ptit.bigdata.coreservice.controller;
 
+import com.ptit.bigdata.coreservice.configuration.AuctionProperties;
+import com.ptit.bigdata.coreservice.configuration.ClientIpHandshakeInterceptor;
 import com.ptit.bigdata.coreservice.configuration.security.AuctionUserPrincipal;
 import com.ptit.bigdata.coreservice.configuration.security.WebSocketAuthChannelInterceptor;
 import com.ptit.bigdata.coreservice.configuration.security.WebSocketSecurityException;
+import com.ptit.bigdata.coreservice.core.util.BusinessException;
 import com.ptit.bigdata.coreservice.entity.AuctionSession;
-import com.ptit.bigdata.coreservice.entity.BidHistory;
 import com.ptit.bigdata.coreservice.entity.NumberPlate;
+import com.ptit.bigdata.coreservice.enumration.AuctionStatusEnum;
+import com.ptit.bigdata.coreservice.enumration.BidSourceEnum;
+import com.ptit.bigdata.coreservice.enumration.ErrorCode;
 import com.ptit.bigdata.coreservice.enumration.RoleEnum;
+import com.ptit.bigdata.coreservice.enumration.RoomRoleEnum;
 import com.ptit.bigdata.coreservice.model.vo.BidMessageVO;
 import com.ptit.bigdata.coreservice.model.vo.ChatMessageVO;
+import com.ptit.bigdata.coreservice.model.vo.ErrorVO;
 import com.ptit.bigdata.coreservice.model.vo.RoomEventVO;
 import com.ptit.bigdata.coreservice.repository.AuctionSessionRepository;
-import com.ptit.bigdata.coreservice.repository.BidHistoryRepository;
 import com.ptit.bigdata.coreservice.repository.NumberPlateRepository;
+import com.ptit.bigdata.coreservice.service.BidService;
+import com.ptit.bigdata.coreservice.service.RoomRoleResolver;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
 import java.security.Principal;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
@@ -32,7 +40,7 @@ import java.util.Optional;
  * Hỗ trợ các kênh thời gian thực:
  * 1. Chat trong phòng đấu giá (/topic/chat/{roomId})
  * 2. Báo danh vào / rời phòng (/topic/room/{roomId})
- * 3. Đặt giá phòng đấu giá (/topic/auction/{roomId})
+ * 3. Đặt giá phòng đấu giá (/app/bid/{roomId} -> BidService -> Listener broadcast)
  * 4. Kênh cập nhật thời gian thực cho Trang Danh Sách Biển Số (/topic/auctions)
  */
 @Slf4j
@@ -43,23 +51,37 @@ public class AuctionWebSocketController {
     private final SimpMessagingTemplate messagingTemplate;
     private final AuctionSessionRepository auctionSessionRepository;
     private final NumberPlateRepository numberPlateRepository;
-    private final BidHistoryRepository bidHistoryRepository;
+    private final BidService bidService;
+    private final RoomRoleResolver roomRoleResolver;
+    private final AuctionProperties auctionProperties;
 
     /**
      * Nhận tin nhắn chat từ Client gửi lên /app/chat/{roomId}
      * Broadcast tới tất cả người tham gia đang subscribe /topic/chat/{roomId}
-     * Tên người gửi được bảo đảm ghi đè từ danh tính đã xác thực (UserInfo.fullName).
+     * Chỉ BIDDER hoặc ADMIN được gửi tin nhắn (nếu viewerCanChat = false).
      */
     @MessageMapping("/chat/{roomId}")
-    @SendTo("/topic/chat/{roomId}")
-    public ChatMessageVO handleChat(
+    public void handleChat(
             @DestinationVariable("roomId") String roomId,
             ChatMessageVO message,
             Principal principal) {
         AuctionUserPrincipal userPrincipal = WebSocketAuthChannelInterceptor.extractPrincipal(principal);
-        String senderName = (userPrincipal != null && !userPrincipal.isAnonymous())
+        if (userPrincipal == null || userPrincipal.isAnonymous()) {
+            sendError(principal, ErrorCode.BID_UNAUTHORIZED);
+            return;
+        }
+
+        Long userId = userPrincipal.getUserId();
+        RoomRoleEnum role = roomRoleResolver.resolveBySessionCode(userId, roomId);
+
+        if (role == RoomRoleEnum.VIEWER && !auctionProperties.getRoom().isViewerCanChat()) {
+            sendError(principal, ErrorCode.CHAT_BIDDER_ONLY);
+            return;
+        }
+
+        String senderName = userPrincipal.getFullName() != null && !userPrincipal.getFullName().isBlank()
                 ? userPrincipal.getFullName()
-                : "Người dùng";
+                : userPrincipal.getUsername();
 
         if (message.getId() == null || message.getId().isBlank()) {
             message.setId(java.util.UUID.randomUUID().toString());
@@ -68,12 +90,13 @@ public class AuctionWebSocketController {
             message.setTimestamp(DateTimeFormatter.ofPattern("HH:mm:ss").format(LocalTime.now()));
         }
         message.setRoomId(roomId);
-        message.setSenderName(senderName); // Ghi đè danh tính từ server
+        message.setSenderName(senderName);
         if (message.getType() == null) {
             message.setType("CHAT");
         }
-        log.info("[CHAT] Phòng {}: [{}] -> {}", roomId, senderName, message.getContent());
-        return message;
+
+        log.info("[CHAT] Phòng {}: [{}] ({}) -> {}", roomId, senderName, role, message.getContent());
+        messagingTemplate.convertAndSend("/topic/chat/" + roomId, message);
     }
 
     /**
@@ -128,62 +151,74 @@ public class AuctionWebSocketController {
 
     /**
      * Nhận lượt đặt giá mới từ Client trong phòng gửi lên /app/bid/{roomId}
-     * Broadcast tới /topic/auction/{roomId} VÀ đồng thời broadcast tới /topic/auctions
+     * Ủy quyền xử lý cho BidService.
+     * Việc broadcast tới các kênh do BidBroadcastListener phụ trách sau khi commit transaction thành công.
      */
     @MessageMapping("/bid/{roomId}")
-    @SendTo("/topic/auction/{roomId}")
-    public BidMessageVO handleBid(
+    public void handleBid(
             @DestinationVariable("roomId") String roomId,
             BidMessageVO bid,
-            Principal principal) {
+            Principal principal,
+            SimpMessageHeaderAccessor headerAccessor) {
         AuctionUserPrincipal userPrincipal = WebSocketAuthChannelInterceptor.extractPrincipal(principal);
-        String bidderName = (userPrincipal != null && !userPrincipal.isAnonymous())
-                ? userPrincipal.getFullName()
-                : "Người đặt giá";
-        Long userId = userPrincipal != null ? userPrincipal.getUserId() : null;
+        Long userId = (userPrincipal != null && !userPrincipal.isAnonymous()) ? userPrincipal.getUserId() : null;
 
-        bid.setRoomId(roomId);
-        bid.setUserName(bidderName);
-        bid.setUserId(userId != null ? String.valueOf(userId) : null);
+        String clientIp = extractClientIp(headerAccessor);
 
-        processBidPersistence(bid, userId);
-
-        log.info("[BID-ROOM] Phòng {}: [{}] đặt giá {} VNĐ (Giá hiện tại: {})",
-                roomId, bidderName, bid.getBidAmount(), bid.getCurrentPrice());
-
-        // Broadcast tới kênh danh sách biển số chung để trang Dashboard cập nhật real-time
-        messagingTemplate.convertAndSend("/topic/auctions", bid);
-
-        return bid;
+        try {
+            bidService.placeBid(roomId, userId, bid.getBidAmount(), BidSourceEnum.MANUAL, clientIp);
+        } catch (BusinessException e) {
+            log.warn("[BID-REJECTED] Phòng {}: User {} bị từ chối: {}",
+                    roomId, principal != null ? principal.getName() : "null", e.getErrorCode().getMessage());
+            sendError(principal, e.getErrorCode());
+        } catch (Exception e) {
+            log.error("[BID-EXCEPTION] Phòng {}: Lỗi hệ thống: ", roomId, e);
+            sendCustomError(principal, "INTERNAL_ERROR", "Lỗi xử lý đặt giá: " + e.getMessage());
+        }
     }
 
     /**
      * Nhận lượt đặt giá trực tiếp từ Trang Danh Sách Biển Số gửi lên /app/auction/bid (hoặc /app/bid)
-     * Broadcast tới /topic/auctions cho tất cả client đang mở trang danh sách biển số
      */
     @MessageMapping({"/auction/bid", "/bid"})
-    @SendTo("/topic/auctions")
-    public BidMessageVO handleDashboardBid(BidMessageVO bid, Principal principal) {
+    public void handleDashboardBid(
+            BidMessageVO bid,
+            Principal principal,
+            SimpMessageHeaderAccessor headerAccessor) {
         AuctionUserPrincipal userPrincipal = WebSocketAuthChannelInterceptor.extractPrincipal(principal);
-        String bidderName = (userPrincipal != null && !userPrincipal.isAnonymous())
-                ? userPrincipal.getFullName()
-                : "Người đặt giá";
-        Long userId = userPrincipal != null ? userPrincipal.getUserId() : null;
+        Long userId = (userPrincipal != null && !userPrincipal.isAnonymous()) ? userPrincipal.getUserId() : null;
 
-        bid.setUserName(bidderName);
-        bid.setUserId(userId != null ? String.valueOf(userId) : null);
+        String clientIp = extractClientIp(headerAccessor);
 
-        processBidPersistence(bid, userId);
-
-        log.info("[BID-DASHBOARD] Biển {}: [{}] đặt giá {} VNĐ (Giá mới: {})",
-                bid.getPlateNumber(), bidderName, bid.getBidAmount(), bid.getCurrentPrice());
-
-        // Nếu có roomId tương ứng, cũng broadcast tới phòng đấu giá cụ thể
-        if (bid.getRoomId() != null && !bid.getRoomId().isBlank()) {
-            messagingTemplate.convertAndSend("/topic/auction/" + bid.getRoomId(), bid);
+        String sessionCode = bid.getRoomId();
+        if ((sessionCode == null || sessionCode.isBlank()) && bid.getPlateNumber() != null && !bid.getPlateNumber().isBlank()) {
+            Optional<NumberPlate> plateOpt = numberPlateRepository.findByPlateNumber(bid.getPlateNumber());
+            if (plateOpt.isPresent()) {
+                Optional<AuctionSession> sessionOpt = auctionSessionRepository.findFirstByNumberPlateIdAndStatus(plateOpt.get().getId(), AuctionStatusEnum.LIVE);
+                if (sessionOpt.isEmpty()) {
+                    sessionOpt = auctionSessionRepository.findFirstByNumberPlateIdOrderByStartTimeDesc(plateOpt.get().getId());
+                }
+                if (sessionOpt.isPresent()) {
+                    sessionCode = sessionOpt.get().getSessionCode();
+                }
+            }
         }
 
-        return bid;
+        if (sessionCode == null || sessionCode.isBlank()) {
+            sendError(principal, ErrorCode.AUCTION_NOT_FOUND);
+            return;
+        }
+
+        try {
+            bidService.placeBid(sessionCode, userId, bid.getBidAmount(), BidSourceEnum.MANUAL, clientIp);
+        } catch (BusinessException e) {
+            log.warn("[DASHBOARD-BID-REJECTED] Biển {}: User {} bị từ chối: {}",
+                    bid.getPlateNumber(), principal != null ? principal.getName() : "null", e.getErrorCode().getMessage());
+            sendError(principal, e.getErrorCode());
+        } catch (Exception e) {
+            log.error("[DASHBOARD-BID-EXCEPTION] Lỗi hệ thống: ", e);
+            sendCustomError(principal, "INTERNAL_ERROR", "Lỗi xử lý đặt giá: " + e.getMessage());
+        }
     }
 
     /**
@@ -211,76 +246,33 @@ public class AuctionWebSocketController {
         return statusMessage;
     }
 
-    /**
-     * Cập nhật dữ liệu vào Database nếu có bản ghi tương ứng và lưu đúng userID người đặt
-     */
-    private void processBidPersistence(BidMessageVO bid, Long userId) {
-        if (bid.getTimestamp() == null || bid.getTimestamp().isBlank()) {
-            bid.setTimestamp(DateTimeFormatter.ofPattern("HH:mm:ss").format(LocalTime.now()));
+    private String extractClientIp(SimpMessageHeaderAccessor headerAccessor) {
+        if (headerAccessor != null && headerAccessor.getSessionAttributes() != null) {
+            Object ip = headerAccessor.getSessionAttributes().get(ClientIpHandshakeInterceptor.CLIENT_IP_ATTR);
+            if (ip instanceof String s && !s.isBlank()) {
+                return s;
+            }
         }
-        if (bid.getType() == null) {
-            bid.setType("BID");
+        return "127.0.0.1";
+    }
+
+    private void sendError(Principal principal, ErrorCode errorCode) {
+        if (principal != null && principal.getName() != null) {
+            messagingTemplate.convertAndSendToUser(
+                    principal.getName(),
+                    "/queue/errors",
+                    new ErrorVO(errorCode.getCode(), errorCode.getMessage())
+            );
         }
+    }
 
-        try {
-            AuctionSession session = null;
-            // 1. Tìm theo plateNumber nếu có
-            if (bid.getPlateNumber() != null && !bid.getPlateNumber().isBlank()) {
-                Optional<NumberPlate> plateOpt = numberPlateRepository.findByPlateNumber(bid.getPlateNumber());
-                if (plateOpt.isPresent()) {
-                    session = auctionSessionRepository.findFirstByNumberPlateId(plateOpt.get().getId()).orElse(null);
-                }
-            }
-
-            // 2. Nếu chưa thấy và có roomId, thử tìm theo sessionCode
-            if (session == null && bid.getRoomId() != null && !bid.getRoomId().isBlank()) {
-                session = auctionSessionRepository.findBySessionCode(bid.getRoomId()).orElse(null);
-            }
-
-            // 3. Nếu tìm thấy session trong CSDL, cập nhật giá và số lượt trả
-            if (session != null) {
-                long currentPrice = session.getCurrentPrice() != null ? session.getCurrentPrice() : session.getStartPrice();
-                long step = session.getStepPrice() != null ? session.getStepPrice() : 5_000_000L;
-                long newPrice = (bid.getBidAmount() != null && bid.getBidAmount() > 0)
-                        ? bid.getBidAmount()
-                        : (currentPrice + step);
-
-                session.setCurrentPrice(newPrice);
-                int count = (session.getBidCount() != null ? session.getBidCount() : 0) + 1;
-                session.setBidCount(count);
-                session.setWinningPrice(newPrice);
-                auctionSessionRepository.save(session);
-
-                // Lưu lịch sử đấu giá gắn liền với userID thực tế của người đặt
-                BidHistory history = BidHistory.builder()
-                        .auctionSessionId(session.getId())
-                        .userID(userId)
-                        .bidAmount(newPrice)
-                        .bidTime(LocalDateTime.now())
-                        .isWinningBid(true)
-                        .build();
-                bidHistoryRepository.save(history);
-
-                bid.setCurrentPrice(newPrice);
-                bid.setBidCount(count);
-                if (bid.getPlateNumber() == null || bid.getPlateNumber().isBlank()) {
-                    numberPlateRepository.findById(session.getNumberPlateId())
-                            .ifPresent(p -> bid.setPlateNumber(p.getPlateNumber()));
-                }
-                if (bid.getRoomId() == null || bid.getRoomId().isBlank()) {
-                    bid.setRoomId(session.getSessionCode());
-                }
-            } else {
-                // Mock data fallback: nếu không có trong DB thì tự tính toán giá và số lượt
-                if (bid.getCurrentPrice() == null && bid.getBidAmount() != null) {
-                    bid.setCurrentPrice(bid.getBidAmount());
-                }
-            }
-        } catch (Exception e) {
-            log.warn("Không thể lưu lượt đấu giá vào database: {}", e.getMessage());
-            if (bid.getCurrentPrice() == null && bid.getBidAmount() != null) {
-                bid.setCurrentPrice(bid.getBidAmount());
-            }
+    private void sendCustomError(Principal principal, String code, String message) {
+        if (principal != null && principal.getName() != null) {
+            messagingTemplate.convertAndSendToUser(
+                    principal.getName(),
+                    "/queue/errors",
+                    new ErrorVO(code, message)
+            );
         }
     }
 }

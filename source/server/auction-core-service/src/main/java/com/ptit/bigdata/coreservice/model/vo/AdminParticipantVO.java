@@ -16,4 +16,5 @@ public class AdminParticipantVO {
     private int bidsInLast5s;
     private long lastPrice;
     private int rttMs;
+    private String role;
 }
