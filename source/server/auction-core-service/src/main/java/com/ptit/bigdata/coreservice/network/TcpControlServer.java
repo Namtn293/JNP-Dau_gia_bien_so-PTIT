@@ -1,7 +1,10 @@
 package com.ptit.bigdata.coreservice.network;
 
+import com.ptit.bigdata.coreservice.enumration.AnnouncementLevelEnum;
+import com.ptit.bigdata.coreservice.model.dto.AnnouncementDTO;
 import com.ptit.bigdata.coreservice.model.vo.AdminCommandResultVO;
 import com.ptit.bigdata.coreservice.service.AdminAuctionService;
+import com.ptit.bigdata.coreservice.service.RoomAnnouncementService;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +40,10 @@ import java.util.concurrent.Executors;
 public class TcpControlServer {
 
     private final AdminAuctionService adminAuctionService;
+    private final RoomAnnouncementService roomAnnouncementService;
+
+    @Value("${tcp.control.host:127.0.0.1}")
+    private String host;
 
     @Value("${tcp.control.port:9090}")
     private int port;
@@ -52,9 +59,9 @@ public class TcpControlServer {
 
     private void listen() {
         try {
-            serverSocket = new ServerSocket(port);
+            serverSocket = new ServerSocket(port, 50, java.net.InetAddress.getByName(host));
             running = true;
-            log.info("===== TCP Control Server đã khởi động trên cổng {} (Raw TCP Socket) =====", port);
+            log.info("===== TCP Control Server đã khởi động trên {}:{} (Raw TCP Socket) =====", host, port);
 
             while (running && !serverSocket.isClosed()) {
                 try {
@@ -126,11 +133,29 @@ public class TcpControlServer {
                 AdminCommandResultVO cancelRes = adminAuctionService.cancel(parts[1]);
                 return (cancelRes.isSuccess() ? "OK " : "FAIL ") + cancelRes.getMessage();
 
+            case "ANNOUNCE":
+                if (parts.length < 3) return "FAIL Cú pháp: ANNOUNCE <roomId> <nội dung>";
+                String announceRoom = parts[1];
+                int prefixLen = parts[0].length() + 1 + parts[1].length() + 1;
+                String content = rawCommand.substring(Math.min(prefixLen, rawCommand.length())).trim();
+                try {
+                    AnnouncementDTO dto = AnnouncementDTO.builder()
+                            .content(content)
+                            .pinned(false)
+                            .level(AnnouncementLevelEnum.INFO)
+                            .notifyWatchers(true)
+                            .build();
+                    roomAnnouncementService.post(announceRoom, null, dto);
+                    return "OK Đã phát thông báo vào phòng " + announceRoom;
+                } catch (Exception e) {
+                    return "FAIL Lỗi khi gửi thông báo: " + e.getMessage();
+                }
+
             case "PING":
                 return "OK PONG 9090";
 
             default:
-                return "FAIL Lệnh không được hỗ trợ: " + command + ". Hỗ trợ: HALT, RESUME, KICK, CANCEL, PING";
+                return "FAIL Lệnh không được hỗ trợ: " + command + ". Hỗ trợ: HALT, RESUME, KICK, CANCEL, ANNOUNCE, PING";
         }
     }
 
