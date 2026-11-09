@@ -3,7 +3,7 @@ HUONG DAN CHAY UDP -> CORE -> ADMIN
 
 Dieu kien:
 - Mo 3 terminal rieng, tat ca bat dau tu thu muc goc repository.
-- Da cai Maven va JDK 27; kiem tra bang `java -version`.
+- Da cai Maven va JDK 21; kiem tra bang `java -version`.
 - Database Neon da duoc cau hinh. Khong ghi password Neon vao file nay.
 - Cac service chay tren cung may, dung dia chi 127.0.0.1.
 
@@ -53,7 +53,7 @@ Kiem tra ket noi:
   UDP 8888 va ping UDP Server o UDP 9002.
 
 Neu Maven bao khong tim thay, kiem tra da cd vao dung module. Neu loi class
-version, chuyen JAVA_HOME/PATH sang JDK 27 roi mo terminal moi.
+version, chuyen JAVA_HOME/PATH sang JDK 21 roi mo terminal moi.
 
 Luu y: cac lenh dieu khien phien trong Admin hien chua duoc ket noi voi raw
 TCP cua Core; file nay chi huong dan test luong UDP metrics va RTT.
