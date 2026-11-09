@@ -68,6 +68,14 @@ public class AuctionBackgroundService {
             handleEndSession(session, now);
         }
 
+        // 1b. Tự động chốt các phiên SOON đã quá endTime sang END
+        List<AuctionSession> expiredSoonSessions = auctionSessionRepository
+                .findByStatusAndEndTimeBefore(AuctionStatusEnum.SOON, now);
+
+        for (AuctionSession session : expiredSoonSessions) {
+            handleEndSession(session, now);
+        }
+
         // 2. Tự động chuyển các phiên SOON đã đến startTime sang LIVE
         List<AuctionSession> startingSessions = auctionSessionRepository
                 .findByStatusAndStartTimeBeforeAndEndTimeAfter(AuctionStatusEnum.SOON, now, now);
