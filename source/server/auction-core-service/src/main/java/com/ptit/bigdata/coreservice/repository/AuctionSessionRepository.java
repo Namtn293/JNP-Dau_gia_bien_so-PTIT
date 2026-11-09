@@ -3,9 +3,11 @@ package com.ptit.bigdata.coreservice.repository;
 import com.ptit.bigdata.coreservice.entity.AuctionSession;
 import com.ptit.bigdata.coreservice.enumration.AuctionStatusEnum;
 import com.ptit.bigdata.coreservice.model.vo.AuctionSessionVO;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -19,7 +21,15 @@ public interface AuctionSessionRepository extends JpaRepository<AuctionSession, 
 
     Optional<AuctionSession> findBySessionCode(String sessionCode);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select a from AuctionSession a where a.sessionCode = :code")
+    Optional<AuctionSession> findBySessionCodeForUpdate(@Param("code") String code);
+
     Optional<AuctionSession> findFirstByNumberPlateId(Long numberPlateId);
+
+    Optional<AuctionSession> findFirstByNumberPlateIdAndStatus(Long numberPlateId, AuctionStatusEnum status);
+
+    Optional<AuctionSession> findFirstByNumberPlateIdOrderByStartTimeDesc(Long numberPlateId);
 
     List<AuctionSession> findByStatus(AuctionStatusEnum status);
 
@@ -27,7 +37,7 @@ public interface AuctionSessionRepository extends JpaRepository<AuctionSession, 
 
     List<AuctionSession> findByStatusAndStartTimeBeforeAndEndTimeAfter(AuctionStatusEnum status, LocalDateTime startTime, LocalDateTime endTime);
 
-    @Query(value = "select new com.ptit.bigdata.coreservice.model.vo.AuctionSessionVO(n.plateNumber, p.name, n.plateType, a.startPrice, a.status, a.startTime, a.endTime, a.stepPrice, a.participantCount, a.endPrice, a.currentPrice) "
+    @Query(value = "select new com.ptit.bigdata.coreservice.model.vo.AuctionSessionVO(a.sessionCode, n.plateNumber, p.name, n.plateType, a.startPrice, a.status, a.startTime, a.endTime, a.stepPrice, a.participantCount, a.endPrice, a.currentPrice) "
             + "from AuctionSession a "
             + "join NumberPlate n on a.numberPlateId = n.id "
             + "join Province p on n.provinceId = p.id "

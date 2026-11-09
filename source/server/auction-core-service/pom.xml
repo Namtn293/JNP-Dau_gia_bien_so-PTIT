@@ -27,7 +27,7 @@
         <url/>
     </scm>
     <properties>
-        <java.version>27</java.version>
+        <java.version>21</java.version>
         <lombok.version>1.18.48</lombok.version>
     </properties>
     <dependencies>
@@ -54,6 +54,11 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>2.6.0</version>
         </dependency>
         <dependency>
             <groupId>io.jsonwebtoken</groupId>

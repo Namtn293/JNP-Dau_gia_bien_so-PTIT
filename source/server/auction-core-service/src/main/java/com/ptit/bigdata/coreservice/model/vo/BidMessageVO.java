@@ -20,6 +20,10 @@ public class BidMessageVO {
     private Long stepPrice;
     private Integer bidCount;
     private String status;
+    private Long nextStep;
+    private Long nextMinBid;
+    private String source;
+    private String bidTime;
     @Builder.Default
     private String type = "BID"; // BID, EXTEND, NEW_HIGHEST
 }
