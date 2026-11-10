@@ -70,7 +70,7 @@ export const AuctionRoomPage: React.FC = () => {
     <PageWrapper>
       {/* 1. Header Bar (Shared TopNavbar) */}
       <AuctionRoomHeader
-        userName={data.currentUser?.fullName || data.currentUser?.name || "Người dùng"}
+        userName={data.currentUser?.fullName || data.currentUser?.name}
       />
 
       {/* 2. Three-Column Main Grid */}

@@ -65,33 +65,35 @@ export const BrandText = styled.div`
   }
 `;
 
-export const UserTrigger = styled.div<{ $isGuest?: boolean }>`
+export const UserTrigger = styled.div`
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
+  gap: 10px;
   cursor: pointer;
-  padding: ${({ $isGuest }) => ($isGuest ? "6px 10px" : "6px 12px")};
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  color: #1b6284;
-  background: #edf6fa;
-  transition: all 0.2s ease;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  transition: opacity 0.2s ease;
 
   &:hover {
-    color: #154c66;
-    background: #e2f0f7;
+    opacity: 0.88;
   }
 
-  .user-icon {
-    font-size: 18px;
-    color: #1b6284;
+  .user-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #1f1f1f;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .caret-icon {
     font-size: 11px;
-    color: #1b6284;
+    color: #595959;
+    margin-left: -2px;
     transition: transform 0.2s ease;
   }
 
@@ -519,6 +521,257 @@ export const WsStatusDot = styled.span<{ $status: "connected" | "connecting" | "
       opacity: 0.5;
       transform: scale(1.2);
     }
+  }
+`;
+
+export const NavActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+`;
+
+export const NotificationBellButton = styled.div`
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #256b8c;
+  font-size: 18px;
+  transition: all 0.2s ease;
+  background: transparent;
+
+  &:hover {
+    background: #eef6f9;
+    color: #1a4d65;
+  }
+`;
+
+export const NotificationDropdownCard = styled.div`
+  width: 400px;
+  max-width: 92vw;
+  background: #ffffff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+`;
+
+export const NotifHeader = styled.div`
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #f0f2f5;
+
+  .notif-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #111827;
+  }
+
+  .notif-mark-read {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: #256b8c;
+    cursor: pointer;
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: background 0.15s;
+
+    &:hover {
+      background: #eef6f9;
+    }
+  }
+`;
+
+export const NotifFilterBar = styled.div`
+  padding: 10px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #f3f4f6;
+  background: #ffffff;
+
+  .tabs-capsule {
+    background: #f3f4f6;
+    border-radius: 8px;
+    padding: 3px;
+    display: inline-flex;
+    gap: 4px;
+  }
+
+  .reload-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #6b7280;
+    font-size: 14px;
+    transition: all 0.2s;
+
+    &:hover {
+      background: #f3f4f6;
+      color: #256b8c;
+    }
+  }
+`;
+
+export const NotifFilterTab = styled.button<{ $active: boolean }>`
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  transition: all 0.15s ease;
+  background: ${(props) => (props.$active ? "#ffffff" : "transparent")};
+  color: ${(props) => (props.$active ? "#256b8c" : "#6b7280")};
+  box-shadow: ${(props) =>
+    props.$active ? "0 1px 3px rgba(0, 0, 0, 0.1)" : "none"};
+
+  &:hover {
+    color: #256b8c;
+  }
+`;
+
+export const NotifListContainer = styled.div`
+  max-height: 380px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+
+  /* Hide scrollbar for cleaner look while scrollable */
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
+
+  &::-webkit-scrollbar {
+    width: 5px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 4px;
+  }
+`;
+
+export const NotifItem = styled.div<{ $unread?: boolean }>`
+  padding: 12px 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  border-bottom: 1px solid #f3f4f6;
+  position: relative;
+  background: ${(props) => (props.$unread ? "#f8fcff" : "#ffffff")};
+
+  &:hover {
+    background: #f0f7fb;
+  }
+
+  .icon-wrapper {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #fff1f0;
+    border: 1px solid #ffa39e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .item-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .title-text {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #111827;
+    line-height: 1.35;
+    flex: 1;
+  }
+
+  .time-text {
+    font-size: 12px;
+    color: #6b7280;
+    white-space: nowrap;
+    font-weight: 500;
+  }
+
+  .tag-row {
+    margin: 4px 0 5px 0;
+  }
+
+  .badge-tag {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.4;
+    background: #fff1f0;
+    color: #cf1322;
+    border: 1px solid #ffa39e;
+  }
+
+  .desc-text {
+    font-size: 12.5px;
+    color: #4b5563;
+    line-height: 1.45;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .unread-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #256b8c;
+    flex-shrink: 0;
+    margin-top: 6px;
+  }
+`;
+
+export const NotifFooter = styled.div`
+  padding: 11px 16px;
+  border-top: 1px solid #f0f2f5;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #ffffff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #256b8c;
+  transition: all 0.2s;
+
+  &:hover {
+    color: #164358;
+    background: #f8fafc;
   }
 `;
 

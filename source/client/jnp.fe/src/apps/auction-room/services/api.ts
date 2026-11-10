@@ -15,9 +15,13 @@ export const getAuctionRoomDetailApi = async (
 };
 
 export const placeBidRestApi = async (
-  payload: PlaceBidPayload
-): Promise<{ success: boolean; data: PlaceBidPayload }> => {
-  return Promise.resolve({ success: true, data: payload });
+  sessionCode: string,
+  bidAmount: number
+): Promise<any> => {
+  const response = await axiosClient.post<any>(`/api/v1/auction/${sessionCode}/bid`, {
+    bidAmount,
+  });
+  return (response as any)?.data ?? response;
 };
 
 export const sendChatRestApi = async (

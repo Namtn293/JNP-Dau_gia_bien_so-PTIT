@@ -3,7 +3,9 @@ import { placeBidRestApi, sendChatRestApi } from "./api";
 import type { PlaceBidPayload, SendChatPayload } from "./type";
 
 export const usePlaceBidMutation = () => {
-  return useMutation((payload: PlaceBidPayload) => placeBidRestApi(payload));
+  return useMutation((payload: PlaceBidPayload) =>
+    placeBidRestApi(payload.sessionCode, payload.bidAmount)
+  );
 };
 
 export const useSendChatMutation = () => {

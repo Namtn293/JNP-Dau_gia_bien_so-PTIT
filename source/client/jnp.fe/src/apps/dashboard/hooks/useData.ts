@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import tokenManager from "@/shared/utils/tokenManager";
+import { getUserFromToken } from "@/shared/utils/jwt";
 import { useAuctionSessionsQuery } from "../services/query";
 import type { AuctionItem, AuctionStatus, WsBidMessage } from "../services/type";
 import { INITIAL_AUCTION_DATA } from "../utils/constants";
@@ -7,29 +8,59 @@ import { mapAuctionSessionVOToItem } from "../utils/format";
 import { useAuctionSocket } from "./useAuctionSocket";
 
 export const useData = () => {
-  const [currentUser] = useState<{ name: string; email?: string }>(() => {
+  const [currentUser, setCurrentUser] = useState<{ name: string; email?: string } | null>(() => {
     try {
       const raw = localStorage.getItem("auction_user");
       if (raw) {
         const parsed = JSON.parse(raw);
         const name = parsed.name || parsed.fullName || parsed.userName;
-        if (name) return { name, email: parsed.email };
+        if (name && name !== "Người dùng" && name !== "Bạn") return { name, email: parsed.email };
         if (parsed.email) return { name: parsed.email.split("@")[0], email: parsed.email };
       }
       const token = tokenManager.getAccessToken();
       if (token) {
-        const parts = token.split(".");
-        if (parts.length >= 2) {
-          const payload = JSON.parse(atob(parts[1]));
-          const name = payload.fullName || payload.name || payload.sub || payload.email;
-          if (name) return { name, email: payload.email || payload.sub };
+        const user = getUserFromToken(token);
+        if (user && user.displayName) {
+          return { name: user.displayName, email: user.email };
         }
       }
     } catch (e) {
       console.warn("Could not retrieve current user", e);
     }
-    return { name: "Người dùng" };
+    return null;
   });
+
+  useEffect(() => {
+    const handleAuth = () => {
+      const token = tokenManager.getAccessToken();
+      if (!token) {
+        setCurrentUser(null);
+        return;
+      }
+      try {
+        const raw = localStorage.getItem("auction_user");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          const name = parsed.name || parsed.fullName || parsed.userName;
+          if (name && name !== "Người dùng" && name !== "Bạn") {
+            setCurrentUser({ name, email: parsed.email });
+            return;
+          }
+        }
+        const user = getUserFromToken(token);
+        if (user && user.displayName) {
+          setCurrentUser({ name: user.displayName, email: user.email });
+          return;
+        }
+      } catch {
+        // ignore
+      }
+      setCurrentUser(null);
+    };
+
+    window.addEventListener("auth-changed", handleAuth);
+    return () => window.removeEventListener("auth-changed", handleAuth);
+  }, []);
 
   const [tab, setTab] = useState<AuctionStatus>("live");
   const [viewMode, setViewMode] = useState<"grid" | "table" | "board">("grid");

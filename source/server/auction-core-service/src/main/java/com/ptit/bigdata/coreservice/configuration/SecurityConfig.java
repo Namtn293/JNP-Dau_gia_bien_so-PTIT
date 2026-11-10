@@ -51,7 +51,7 @@ public class SecurityConfig {
                                 "/api/v1/auction/*/registration", "/v1/auction/*/registration",
                                 "/api/v1/auction/*/auto-bid", "/v1/auction/*/auto-bid"
                         ).permitAll()
-                        .requestMatchers("/ws/**").permitAll()
+                        .requestMatchers("/ws", "/ws/**").permitAll()
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated()
                 )

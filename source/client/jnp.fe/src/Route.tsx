@@ -2,6 +2,7 @@ import adminRoute from "@apps/admin/Route";
 import authdRoute from "@apps/auth/Route";
 import dashboardRoute from "@apps/dashboard/Route";
 import { auctionRoomRoute, auctionRoomGeneralRoute } from "@/apps/auction-room/route";
+import profileRoute from "@/apps/profile/route";
 import NotFound404 from "@shared/components/404";
 import { createRouter } from "@tanstack/react-router";
 
@@ -12,6 +13,7 @@ export const routeTree = rootRoute.addChildren([
   dashboardRoute,
   auctionRoomRoute,
   auctionRoomGeneralRoute,
+  profileRoute,
   authdRoute,
   adminRoute,
 ]);

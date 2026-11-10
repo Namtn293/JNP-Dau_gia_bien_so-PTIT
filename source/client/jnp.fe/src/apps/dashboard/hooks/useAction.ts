@@ -2,52 +2,47 @@ import { useState } from "react";
 import useNotification from "@/shared/hooks/useNotification";
 import type { AuctionItem, WsBidMessage } from "../services/type";
 import { formatMoney } from "../utils/format";
+import { placeBidApi } from "../services/api";
 
 export const useAction = (
-  setData?: React.Dispatch<React.SetStateAction<AuctionItem[]>>,
+  _setData?: React.Dispatch<React.SetStateAction<AuctionItem[]>>,
   sendBidWs?: (bid: WsBidMessage) => boolean,
-  currentUser?: { name: string; email?: string }
+  currentUser?: { name: string; email?: string } | null
 ) => {
   const { showSuccessNotify, showErrorNotify } = useNotification();
   const [selectedPlate, setSelectedPlate] = useState<AuctionItem | null>(null);
 
-  const placeBid = (plate: AuctionItem) => {
+  const placeBid = async (plate: AuctionItem) => {
     try {
       const nextPrice = plate.price + plate.step;
-      const nextBids = plate.bids + 1;
+      const sessionCode = plate.sessionCode || plate.p;
 
-      // 1. Gửi qua WebSocket tới server để broadcast cho toàn bộ người dùng
+      // 1. Gửi qua WebSocket nếu đang kết nối
+      let sentViaWs = false;
       if (sendBidWs) {
-        sendBidWs({
+        sentViaWs = sendBidWs({
           plateNumber: plate.p,
-          roomId: plate.p,
+          roomId: sessionCode,
           bidAmount: nextPrice,
           currentPrice: nextPrice,
           stepPrice: plate.step,
-          userName: currentUser?.name || "Người dùng",
+          userName: currentUser?.name || "",
           userId: currentUser?.email || "user",
           type: "BID",
         });
       }
 
-      // 2. Cập nhật lạc quan (optimistic UI) trên client hiện tại
-      if (setData) {
-        setData((prev) =>
-          prev.map((item) => {
-            if (item.p === plate.p) {
-              return { ...item, price: nextPrice, bids: nextBids };
-            }
-            return item;
-          })
-        );
+      // 2. Nếu WebSocket gián đoạn, fallback qua REST API
+      if (!sentViaWs) {
+        await placeBidApi(sessionCode, nextPrice);
       }
 
       showSuccessNotify(
-        `Đặt giá thành công cho biển ${plate.p}! Giá mới: ${formatMoney(nextPrice)}`
+        `Đã gửi yêu cầu đặt giá cho biển ${plate.p}: ${formatMoney(nextPrice)}`
       );
       setSelectedPlate(null);
-    } catch {
-      showErrorNotify("Đặt giá thất bại. Vui lòng thử lại!");
+    } catch (err: any) {
+      showErrorNotify(err?.message || "Đặt giá thất bại. Vui lòng thử lại!");
     }
   };
 

@@ -1,6 +1,7 @@
 import { LOCAL_STORAGE_KEYS } from "@constants/storageKeys";
 import { decryptDES, encryptDES } from "@utils/desEncryt";
 import { lcStorage } from "@utils/storage";
+import { isJwtExpired } from "./jwt";
 
 const tokenManager = () => {
   let accessToken: string | undefined = lcStorage.get(
@@ -34,17 +35,50 @@ const tokenManager = () => {
 
     lcStorage.set(LOCAL_STORAGE_KEYS.roles, storedValue);
   };
+
+  const notifyAuthChanged = () => {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("auth-changed"));
+    }
+  };
+
+  const removeAllToken = (): void => {
+    accessToken = undefined;
+    refreshToken = undefined;
+    localStorage.removeItem(LOCAL_STORAGE_KEYS.accessToken);
+    localStorage.removeItem(LOCAL_STORAGE_KEYS.refreshToken);
+    localStorage.removeItem(LOCAL_STORAGE_KEYS.roles);
+    localStorage.removeItem("auction_user");
+    notifyAuthChanged();
+  };
+
   const getAccessToken = (): string | undefined => {
+    // Luôn đồng bộ lại từ localStorage nếu bộ nhớ trong bị rỗng do reload/event
+    if (!accessToken) {
+      accessToken = lcStorage.get(LOCAL_STORAGE_KEYS.accessToken);
+    }
     if (!accessToken) return undefined;
+
+    let tokenToReturn: string | undefined;
     try {
       if (import.meta.env.NODE_ENV === "development") {
-        return accessToken;
+        tokenToReturn = accessToken;
       } else {
-        return decryptDES(accessToken);
+        tokenToReturn = decryptDES(accessToken);
       }
     } catch {
       return undefined;
     }
+
+    if (tokenToReturn && isJwtExpired(tokenToReturn)) {
+      console.warn("Access token đã hết hạn, xóa phiên đăng nhập");
+      accessToken = undefined;
+      localStorage.removeItem(LOCAL_STORAGE_KEYS.accessToken);
+      notifyAuthChanged();
+      return undefined;
+    }
+
+    return tokenToReturn;
   };
 
   const setAccessToken = (token: string): void => {
@@ -54,14 +88,19 @@ const tokenManager = () => {
       accessToken = encryptDES(token);
     }
     lcStorage.set(LOCAL_STORAGE_KEYS.accessToken, accessToken);
+    notifyAuthChanged();
   };
 
   const removeAccessToken = (): void => {
     accessToken = undefined;
     localStorage.removeItem(LOCAL_STORAGE_KEYS.accessToken);
+    notifyAuthChanged();
   };
 
   const getRefreshToken = () => {
+    if (!refreshToken) {
+      refreshToken = lcStorage.get(LOCAL_STORAGE_KEYS.refreshToken);
+    }
     if (!refreshToken) return undefined;
     if (import.meta.env.NODE_ENV === "development") {
       return refreshToken;
@@ -82,9 +121,6 @@ const tokenManager = () => {
   const removeRefreshToken = (): void => {
     refreshToken = undefined;
     localStorage.removeItem(LOCAL_STORAGE_KEYS.refreshToken);
-  };
-  const removeAllToken = (): void => {
-    localStorage.clear();
   };
   return {
     getRoles,

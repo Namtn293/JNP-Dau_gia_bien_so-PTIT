@@ -43,6 +43,9 @@ public class BidServiceImpl implements BidService {
     private final StepPriceCalculator stepPriceCalculator;
     private final ApplicationEventPublisher eventPublisher;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.ptit.bigdata.coreservice.service.NotificationService notificationService;
+
     @Override
     @Transactional
     public BidResultVO placeBid(String sessionCode, Long userId, Long bidAmount, BidSourceEnum source, String clientIp) {
@@ -169,6 +172,17 @@ public class BidServiceImpl implements BidService {
                 clientIp
         );
         eventPublisher.publishEvent(event);
+
+        if (notificationService != null) {
+            notificationService.notifyUser(
+                    userId,
+                    com.ptit.bigdata.coreservice.enumration.NotificationTypeEnum.BID_SUCCESS,
+                    "Đặt giá thành công",
+                    String.format("Bạn đã đặt giá thành công %,d VNĐ cho biển số %s trong phiên %s.",
+                            bidAmount, plateNumber, session.getSessionCode()),
+                    session.getSessionCode()
+            );
+        }
 
         log.info("[BID-SUCCESS] Phiên {}: [{}] đặt {} VNĐ thành công (Cũ: {}, Bước: {})",
                 sessionCode, fullName, bidAmount, currentPrice, step);

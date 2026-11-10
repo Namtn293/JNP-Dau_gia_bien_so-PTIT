@@ -45,12 +45,12 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
         // Endpoint WebSocket thuần
         registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns(ALLOWED_ORIGIN_PATTERNS)
+                .setAllowedOriginPatterns("*")
                 .addInterceptors(clientIpHandshakeInterceptor);
 
-        // Endpoint WebSocket hỗ trợ SockJS fallback
-        registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns(ALLOWED_ORIGIN_PATTERNS)
+        // Endpoint WebSocket hỗ trợ SockJS fallback nếu client cần
+        registry.addEndpoint("/ws-sockjs")
+                .setAllowedOriginPatterns("*")
                 .addInterceptors(clientIpHandshakeInterceptor)
                 .withSockJS();
     }

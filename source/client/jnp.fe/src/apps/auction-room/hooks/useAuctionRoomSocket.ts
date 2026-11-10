@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Client } from "@stomp/stompjs";
+import { useCallback, useEffect } from "react";
 import tokenManager from "@/shared/utils/tokenManager";
-import { useNotification } from "@/shared/hooks/useNotification";
+import { useStomp, useStompSubscription } from "@/shared/realtime";
 import type {
   WsAuctionMessage,
   WsChatMessage,
@@ -23,202 +22,85 @@ export const useAuctionRoomSocket = ({
   onRoomEvent,
   enabled = true,
 }: UseAuctionRoomSocketProps) => {
-  const [status, setStatus] = useState<"connecting" | "connected" | "disconnected" | "error">("disconnected");
-  const clientRef = useRef<Client | null>(null);
-  const { showErrorNotify } = useNotification();
+  const { status, isConnected, publish } = useStomp();
+  const token = tokenManager.getAccessToken();
+  const isLogin = Boolean(token);
+  const shouldSubscribe = enabled && isLogin && Boolean(roomId);
 
-  const onAuctionUpdateRef = useRef(onAuctionUpdate);
-  onAuctionUpdateRef.current = onAuctionUpdate;
+  // 1. Subscribe to auction room channel (bids, price pop, extensions)
+  useStompSubscription<WsAuctionMessage>(
+    roomId ? `/topic/auction/${roomId}` : null,
+    (msg) => onAuctionUpdate?.(msg),
+    shouldSubscribe
+  );
 
-  const onChatMessageRef = useRef(onChatMessage);
-  onChatMessageRef.current = onChatMessage;
+  // 2. Subscribe to room chat channel
+  useStompSubscription<WsChatMessage>(
+    roomId ? `/topic/chat/${roomId}` : null,
+    (msg) => onChatMessage?.(msg),
+    shouldSubscribe
+  );
 
-  const onRoomEventRef = useRef(onRoomEvent);
-  onRoomEventRef.current = onRoomEvent;
+  // 3. Subscribe to presence & room events (join, leave, halt, resume)
+  useStompSubscription<WsRoomEvent>(
+    roomId ? `/topic/room/${roomId}` : null,
+    (event) => onRoomEvent?.(event),
+    shouldSubscribe
+  );
 
+  // Báo danh vào phòng khi socket kết nối và báo rời phòng khi thoát
   useEffect(() => {
-    if (!enabled || !roomId) {
-      if (clientRef.current) {
-        clientRef.current.deactivate();
-        clientRef.current = null;
-        setStatus("disconnected");
-      }
-      return;
-    }
+    if (!shouldSubscribe || !isConnected) return;
 
-    const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
-    const wsUrl = apiUrl.replace(/^http/, "ws") + "/ws";
-
-    setStatus("connecting");
-
-    const client = new Client({
-      brokerURL: wsUrl,
-      reconnectDelay: 4000,
-      heartbeatIncoming: 10000,
-      heartbeatOutgoing: 10000,
-      beforeConnect: () => {
-        // Lấy token mới nhất trước mỗi lần kết nối / kết nối lại
-        const token = tokenManager.getAccessToken();
-        client.connectHeaders = {
-          Authorization: token ? `Bearer ${token}` : "",
-        };
-      },
-      debug: (msg) => {
-        if (import.meta.env.DEV && (msg.includes("ERROR") || msg.includes("Opening Web Socket"))) {
-          console.debug("[WS-ROOM]", msg);
-        }
-      },
-      onConnect: () => {
-        setStatus("connected");
-
-        // 1. Subscribe to auction room channel (bids, price pop, extensions)
-        client.subscribe(`/topic/auction/${roomId}`, (frame) => {
-          try {
-            const data: WsAuctionMessage = JSON.parse(frame.body);
-            if (onAuctionUpdateRef.current) {
-              onAuctionUpdateRef.current(data);
-            }
-          } catch (e) {
-            console.warn("[WS-ROOM] Parse auction message error:", e);
-          }
-        });
-
-        // 2. Subscribe to room chat channel
-        client.subscribe(`/topic/chat/${roomId}`, (frame) => {
-          try {
-            const data: WsChatMessage = JSON.parse(frame.body);
-            if (onChatMessageRef.current) {
-              onChatMessageRef.current(data);
-            }
-          } catch (e) {
-            console.warn("[WS-ROOM] Parse chat message error:", e);
-          }
-        });
-
-        // 3. Subscribe to presence & room events (join, leave, halt, resume)
-        client.subscribe(`/topic/room/${roomId}`, (frame) => {
-          try {
-            const data: WsRoomEvent = JSON.parse(frame.body);
-            if (onRoomEventRef.current) {
-              onRoomEventRef.current(data);
-            }
-          } catch (e) {
-            console.warn("[WS-ROOM] Parse room event error:", e);
-          }
-        });
-
-        // Send join presence
-        try {
-          client.publish({
-            destination: `/app/room/${roomId}/join`,
-            body: JSON.stringify({ roomId, event: "JOIN" }),
-          });
-        } catch (e) {}
-      },
-      onStompError: (frame) => {
-        const errorCode = frame.headers["error-code"];
-        const errorMessage = frame.headers["message"] || "Lỗi kết nối máy chủ đấu giá";
-        console.error("[WS-ROOM] STOMP Error:", errorCode, errorMessage);
-
-        // Nếu lỗi xác thực hoặc cấm quyền, hủy kết nối ngay lập tức để tránh lặp reconnect vô tận
-        const authErrors = [
-          "AUTH_REQUIRED",
-          "TOKEN_EXPIRED",
-          "TOKEN_INVALID",
-          "USER_BANNED",
-          "FORBIDDEN_DESTINATION",
-          "FORBIDDEN_ADMIN_ONLY",
-        ];
-        if (errorCode && authErrors.includes(errorCode)) {
-          client.deactivate();
-          setStatus("error");
-          showErrorNotify(errorMessage);
-          return;
-        }
-
-        setStatus("error");
-      },
-      onWebSocketClose: () => {
-        setStatus("disconnected");
-      },
-      onDisconnect: () => {
-        setStatus("disconnected");
-      },
-    });
-
-    client.activate();
-    clientRef.current = client;
+    publish(`/app/room/${roomId}/join`, { roomId, event: "JOIN" });
 
     return () => {
-      if (client.connected) {
-        try {
-          client.publish({
-            destination: `/app/room/${roomId}/leave`,
-            body: JSON.stringify({ roomId, event: "LEAVE" }),
-          });
-        } catch (e) {}
-      }
-      client.deactivate();
-      clientRef.current = null;
-      setStatus("disconnected");
+      publish(`/app/room/${roomId}/leave`, { roomId, event: "LEAVE" });
     };
-  }, [roomId, enabled, showErrorNotify]);
+  }, [roomId, shouldSubscribe, isConnected, publish]);
 
   const sendBid = useCallback(
     (payload: {
       roomId: string;
-      plateNumber: string;
+      plateNumber?: string;
       bidAmount: number;
       userName?: string;
     }): boolean => {
-      if (!clientRef.current || !clientRef.current.connected) {
-        console.warn("[WS-ROOM] Socket not connected, fallback to local flow");
+      if (!isConnected) {
+        console.warn("[WS-ROOM] Socket not connected");
         return false;
       }
-      try {
-        clientRef.current.publish({
-          destination: `/app/bid/${roomId}`,
-          body: JSON.stringify(payload),
-        });
-        return true;
-      } catch (e) {
-        console.error("[WS-ROOM] Send bid error:", e);
-        return false;
-      }
+      return publish(`/app/bid/${roomId}`, {
+        ...payload,
+        roomId,
+      });
     },
-    [roomId]
+    [roomId, isConnected, publish]
   );
 
   const sendChatMessage = useCallback(
     (content: string, senderName: string = "Bạn"): boolean => {
-      if (!clientRef.current || !clientRef.current.connected) {
+      if (!isConnected) {
         return false;
       }
-      try {
-        const msgId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        clientRef.current.publish({
-          destination: `/app/chat/${roomId}`,
-          body: JSON.stringify({
-            id: msgId,
-            roomId,
-            senderName,
-            content,
-            type: "CHAT",
-          }),
-        });
-        return true;
-      } catch (e) {
-        console.error("[WS-ROOM] Send chat error:", e);
-        return false;
-      }
+      const msgId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      return publish(`/app/chat/${roomId}`, {
+        id: msgId,
+        roomId,
+        senderName,
+        content,
+        type: "CHAT",
+      });
     },
-    [roomId]
+    [roomId, isConnected, publish]
   );
 
   return {
     status,
-    isConnected: status === "connected",
+    isConnected,
     sendBid,
     sendChatMessage,
   };
 };
+
+export default useAuctionRoomSocket;

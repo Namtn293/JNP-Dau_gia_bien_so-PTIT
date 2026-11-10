@@ -14,17 +14,32 @@ import { formatMoney, getCurrentTimeString } from "../util/format";
 import { soundManager } from "../feature/audio";
 import { LOCAL_STORAGE_KEYS } from "@/constants";
 import { lcStorage } from "@/shared/utils";
+import tokenManager from "@/shared/utils/tokenManager";
+import { getUserFromToken } from "@/shared/utils/jwt";
 
 export const useData = (roomId: string) => {
   const currentUser = useMemo(() => {
-    return lcStorage.get<any>(LOCAL_STORAGE_KEYS.user) || {
-      name: "Bạn",
-      id: "U-ME",
-    };
+    const stored = lcStorage.get<any>(LOCAL_STORAGE_KEYS.user);
+    if (stored && (stored.fullName || stored.name)) {
+      return stored;
+    }
+    const token = tokenManager.getAccessToken();
+    if (token) {
+      const fromJwt = getUserFromToken(token);
+      if (fromJwt) {
+        return {
+          id: fromJwt.id,
+          name: fromJwt.displayName,
+          fullName: fromJwt.fullName,
+          email: fromJwt.email,
+        };
+      }
+    }
+    return null;
   }, []);
 
-  const selfName = currentUser?.fullName || currentUser?.name || "Bạn";
-  const selfId = currentUser?.id ? String(currentUser.id) : "U-ME";
+  const selfName = currentUser?.fullName || currentUser?.name || "";
+  const selfId = currentUser?.id ? String(currentUser.id) : "";
 
   // 1. Fetch initial detail from API
   const { data: initialDetail, isLoading } = useAuctionRoomDetailQuery(roomId);
