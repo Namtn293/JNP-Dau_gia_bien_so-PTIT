@@ -83,6 +83,7 @@ export const mapAuctionSessionVOToItem = (vo: AuctionSessionVO): AuctionItem => 
   const t = calculateRemainingSeconds(vo.sessionStatus, vo.startTime, vo.endTime);
   return {
     p: vo.plateNumber,
+    sessionCode: vo.plateNumber,
     prov: vo.provinceName || "Toàn quốc",
     type: getPlateTypeLabel(vo.plateType),
     plateTypeEnum: vo.plateType,

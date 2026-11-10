@@ -52,6 +52,9 @@ public class WalletServiceImpl implements WalletService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.ptit.bigdata.coreservice.repository.AutoBidConfigRepository autoBidConfigRepository;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.ptit.bigdata.coreservice.service.NotificationService notificationService;
+
     @Override
     @Transactional
     public WalletVO getWallet(Long userId) {
@@ -82,6 +85,16 @@ public class WalletServiceImpl implements WalletService {
         wallet = walletRepository.save(wallet);
 
         recordTx(wallet.getId(), WalletTxTypeEnum.TOPUP, amount, newBalance, wallet.getHeldAmount(), null, "Nạp tiền ảo vào ví");
+
+        if (notificationService != null) {
+            notificationService.notifyUser(
+                    userId,
+                    com.ptit.bigdata.coreservice.enumration.NotificationTypeEnum.WALLET_TOPUP,
+                    "Nạp tiền thành công",
+                    String.format("Bạn đã nạp thành công %,d VNĐ vào ví. Số dư hiện tại: %,d VNĐ.", amount, newBalance),
+                    null
+            );
+        }
 
         log.info("[WALLET-TOPUP] User {}: Nạp {} VNĐ thành công, số dư mới: {}", userId, amount, newBalance);
         return mapToWalletVO(wallet);

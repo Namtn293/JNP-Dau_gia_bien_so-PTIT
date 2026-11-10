@@ -11,6 +11,8 @@ public enum NotificationTypeEnum {
     ENDED,
     ROOM_ANNOUNCEMENT,
     AUTO_BID_STOPPED,
-    SHILL_ALERT
+    SHILL_ALERT,
+    WALLET_TOPUP,
+    BID_SUCCESS
 }
 
