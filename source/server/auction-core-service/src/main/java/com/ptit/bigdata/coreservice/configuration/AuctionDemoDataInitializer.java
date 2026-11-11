@@ -50,7 +50,7 @@ public class AuctionDemoDataInitializer {
                 }
                 long step = stepPriceCalculator.stepFor(s.getCurrentPrice());
                 s.setStepPrice(step);
-                auctionSessionRepository.save(s);
+                auctionSessionRepository.saveAndFlush(s);
                 log.info("[DATA-INIT] Đã kích hoạt phiên LIVE: SES-HN-30K88888 (Giá: {} VNĐ, Bước: {} VNĐ, Kết thúc: {})",
                         s.getCurrentPrice(), step, s.getEndTime());
             });
@@ -65,7 +65,7 @@ public class AuctionDemoDataInitializer {
                 }
                 long step = stepPriceCalculator.stepFor(s.getCurrentPrice());
                 s.setStepPrice(step);
-                auctionSessionRepository.save(s);
+                auctionSessionRepository.saveAndFlush(s);
                 log.info("[DATA-INIT] Đã kích hoạt phiên LIVE: SES-HN-30K56789 (Giá: {} VNĐ, Bước: {} VNĐ, Kết thúc: {})",
                         s.getCurrentPrice(), step, s.getEndTime());
             });
@@ -75,7 +75,7 @@ public class AuctionDemoDataInitializer {
                 s.setStatus(AuctionStatusEnum.SOON);
                 s.setStartTime(now.plusMinutes(45));
                 s.setEndTime(now.plusHours(3));
-                auctionSessionRepository.save(s);
+                auctionSessionRepository.saveAndFlush(s);
                 log.info("[DATA-INIT] Đã cập nhật phiên SOON: SES-HCM-51K99999 (Bắt đầu: {})", s.getStartTime());
             });
 
@@ -84,7 +84,7 @@ public class AuctionDemoDataInitializer {
                 s.setStatus(AuctionStatusEnum.SOON);
                 s.setStartTime(now.plusDays(1));
                 s.setEndTime(now.plusDays(2));
-                auctionSessionRepository.save(s);
+                auctionSessionRepository.saveAndFlush(s);
             });
 
             // 5. Cập nhật SES-QN-14A88888 sang SOON (Sau 2 ngày)
@@ -92,7 +92,7 @@ public class AuctionDemoDataInitializer {
                 s.setStatus(AuctionStatusEnum.SOON);
                 s.setStartTime(now.plusDays(2));
                 s.setEndTime(now.plusDays(3));
-                auctionSessionRepository.save(s);
+                auctionSessionRepository.saveAndFlush(s);
             });
         }
     }
