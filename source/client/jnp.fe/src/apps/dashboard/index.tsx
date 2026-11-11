@@ -7,6 +7,8 @@ import {
   ProjectOutlined,
   StarFilled,
   StarOutlined,
+  CheckCircleFilled,
+  SafetyCertificateOutlined,
 } from "@ant-design/icons";
 
 // Child components & styled from ./style
@@ -25,6 +27,7 @@ import {
   WsStatusBadge,
   WsStatusDot,
   WatchFilterButton,
+  DepositFilterButton,
 } from "./style";
 
 import TopNavbar from "./components/TopNavbar";
@@ -45,6 +48,7 @@ export const DashboardPage: React.FC = () => {
   const {
     currentUser,
     data,
+    filteredList,
     pagedList,
     total,
     isLoading,
@@ -73,6 +77,9 @@ export const DashboardPage: React.FC = () => {
     onlyWatched,
     setOnlyWatched,
     watchedCount,
+    onlyRegistered,
+    setOnlyRegistered,
+    registeredCount,
     toggleWatch,
   } = useAuctionData();
 
@@ -158,7 +165,7 @@ export const DashboardPage: React.FC = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             allowClear
-            style={{ width: 280 }}
+            style={{ width: 235 }}
           />
 
           <Select
@@ -166,7 +173,7 @@ export const DashboardPage: React.FC = () => {
             value={province}
             onChange={setProvince}
             allowClear
-            style={{ width: 170 }}
+            style={{ width: 165 }}
             options={PROVINCES_LIST.map((p) => ({ label: p, value: p }))}
           />
 
@@ -175,7 +182,7 @@ export const DashboardPage: React.FC = () => {
             value={plateType}
             onChange={setPlateType}
             allowClear
-            style={{ width: 170 }}
+            style={{ width: 165 }}
             options={PLATE_TYPES_LIST.map((t) => ({ label: t, value: t }))}
           />
 
@@ -190,6 +197,18 @@ export const DashboardPage: React.FC = () => {
             )}
             Đang theo dõi ({watchedCount})
           </WatchFilterButton>
+
+          <DepositFilterButton
+            $active={onlyRegistered}
+            onClick={() => setOnlyRegistered(!onlyRegistered)}
+          >
+            {onlyRegistered ? (
+              <CheckCircleFilled style={{ color: "#ffffff" }} />
+            ) : (
+              <SafetyCertificateOutlined style={{ color: "#059669" }} />
+            )}
+            Đã nộp cọc ({registeredCount})
+          </DepositFilterButton>
 
           <Select
             value={sortBy}
@@ -259,7 +278,7 @@ export const DashboardPage: React.FC = () => {
 
             {viewMode === "board" && (
               <AuctionBoardItem
-                data={data}
+                data={filteredList}
                 watchedSessionCodes={watchedSessionCodes}
                 onToggleWatch={toggleWatch}
                 onOpenBid={handleEnterRoom}

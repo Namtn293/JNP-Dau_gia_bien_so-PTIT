@@ -21,6 +21,9 @@ public record BidPlacedEvent(
         int bidCount,
         LocalDateTime bidTime,
         BidSourceEnum source,
-        String clientIp
+        String clientIp,
+        LocalDateTime endTime,
+        long remainingSeconds,
+        boolean extended
 ) {}
 

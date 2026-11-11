@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import tokenManager from "@/shared/utils/tokenManager";
 import { getUserFromToken } from "@/shared/utils/jwt";
+import {
+  computeRemainingSecondsFromTarget,
+  resolveTargetEpochMs,
+  syncServerClock,
+  updateServerClockOffset,
+} from "@/shared/utils/serverClock";
 import { useAuctionSessionsQuery, useWatchedSessionsQuery } from "../services/query";
 import type { AuctionItem, AuctionStatus, WsBidMessage } from "../services/type";
 import { INITIAL_AUCTION_DATA } from "../utils/constants";
@@ -35,6 +41,8 @@ export const useData = () => {
       const token = tokenManager.getAccessToken();
       if (!token) {
         setCurrentUser(null);
+        setOnlyWatched(false);
+        setOnlyRegistered(false);
         return;
       }
       try {
@@ -71,9 +79,7 @@ export const useData = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(6);
 
-  // Status parameter mapping for backend: live -> LIVE, soon -> SOON, end -> END
-  const apiStatus = tab.toUpperCase();
-
+  // Tải đồng thời toàn bộ 3 trạng thái (LIVE, SOON, END) để đếm số lượng trên cả 3 tab và đồng bộ chế độ xem Theo cột
   const {
     data: apiResponse,
     isLoading,
@@ -83,7 +89,7 @@ export const useData = () => {
     {
       page: 0,
       size: 100,
-      status: apiStatus,
+      status: "ALL",
     },
     {
       enabled: true,
@@ -93,9 +99,12 @@ export const useData = () => {
 
   const [data, setData] = useState<AuctionItem[]>(INITIAL_AUCTION_DATA);
   const [onlyWatched, setOnlyWatched] = useState<boolean>(false);
+  const [onlyRegistered, setOnlyRegistered] = useState<boolean>(false);
 
-  // Load danh sách các phiên đang theo dõi của người dùng
-  const { data: watchedResponse, refetch: refetchWatched } = useWatchedSessionsQuery();
+  // Load danh sách các phiên đang theo dõi của người dùng (chỉ gọi khi đã đăng nhập)
+  const { data: watchedResponse, refetch: refetchWatched } = useWatchedSessionsQuery({
+    enabled: Boolean(currentUser),
+  });
 
   const watchedSessionCodes = useMemo(() => {
     const set = new Set<string>();
@@ -108,6 +117,18 @@ export const useData = () => {
     return set;
   }, [watchedResponse]);
 
+  const watchedUniqueCount = useMemo(() => {
+    return Array.isArray(watchedResponse?.content) ? watchedResponse.content.length : 0;
+  }, [watchedResponse]);
+
+  const registeredCount = useMemo(() => {
+    return data.filter(
+      (item) =>
+        Boolean(item.isRegistered) &&
+        (viewMode === "board" || item.st === tab)
+    ).length;
+  }, [data, tab, viewMode]);
+
   // Sync API response to data state when received
   useEffect(() => {
     if (apiResponse && Array.isArray(apiResponse.content)) {
@@ -119,22 +140,70 @@ export const useData = () => {
   // Reset page when filters change
   useEffect(() => {
     setPage(1);
-  }, [tab, search, province, plateType, sortBy, onlyWatched]);
+  }, [tab, search, province, plateType, sortBy, onlyWatched, onlyRegistered]);
 
-  // Countdown timer for live and upcoming auctions
+  // Đồng bộ đồng hồ server và cập nhật countdown từ targetTimeMs (không bị trôi khi chuyển tab)
   useEffect(() => {
+    const syncClockAndTick = (force = false) => {
+      syncServerClock(force).then(() => {
+        setData((prev) => {
+          let changed = false;
+          const next = prev.map((item) => {
+            if (item.st === "end" || !item.targetTimeMs) return item;
+            const nextT = computeRemainingSecondsFromTarget(item.targetTimeMs);
+            if (nextT !== item.t) {
+              changed = true;
+              return { ...item, t: nextT };
+            }
+            return item;
+          });
+          return changed ? next : prev;
+        });
+      });
+    };
+
+    syncClockAndTick(true);
+    const clockTimer = setInterval(() => syncClockAndTick(true), 30_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        syncClockAndTick(false);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
     const timer = setInterval(() => {
-      setData((prev) =>
-        prev.map((item) => {
-          if (item.st !== "end" && item.t > 0) {
-            return { ...item, t: item.t - 1 };
+      let anyHitZero = false;
+      setData((prev) => {
+        let changed = false;
+        const next = prev.map((item) => {
+          if (item.st === "end") return item;
+          const nextT = item.targetTimeMs
+            ? computeRemainingSecondsFromTarget(item.targetTimeMs)
+            : Math.max(0, item.t - 1);
+          if (nextT !== item.t) {
+            changed = true;
+            if (item.t > 0 && nextT === 0) {
+              anyHitZero = true;
+            }
+            return { ...item, t: nextT };
           }
           return item;
-        })
-      );
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+        });
+        return changed ? next : prev;
+      });
+      if (anyHitZero) {
+        setTimeout(() => {
+          refetch();
+        }, 2500);
+      }
+    }, 500);
+
+    return () => {
+      clearInterval(clockTimer);
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [refetch]);
 
   // Filtered and sorted auction list
   const filteredList = useMemo(() => {
@@ -153,11 +222,16 @@ export const useData = () => {
         !onlyWatched ||
         (item.sessionCode && watchedSessionCodes.has(item.sessionCode)) ||
         watchedSessionCodes.has(item.p);
+      const matchRegistered = !onlyRegistered || Boolean(item.isRegistered);
 
-      return matchTab && matchQuery && matchProv && matchType && matchWatched;
+      return matchTab && matchQuery && matchProv && matchType && matchWatched && matchRegistered;
     });
 
     list.sort((a, b) => {
+      // Ưu tiên đưa các phiên người dùng đã nộp cọc lên đầu danh sách
+      const regDiff = Number(Boolean(b.isRegistered)) - Number(Boolean(a.isRegistered));
+      if (regDiff !== 0) return regDiff;
+
       if (sortBy === "hi") return b.price - a.price;
       if (sortBy === "lo") return a.price - b.price;
       if (sortBy === "bids") return b.bids - a.bids;
@@ -165,7 +239,7 @@ export const useData = () => {
     });
 
     return list;
-  }, [data, tab, viewMode, search, province, plateType, sortBy]);
+  }, [data, tab, viewMode, search, province, plateType, sortBy, onlyWatched, onlyRegistered, watchedSessionCodes]);
 
   // Paged list for Grid and Table views
   const pagedList = useMemo(() => {
@@ -181,38 +255,82 @@ export const useData = () => {
     if (!targetPlate) return;
 
     setData((prev) => {
-      const exists = prev.some((item) => item.p === targetPlate);
+      const exists = prev.some(
+        (item) => item.p === targetPlate || (msg.roomId && item.sessionCode === msg.roomId)
+      );
       if (!exists) {
         // If not in current list, trigger background refetch
         refetch();
         return prev;
       }
 
-      return prev.map((item) => {
-        if (item.p === targetPlate) {
+      let statusChanged = false;
+      const mapped = prev.map((item) => {
+        if (item.p === targetPlate || (msg.roomId && item.sessionCode === msg.roomId)) {
           const nextPrice =
             msg.currentPrice ||
-            (msg.bidAmount ? msg.bidAmount : item.price + item.step);
-          const nextBids =
-            msg.bidCount !== undefined ? msg.bidCount : item.bids + 1;
+            (msg.bidAmount ? msg.bidAmount : item.price);
+          const hasExplicitBidCount =
+            msg.bidCount !== undefined && msg.bidCount !== null;
+          const nextBids = hasExplicitBidCount
+            ? msg.bidCount!
+            : msg.type === "STATUS_CHANGE"
+            ? item.bids
+            : item.bids + 1;
+          const nextStep =
+            (msg as any).nextStep || msg.stepPrice || item.step;
 
           let nextStatus = item.st;
           if (msg.status) {
             const lower = msg.status.toLowerCase();
             if (lower === "live" || lower === "soon" || lower === "end") {
               nextStatus = lower as AuctionStatus;
+            } else if (lower === "paused") {
+              nextStatus = "live";
             }
           }
+          if (nextStatus !== item.st) {
+            statusChanged = true;
+          }
+
+          if ((msg as any).serverTimeMs) {
+            updateServerClockOffset((msg as any).serverTimeMs, 100);
+          }
+          const nextTargetMs =
+            nextStatus === "end"
+              ? undefined
+              : resolveTargetEpochMs({
+                  epochMs: (msg as any).endTimeEpochMs,
+                  isoTime: (msg as any).endTime,
+                  remainingSeconds: (msg as any).remainingSeconds,
+                  serverTimeMs: (msg as any).serverTimeMs,
+                }) ?? item.targetTimeMs;
 
           return {
             ...item,
             price: nextPrice,
             bids: nextBids,
+            step: nextStep,
             st: nextStatus,
+            targetTimeMs: nextTargetMs,
+            t:
+              nextStatus === "end"
+                ? 0
+                : nextTargetMs
+                ? computeRemainingSecondsFromTarget(nextTargetMs)
+                : typeof (msg as any).remainingSeconds === "number" && (msg as any).remainingSeconds > 0
+                ? (msg as any).remainingSeconds
+                : item.t,
           };
         }
         return item;
       });
+      if (statusChanged) {
+        setTimeout(() => {
+          refetch();
+        }, 300);
+      }
+      return mapped;
     });
   };
 
@@ -255,7 +373,10 @@ export const useData = () => {
     watchedSessionCodes,
     onlyWatched,
     setOnlyWatched,
-    watchedCount: watchedSessionCodes.size,
+    watchedCount: watchedUniqueCount,
+    onlyRegistered,
+    setOnlyRegistered,
+    registeredCount,
     refetchWatched,
     socketStatus,
     isSocketConnected,

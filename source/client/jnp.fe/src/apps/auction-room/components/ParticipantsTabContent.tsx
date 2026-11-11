@@ -66,7 +66,10 @@ export const ParticipantsTabContent: React.FC<ParticipantsTabContentProps> = ({
             NGƯỜI THAM GIA ({bidders.length})
           </PresenceGroupHeader>
           {bidders.map((p) => {
-            const isLead = p.name === currentLeader || p.isLeader;
+            const hasExplicitLeader = bidders.some((x) => x.isLeader);
+            const isLead = hasExplicitLeader
+              ? Boolean(p.isLeader)
+              : Boolean(currentLeader && p.name === currentLeader);
             return (
               <ParticipantRow key={p.id} $isSelf={p.isSelf}>
                 <div className="avatar">{p.name.charAt(0)}</div>

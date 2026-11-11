@@ -46,7 +46,7 @@ export const DepositConfirmModal: React.FC<DepositConfirmModalProps> = ({
         </div>
       }
       onCancel={onClose}
-      onOk={isSufficient ? onConfirm : undefined}
+      onOk={onConfirm}
       loading={loading}
       okText={
         isSufficient

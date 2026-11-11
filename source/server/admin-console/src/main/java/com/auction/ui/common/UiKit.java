@@ -4,7 +4,9 @@ import static com.auction.ui.common.Theme.*;
 
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Dimension;
 import java.awt.LayoutManager;
+import java.awt.Rectangle;
 
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -12,6 +14,10 @@ import javax.swing.BorderFactory;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JTable;
+import javax.swing.Scrollable;
+import javax.swing.table.TableColumn;
+import javax.swing.table.TableColumnModel;
 
 /** Hàm tiện ích tạo component giao diện, dùng chung cho các panel. */
 public final class UiKit {
@@ -78,5 +84,46 @@ public final class UiKit {
         label.setFont(FONT_LABEL.deriveFont(18f));
         label.setForeground(COLOR_TEXT);
         return label;
+    }
+
+    /** Thiết lập chiều rộng ưu tiên và tối thiểu cho các cột của JTable. */
+    public static void configureTableColumns(JTable table, int[] prefWidths, int[] minWidths) {
+        TableColumnModel cols = table.getColumnModel();
+        int count = Math.min(cols.getColumnCount(), prefWidths.length);
+        for (int i = 0; i < count; i++) {
+            TableColumn col = cols.getColumn(i);
+            col.setPreferredWidth(prefWidths[i]);
+            if (minWidths != null && i < minWidths.length) {
+                col.setMinWidth(minWidths[i]);
+            }
+        }
+    }
+
+    /** JPanel tự khớp chiều rộng với JScrollPane, ngăn tràn ngang. */
+    public static class ScrollablePanel extends JPanel implements Scrollable {
+        @Override
+        public Dimension getPreferredScrollableViewportSize() {
+            return getPreferredSize();
+        }
+
+        @Override
+        public int getScrollableUnitIncrement(Rectangle visibleRect, int orientation, int direction) {
+            return 16;
+        }
+
+        @Override
+        public int getScrollableBlockIncrement(Rectangle visibleRect, int orientation, int direction) {
+            return 64;
+        }
+
+        @Override
+        public boolean getScrollableTracksViewportWidth() {
+            return true;
+        }
+
+        @Override
+        public boolean getScrollableTracksViewportHeight() {
+            return false;
+        }
     }
 }

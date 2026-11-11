@@ -9,16 +9,26 @@ export type PlateTypeEnum =
   | "OTHER";
 
 export interface AuctionSessionVO {
+  sessionCode?: string;
   plateNumber: string;
   provinceName: string;
   plateType: PlateTypeEnum | string;
   price: number;
+  currentPrice?: number;
   sessionStatus: string;
+  statusCode?: string;
   startTime: string;
   endTime: string;
+  startTimeEpochMs?: number;
+  endTimeEpochMs?: number;
+  serverTimeMs?: number;
   stepPrice: number;
+  nextStep?: number;
+  nextMinBid?: number;
   participantCount: number;
   endPrice: number;
+  isWatched?: boolean;
+  isRegistered?: boolean;
 }
 
 export interface PageResponse<T> {
@@ -60,6 +70,8 @@ export interface AuctionItem {
   t: number;
   startTime?: string;
   endTime?: string;
+  targetTimeMs?: number;
+  isRegistered?: boolean;
 }
 
 export interface PlaceBidPayload {

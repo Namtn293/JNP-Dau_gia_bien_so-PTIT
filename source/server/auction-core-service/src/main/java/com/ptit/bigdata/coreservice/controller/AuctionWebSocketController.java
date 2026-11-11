@@ -20,6 +20,7 @@ import com.ptit.bigdata.coreservice.model.vo.RoomEventVO;
 import com.ptit.bigdata.coreservice.repository.AuctionSessionRepository;
 import com.ptit.bigdata.coreservice.repository.NumberPlateRepository;
 import com.ptit.bigdata.coreservice.service.BidService;
+import com.ptit.bigdata.coreservice.service.RoomChatService;
 import com.ptit.bigdata.coreservice.service.RoomRoleResolver;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -53,6 +54,7 @@ public class AuctionWebSocketController {
     private final NumberPlateRepository numberPlateRepository;
     private final BidService bidService;
     private final RoomRoleResolver roomRoleResolver;
+    private final RoomChatService roomChatService;
     private final AuctionProperties auctionProperties;
 
     /**
@@ -83,20 +85,19 @@ public class AuctionWebSocketController {
                 ? userPrincipal.getFullName()
                 : userPrincipal.getUsername();
 
-        if (message.getId() == null || message.getId().isBlank()) {
-            message.setId(java.util.UUID.randomUUID().toString());
-        }
-        if (message.getTimestamp() == null || message.getTimestamp().isBlank()) {
-            message.setTimestamp(DateTimeFormatter.ofPattern("HH:mm:ss").format(LocalTime.now()));
-        }
-        message.setRoomId(roomId);
-        message.setSenderName(senderName);
-        if (message.getType() == null) {
-            message.setType("CHAT");
+        ChatMessageVO saved = roomChatService.saveChatMessage(
+                roomId,
+                userId,
+                senderName,
+                message != null ? message.getContent() : null,
+                message != null ? message.getId() : null
+        );
+        if (saved == null) {
+            return;
         }
 
-        log.info("[CHAT] Phòng {}: [{}] ({}) -> {}", roomId, senderName, role, message.getContent());
-        messagingTemplate.convertAndSend("/topic/chat/" + roomId, message);
+        log.info("[CHAT] Phòng {}: [{}] ({}) -> {}", roomId, senderName, role, saved.getContent());
+        messagingTemplate.convertAndSend("/topic/chat/" + roomId, saved);
     }
 
     /**

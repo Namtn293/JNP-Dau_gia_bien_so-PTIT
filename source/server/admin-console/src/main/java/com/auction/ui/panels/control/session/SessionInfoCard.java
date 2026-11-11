@@ -23,21 +23,21 @@ public class SessionInfoCard extends JPanel {
     private final JLabel peopleLabel = value("—", 16f);
 
     public SessionInfoCard() {
-        setLayout(new GridLayout(1, 4, 16, 0));
+        setLayout(new GridLayout(1, 4, 14, 0));
         applyCardStyle(this);
 
         JLabel priceTitle = caption("GIÁ HIỆN TẠI (VNĐ)");
-        JLabel depositLabel = caption("Tiền cọc: " + formatVnd(AdminConfig.DEPOSIT_VND) + " VNĐ / người");
+        JLabel depositLabel = caption("<html>Cọc: " + formatVnd(AdminConfig.DEPOSIT_VND) + " VNĐ / người</html>");
 
         add(stack(roomIdLabel, plateLabel, statusLabel));
         add(stack(countdownTitleLabel, countdownLabel,
-                caption("Sau RESUME: cộng " + AdminConfig.EXTENSION_SECONDS + " giây")));
+                caption("<html>Sau RESUME: cộng " + AdminConfig.EXTENSION_SECONDS + " giây</html>")));
         add(stack(priceTitle, priceLabel,
-                caption("Khởi điểm " + formatVnd(AdminConfig.START_PRICE_VND)
-                        + " • Bước giá " + formatVnd(AdminConfig.BID_STEP_VND))));
+                caption("<html>Khởi điểm " + formatVnd(AdminConfig.START_PRICE_VND)
+                        + "<br>Bước giá " + formatVnd(AdminConfig.BID_STEP_VND) + "</html>")));
         add(stack(peopleLabel, depositLabel,
-                caption("Có lượt đặt giá trong " + AdminConfig.LATE_BID_WINDOW_SECONDS + "s cuối: gia hạn "
-                        + AdminConfig.EXTENSION_SECONDS + " giây")));
+                caption("<html>Đặt giá trong " + AdminConfig.LATE_BID_WINDOW_SECONDS
+                        + "s cuối:<br>gia hạn " + AdminConfig.EXTENSION_SECONDS + " giây</html>")));
     }
 
     /** Hiển thị phòng. Truyền null để đưa thẻ về trạng thái trống. */
@@ -55,7 +55,9 @@ public class SessionInfoCard extends JPanel {
             return;
         }
 
-        roomIdLabel.setText(room.id() + " • " + room.region());
+        String roomText = room.id() + " • " + room.region();
+        roomIdLabel.setText("<html>" + roomText + "</html>");
+        roomIdLabel.setToolTipText(roomText);
         plateLabel.setText(room.plate());
         statusLabel.setText("• " + room.status().label());
         statusLabel.setForeground(statusColor(room.status()));

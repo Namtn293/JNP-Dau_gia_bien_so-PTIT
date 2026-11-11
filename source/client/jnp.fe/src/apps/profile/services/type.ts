@@ -30,6 +30,35 @@ export interface UserProfile {
   roles: string[];
 }
 
+export type BidResultStatus = "LEADING" | "OUTBID" | "WON" | "LOST";
+
+export interface MyAuctionHistoryVO {
+  sessionCode: string;
+  plateNumber: string;
+  provinceName: string;
+  status: string;
+  startTime: string;
+  endTime: string;
+  myBidCount: number;
+  myAutoBidCount: number;
+  myHighestBid: number;
+  myLastBidAt: string;
+  finalPrice: number;
+  depositStatus?: "ACTIVE" | "RELEASED" | "CAPTURED" | "CANCELLED" | null;
+  result: BidResultStatus;
+}
+
+export interface MySessionBidItemVO {
+  userId?: number;
+  userName?: string;
+  bidAmount: number;
+  increment?: number;
+  source?: "MANUAL" | "AUTO";
+  time?: string;
+  bidTime?: string;
+  isWinning?: boolean;
+}
+
 export interface PageResponse<T> {
   content: T[];
   totalElements: number;

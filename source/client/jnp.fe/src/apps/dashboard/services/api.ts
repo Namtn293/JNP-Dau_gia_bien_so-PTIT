@@ -7,20 +7,51 @@ import type {
   // PlaceBidPayload,
 } from "./type";
 
+const fetchByStatus = async (
+  status: string,
+  page = 0,
+  size = 100
+): Promise<PageResponse<AuctionSessionVO>> => {
+  const response = await axiosClient.get<any>("/api/v1/auction/get", {
+    params: { page, size, status },
+  });
+  return (response as any)?.data ?? response;
+};
+
 export const getAuctionSessionsApi = async (
   params?: GetAuctionSessionsParams
 ): Promise<PageResponse<AuctionSessionVO>> => {
-  const response = await axiosClient.get<any>("/api/v1/auction/get", {
-    params: {
-      page: params?.page ?? 0,
-      size: params?.size ?? 20,
-      status: params?.status ?? "SOON",
-    },
-  });
+  const status = params?.status ?? "ALL";
+  const page = params?.page ?? 0;
+  const size = params?.size ?? 100;
 
-  // response is already response.data from axios interceptor
-  const resData = (response as any)?.data ?? response;
-  return resData;
+  if (status === "ALL") {
+    const [liveRes, soonRes, endRes] = await Promise.all([
+      fetchByStatus("LIVE", page, size),
+      fetchByStatus("SOON", page, size),
+      fetchByStatus("END", page, size),
+    ]);
+
+    const combinedContent: AuctionSessionVO[] = [
+      ...(Array.isArray(liveRes?.content) ? liveRes.content : []),
+      ...(Array.isArray(soonRes?.content) ? soonRes.content : []),
+      ...(Array.isArray(endRes?.content) ? endRes.content : []),
+    ];
+
+    return {
+      content: combinedContent,
+      totalElements: combinedContent.length,
+      totalPages: 1,
+      size: combinedContent.length || size,
+      number: 0,
+      numberOfElements: combinedContent.length,
+      first: true,
+      last: true,
+      empty: combinedContent.length === 0,
+    };
+  }
+
+  return fetchByStatus(status, page, size);
 };
 
 export const placeBidApi = async (

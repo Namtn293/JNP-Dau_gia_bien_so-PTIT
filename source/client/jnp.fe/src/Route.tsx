@@ -1,4 +1,5 @@
 import adminRoute from "@apps/admin/Route";
+import adminMonitorRoute from "@/apps/admin-monitor/route";
 import authdRoute from "@apps/auth/Route";
 import dashboardRoute from "@apps/dashboard/Route";
 import { auctionRoomRoute, auctionRoomGeneralRoute } from "@/apps/auction-room/route";
@@ -14,6 +15,7 @@ export const routeTree = rootRoute.addChildren([
   auctionRoomRoute,
   auctionRoomGeneralRoute,
   profileRoute,
+  adminMonitorRoute,
   authdRoute,
   adminRoute,
 ]);

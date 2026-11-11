@@ -31,7 +31,7 @@ import com.auction.ui.common.UiKit;
  * Panel chỉ quản lý giao diện và kiểm tra điều kiện bật tắt nút.
  * Việc gửi lệnh được chuyển cho Listener.
  */
-public class InterventionPanel extends JPanel {
+public class InterventionPanel extends UiKit.ScrollablePanel {
 
     public interface Listener {
         void onHalt(String roomId);
@@ -97,18 +97,19 @@ public class InterventionPanel extends JPanel {
         targetRoomLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         targetRoomLabel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 32));
         column.add(targetRoomLabel);
-        column.add(UiKit.caption("Chọn phòng ở tab Giám sát để đổi mục tiêu."));
+        column.add(UiKit.caption("<html><body style='width: 240px'>Chọn phòng ở tab Giám sát để đổi mục tiêu.</body></html>"));
         column.add(Box.createVerticalStrut(12));
 
         JPanel controls = new JPanel(new GridLayout(1, 2, 10, 0));
         controls.setOpaque(false);
         controls.setAlignmentX(Component.LEFT_ALIGNMENT);
-                controls.add(actionGroup(haltButton,
-                "<html>HALT khóa đặt giá.<br>Đếm ngược<br>bị đóng băng.</html>"));
-                controls.add(actionGroup(resumeButton,
-                "<html>RESUME mở lại<br>đặt giá,<br>cộng " + AdminConfig.EXTENSION_SECONDS + " giây.</html>"));
+        controls.add(actionGroup(haltButton,
+                "<html><body style='width: 105px'>HALT khóa đặt giá. Đếm ngược bị đóng băng.</body></html>"));
+        controls.add(actionGroup(resumeButton,
+                "<html><body style='width: 105px'>RESUME mở lại đặt giá, cộng "
+                        + AdminConfig.EXTENSION_SECONDS + " giây.</body></html>"));
         column.add(controls);
-        column.add(Box.createVerticalStrut(16));
+        column.add(Box.createVerticalStrut(12));
 
         column.add(UiKit.fieldLabel("ID tài khoản cho KICK"));
         column.add(Box.createVerticalStrut(4));
@@ -118,12 +119,12 @@ public class InterventionPanel extends JPanel {
         column.add(kickField);
         column.add(Box.createVerticalStrut(8));
 
-               column.add(actionGroup(kickButton,
-                "<html>KICK cưỡng chế ngắt kết nối WebSocket của tài khoản.</html>"));
-        column.add(Box.createVerticalStrut(16));
+        column.add(actionGroup(kickButton,
+                "<html><body style='width: 230px'>KICK gửi cảnh báo ngắt kết nối WebSocket của tài khoản.</body></html>"));
+        column.add(Box.createVerticalStrut(12));
 
         column.add(actionGroup(cancelButton,
-                "<html>CANCEL hủy phiên, hoàn 100% tiền cọc.<br>Bắt buộc xác nhận trước khi gửi.</html>"));
+                "<html><body style='width: 230px'>CANCEL hủy phiên, hoàn 100% tiền cọc. Bắt buộc xác nhận trước khi gửi.</body></html>"));
 
         return column;
     }

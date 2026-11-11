@@ -40,6 +40,7 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
     private final ProvinceRepository provinceRepository;
     private final BidHistoryRepository bidHistoryRepository;
     private final UserInfoRepository userInfoRepository;
+    private final com.ptit.bigdata.coreservice.core.auth.repository.UserRepository userRepository;
     private final com.ptit.bigdata.coreservice.service.WalletService walletService;
     private final com.ptit.bigdata.coreservice.repository.AuctionRegistrationRepository auctionRegistrationRepository;
     private final com.ptit.bigdata.coreservice.service.RoomRoleResolver roomRoleResolver;
@@ -126,8 +127,7 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
                 List<AdminParticipantVO> list = new ArrayList<>();
                 for (Long userId : allUserIds) {
                     List<BidHistory> hist = userBids.getOrDefault(userId, Collections.emptyList());
-                    Optional<UserInfo> userOpt = userInfoRepository.findById(userId);
-                    String name = userOpt.map(UserInfo::getFullName).orElse("Người dùng #" + userId);
+                    String name = resolveDisplayName(userId);
                     long maxBid = hist.stream().mapToLong(BidHistory::getBidAmount).max().orElse(0L);
                     String role = roomRoleResolver.resolve(userId, sessionId).name();
 
@@ -192,17 +192,28 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
     @Override
     public AdminCommandResultVO halt(String roomId) {
         log.info("Admin HALT command requested for room: {}", roomId);
-        pausedRooms.add(roomId);
         Optional<AuctionSession> opt = auctionSessionRepository.findBySessionCode(roomId);
-        if (opt.isPresent()) {
-            AuctionSession s = opt.get();
-            s.setStatus(AuctionStatusEnum.PAUSED);
-            auctionSessionRepository.save(s);
+        if (opt.isEmpty()) {
+            return AdminCommandResultVO.fail("Không tìm thấy phiên " + roomId);
         }
+        pausedRooms.add(roomId);
+        AuctionSession s = opt.get();
+        s.setStatus(AuctionStatusEnum.PAUSED);
+        auctionSessionRepository.save(s);
+
         if (messagingTemplate != null) {
             String time = DateTimeFormatter.ofPattern("HH:mm:ss").format(LocalTime.now());
+            com.ptit.bigdata.coreservice.model.vo.BidMessageVO haltMsg =
+                    com.ptit.bigdata.coreservice.model.vo.BidMessageVO.builder()
+                            .roomId(roomId)
+                            .status("PAUSED")
+                            .type("STATUS_CHANGE")
+                            .timestamp(time)
+                            .build();
             messagingTemplate.convertAndSend("/topic/room/" + roomId,
                     new RoomEventVO(roomId, "HALT", "Phiên đấu giá đã bị tạm dừng khẩn cấp bởi quản trị viên.", null, time));
+            messagingTemplate.convertAndSend("/topic/auction/" + roomId, haltMsg);
+            messagingTemplate.convertAndSend("/topic/auctions", haltMsg);
         }
         return AdminCommandResultVO.ok("Đã tạm dừng phiên " + roomId + ". Đóng băng đồng hồ và khóa lệnh đặt giá.");
     }
@@ -210,26 +221,56 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
     @Override
     public AdminCommandResultVO resume(String roomId) {
         log.info("Admin RESUME command requested for room: {}", roomId);
-        pausedRooms.remove(roomId);
         Optional<AuctionSession> opt = auctionSessionRepository.findBySessionCode(roomId);
-        if (opt.isPresent()) {
-            AuctionSession s = opt.get();
-            s.setStatus(AuctionStatusEnum.LIVE);
-            if (s.getEndTime() != null && s.getEndTime().isBefore(LocalDateTime.now())) {
-                s.setEndTime(LocalDateTime.now().plusSeconds(30));
-            } else if (s.getEndTime() != null) {
-                s.setEndTime(s.getEndTime().plusSeconds(30));
-            }
-            try {
-                auctionSessionRepository.save(s);
-            } catch (Exception e) {
-                log.warn("Could not save new end time for {}: {}", roomId, e.getMessage());
-            }
+        if (opt.isEmpty()) {
+            return AdminCommandResultVO.fail("Không tìm thấy phiên " + roomId);
         }
+        pausedRooms.remove(roomId);
+        AuctionSession s = opt.get();
+        s.setStatus(AuctionStatusEnum.LIVE);
+        LocalDateTime now = LocalDateTime.now();
+        if (s.getEndTime() != null && s.getEndTime().isBefore(now)) {
+            s.setEndTime(now.plusSeconds(30));
+        } else if (s.getEndTime() != null) {
+            s.setEndTime(s.getEndTime().plusSeconds(30));
+        }
+        try {
+            auctionSessionRepository.save(s);
+        } catch (Exception e) {
+            log.warn("Could not save new end time for {}: {}", roomId, e.getMessage());
+        }
+        long remainingSec = s.getEndTime() != null ? Math.max(0L, Duration.between(now, s.getEndTime()).getSeconds()) : 0L;
+        Long endTimeEpochMs = s.getEndTime() != null
+                ? s.getEndTime().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+                : null;
+        long serverNowMs = System.currentTimeMillis();
         if (messagingTemplate != null) {
             String time = DateTimeFormatter.ofPattern("HH:mm:ss").format(LocalTime.now());
+            String endTimeStr = s.getEndTime() != null ? s.getEndTime().toString() : null;
+            com.ptit.bigdata.coreservice.model.vo.BidMessageVO resumeMsg =
+                    com.ptit.bigdata.coreservice.model.vo.BidMessageVO.builder()
+                            .roomId(roomId)
+                            .status("LIVE")
+                            .remainingSeconds(remainingSec)
+                            .endTime(endTimeStr)
+                            .endTimeEpochMs(endTimeEpochMs)
+                            .serverTimeMs(serverNowMs)
+                            .type("STATUS_CHANGE")
+                            .timestamp(time)
+                            .build();
             messagingTemplate.convertAndSend("/topic/room/" + roomId,
-                    new RoomEventVO(roomId, "RESUME", "Phiên đấu giá đã được tiếp tục. Đồng hồ đếm ngược cộng thêm 30 giây.", null, time));
+                    RoomEventVO.builder()
+                            .roomId(roomId)
+                            .event("RESUME")
+                            .message("Phiên đấu giá đã được tiếp tục. Đồng hồ đếm ngược cộng thêm 30 giây.")
+                            .remainingSeconds(remainingSec)
+                            .endTime(endTimeStr)
+                            .endTimeEpochMs(endTimeEpochMs)
+                            .serverTimeMs(serverNowMs)
+                            .timestamp(time)
+                            .build());
+            messagingTemplate.convertAndSend("/topic/auction/" + roomId, resumeMsg);
+            messagingTemplate.convertAndSend("/topic/auctions", resumeMsg);
         }
         return AdminCommandResultVO.ok("Đã tiếp tục phiên " + roomId + ". Đồng hồ đếm ngược đã cộng thêm 30 giây.");
     }
@@ -248,22 +289,39 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
     @Override
     public AdminCommandResultVO cancel(String roomId) {
         log.info("Admin CANCEL command requested for room: {}", roomId);
-        pausedRooms.remove(roomId);
         Optional<AuctionSession> opt = auctionSessionRepository.findBySessionCode(roomId);
-        if (opt.isPresent()) {
-            AuctionSession s = opt.get();
-            s.setStatus(AuctionStatusEnum.END);
-            auctionSessionRepository.save(s);
-            try {
-                walletService.handleSessionCancelled(s.getId());
-            } catch (Exception e) {
-                log.error("Could not refund deposits for session {}: {}", roomId, e.getMessage());
-            }
+        if (opt.isEmpty()) {
+            return AdminCommandResultVO.fail("Không tìm thấy phiên " + roomId);
+        }
+        pausedRooms.remove(roomId);
+        AuctionSession s = opt.get();
+        s.setStatus(AuctionStatusEnum.END);
+        auctionSessionRepository.save(s);
+        try {
+            walletService.handleSessionCancelled(s.getId());
+        } catch (Exception e) {
+            log.error("Could not refund deposits for session {}: {}", roomId, e.getMessage());
         }
         if (messagingTemplate != null) {
             String time = DateTimeFormatter.ofPattern("HH:mm:ss").format(LocalTime.now());
+            com.ptit.bigdata.coreservice.model.vo.BidMessageVO cancelMsg =
+                    com.ptit.bigdata.coreservice.model.vo.BidMessageVO.builder()
+                            .roomId(roomId)
+                            .status("END")
+                            .remainingSeconds(0L)
+                            .type("STATUS_CHANGE")
+                            .timestamp(time)
+                            .build();
             messagingTemplate.convertAndSend("/topic/room/" + roomId,
-                    new RoomEventVO(roomId, "CANCEL", "Phiên đấu giá đã bị hủy. Quy trình hoàn cọc 100% đã được kích hoạt.", null, time));
+                    RoomEventVO.builder()
+                            .roomId(roomId)
+                            .event("CANCEL")
+                            .message("Phiên đấu giá đã bị hủy. Quy trình hoàn cọc 100% đã được kích hoạt.")
+                            .remainingSeconds(0L)
+                            .timestamp(time)
+                            .build());
+            messagingTemplate.convertAndSend("/topic/auction/" + roomId, cancelMsg);
+            messagingTemplate.convertAndSend("/topic/auctions", cancelMsg);
         }
         return AdminCommandResultVO.ok("Đã hủy phiên " + roomId + ". Đã kích hoạt hoàn trả 100% tiền cọc.");
     }
@@ -301,13 +359,11 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
             return "Tạm dừng";
         }
         if (session.getStatus() == AuctionStatusEnum.END) {
-            return "00:00";
+            return "00:00:00";
         }
         if (session.getEndTime() != null && now.isAfter(session.getStartTime()) && now.isBefore(session.getEndTime())) {
-            Duration d = Duration.between(now, session.getEndTime());
-            long mins = d.toMinutes();
-            long secs = d.minusMinutes(mins).getSeconds();
-            return String.format("%02d:%02d", mins, secs);
+            long totalSec = Math.max(0L, Duration.between(now, session.getEndTime()).getSeconds());
+            return String.format("%02d:%02d:%02d", totalSec / 3600, (totalSec % 3600) / 60, totalSec % 60);
         }
         if (session.getStartTime() != null && session.getStartTime().isAfter(now)) {
             if (session.getStartTime().toLocalDate().isEqual(now.toLocalDate())) {
@@ -316,7 +372,17 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
             }
             return "Chưa bắt đầu";
         }
-        return "00:00";
+        return "00:00:00";
+    }
+
+    private String resolveDisplayName(Long userId) {
+        if (userId == null) return "Người dùng #?";
+        return userRepository.findById(userId)
+                .flatMap(u -> userInfoRepository.findByUserName(u.getUsername())
+                        .map(ui -> (ui.getFullName() != null && !ui.getFullName().isBlank()) ? ui.getFullName() : u.getUsername()))
+                .orElseGet(() -> userInfoRepository.findById(userId)
+                        .map(UserInfo::getFullName)
+                        .orElse("Người dùng #" + userId));
     }
 
     private String extractPlateFromTitle(String title) {

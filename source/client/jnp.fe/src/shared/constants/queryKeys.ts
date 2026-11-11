@@ -10,6 +10,7 @@ export const QK = {
   priceSeries: (code: string) => ["price-series", code] as const,
   sessionBids: (code: string) => ["session-bids", code] as const,
   announcements: (code: string) => ["announcements", code] as const,
+  roomChats: (code: string) => ["room-chats", code] as const,
   wallet: ["wallet"] as const,
   walletTx: (page: number, type?: string) => ["wallet-tx", page, type] as const,
   watchList: (page: number) => ["watch-list", page] as const,

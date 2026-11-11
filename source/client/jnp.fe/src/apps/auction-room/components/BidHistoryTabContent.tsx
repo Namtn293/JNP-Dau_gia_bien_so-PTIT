@@ -2,7 +2,7 @@ import React from "react";
 import { TabBodyArea, BidHistRow } from "./styled";
 import type { BidHistoryItem } from "../services/type";
 import { formatMoney } from "../util/format";
-import { CrownFilled } from "@ant-design/icons";
+import { CrownFilled, RobotOutlined } from "@ant-design/icons";
 
 interface BidHistoryTabContentProps {
   history: BidHistoryItem[];
@@ -26,6 +26,25 @@ export const BidHistoryTabContent: React.FC<BidHistoryTabContentProps> = ({
               )}
               {item.userName}
               {item.isMine && " (Bạn)"}
+              {item.source === "AUTO" && (
+                <span
+                  title="Đặt giá tự động"
+                  style={{
+                    marginLeft: 4,
+                    padding: "1px 5px",
+                    borderRadius: 4,
+                    fontSize: 10,
+                    background: "#f3e8ff",
+                    color: "#7e22ce",
+                    fontWeight: 600,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 2,
+                  }}
+                >
+                  <RobotOutlined /> Tự động
+                </span>
+              )}
             </span>
             <span className="amount">{formatMoney(item.bidAmount)}</span>
             <span className="time">{item.time}</span>

@@ -56,32 +56,19 @@ export const useAction = (
       const nextPrice = plate.price + plate.step;
       const sessionCode = plate.sessionCode || plate.p;
 
-      // 1. Gửi qua WebSocket nếu đang kết nối
-      let sentViaWs = false;
-      if (sendBidWs) {
-        sentViaWs = sendBidWs({
-          plateNumber: plate.p,
-          roomId: sessionCode,
-          bidAmount: nextPrice,
-          currentPrice: nextPrice,
-          stepPrice: plate.step,
-          userName: currentUser?.name || "",
-          userId: currentUser?.email || "user",
-          type: "BID",
-        });
-      }
-
-      // 2. Nếu WebSocket gián đoạn, fallback qua REST API
-      if (!sentViaWs) {
-        await placeBidApi(sessionCode, nextPrice);
-      }
+      await placeBidApi(sessionCode, nextPrice);
 
       showSuccessNotify(
-        `Đã gửi yêu cầu đặt giá cho biển ${plate.p}: ${formatMoney(nextPrice)}`
+        `Đặt giá thành công cho biển ${plate.p}: ${formatMoney(nextPrice)}`
       );
       setSelectedPlate(null);
     } catch (err: any) {
-      showErrorNotify(err?.message || "Đặt giá thất bại. Vui lòng thử lại!");
+      const errMsg =
+        err?.response?.data?.message ||
+        err?.data?.message ||
+        err?.message ||
+        "Đặt giá thất bại. Vui lòng kiểm tra trạng thái đăng nhập và tiền cọc!";
+      showErrorNotify(errMsg);
     }
   };
 

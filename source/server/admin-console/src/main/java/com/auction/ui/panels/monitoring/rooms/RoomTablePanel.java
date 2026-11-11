@@ -31,6 +31,7 @@ import javax.swing.table.TableRowSorter;
 
 import com.auction.model.RoomInfo;
 import com.auction.model.RoomStatus;
+import com.auction.ui.common.UiKit;
 
 /**
  * Bảng danh sách phòng: tìm kiếm, lọc trạng thái, phân trang.
@@ -94,7 +95,7 @@ public class RoomTablePanel extends JPanel {
         titlePanel.add(title);
         titlePanel.add(countLabel);
 
-        searchField = new JTextField(15);
+        searchField = new JTextField(12);
         searchField.setToolTipText("Tìm mã phòng / biển số");
 
         List<String> statusOptions = new ArrayList<>();
@@ -104,14 +105,14 @@ public class RoomTablePanel extends JPanel {
         }
         statusFilterCombo = new JComboBox<>(statusOptions.toArray(new String[0]));
 
-        JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
         filterPanel.add(new JLabel("Tìm kiếm:"));
         filterPanel.add(searchField);
-        filterPanel.add(Box.createHorizontalStrut(10));
+        filterPanel.add(Box.createHorizontalStrut(6));
         filterPanel.add(new JLabel("Lọc:"));
         filterPanel.add(statusFilterCombo);
 
-        JPanel headerPanel = new JPanel(new BorderLayout());
+        JPanel headerPanel = new JPanel(new BorderLayout(8, 0));
         headerPanel.add(titlePanel, BorderLayout.WEST);
         headerPanel.add(filterPanel, BorderLayout.EAST);
 
@@ -119,14 +120,15 @@ public class RoomTablePanel extends JPanel {
         roomTable = new JTable(model);
         roomTable.setRowSorter(rowSorter);
         roomTable.setFont(FONT_NORMAL);
-        roomTable.setRowHeight(40);
+        roomTable.setRowHeight(36);
         roomTable.setGridColor(COLOR_BORDER);
         roomTable.setShowVerticalLines(false);
         roomTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         roomTable.setDefaultRenderer(Object.class, new RoomCellRenderer());
         roomTable.getTableHeader().setFont(FONT_LABEL);
-        roomTable.getTableHeader().setPreferredSize(new Dimension(0, 40));
+        roomTable.getTableHeader().setPreferredSize(new Dimension(0, 38));
         roomTable.getTableHeader().setReorderingAllowed(false);
+        configureRoomColumnWidths();
 
         JScrollPane scrollPane = new JScrollPane(roomTable);
         scrollPane.setBorder(BorderFactory.createLineBorder(COLOR_BORDER));
@@ -303,6 +305,12 @@ public class RoomTablePanel extends JPanel {
                 room.remainingLabel(),
                 room.rttMs()
         };
+    }
+
+    private void configureRoomColumnWidths() {
+        UiKit.configureTableColumns(roomTable,
+                new int[] { 155, 110, 130, 75, 150, 95, 70 },
+                new int[] { 115, 85, 100, 55, 110, 75, 50 });
     }
 
     private static JButton pagerButton(String text) {

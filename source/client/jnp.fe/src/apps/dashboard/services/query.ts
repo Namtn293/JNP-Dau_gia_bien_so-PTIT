@@ -1,4 +1,5 @@
 import { useQuery } from "react-query";
+import tokenManager from "@/shared/utils/tokenManager";
 import { getAuctionSessionsApi, getWatchedListApi } from "./api";
 import type { AuctionSessionVO, GetAuctionSessionsParams, PageResponse, WatchVO } from "./type";
 
@@ -9,8 +10,9 @@ export const useAuctionSessionsQuery = (
   params?: GetAuctionSessionsParams,
   options?: { enabled?: boolean; refetchInterval?: number }
 ) => {
+  const isAuthenticated = Boolean(tokenManager.getAccessToken());
   return useQuery<PageResponse<AuctionSessionVO>>(
-    [AUCTION_QUERY_KEY, params?.status, params?.page, params?.size],
+    [AUCTION_QUERY_KEY, params?.status, params?.page, params?.size, isAuthenticated],
     () => getAuctionSessionsApi(params),
     {
       staleTime: 10 * 1000,

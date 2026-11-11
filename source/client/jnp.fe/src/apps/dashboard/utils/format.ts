@@ -4,6 +4,11 @@ import type {
   AuctionStatus,
 } from "../services/type";
 import { PLATE_TYPE_LABELS, SECONDS_IN_HOUR } from "./constants";
+import {
+  computeRemainingSecondsFromTarget,
+  resolveTargetEpochMs,
+  updateServerClockOffset,
+} from "@/shared/utils/serverClock";
 
 export const formatMoney = (n: number): string => {
   if (n >= 1e9) {
@@ -79,20 +84,47 @@ export const calculateRemainingSeconds = (
 };
 
 export const mapAuctionSessionVOToItem = (vo: AuctionSessionVO): AuctionItem => {
-  const st = mapStatusToAuctionStatus(vo.sessionStatus);
-  const t = calculateRemainingSeconds(vo.sessionStatus, vo.startTime, vo.endTime);
+  if (vo.serverTimeMs) {
+    updateServerClockOffset(vo.serverTimeMs, 800);
+  }
+  const rawStatus = vo.statusCode || vo.sessionStatus;
+  const st = mapStatusToAuctionStatus(rawStatus);
+  const targetTimeMs =
+    st === "end"
+      ? undefined
+      : resolveTargetEpochMs({
+          epochMs: st === "soon" ? vo.startTimeEpochMs : vo.endTimeEpochMs,
+          isoTime: st === "soon" ? vo.startTime : vo.endTime,
+        }) ?? undefined;
+
+  const t =
+    st === "end"
+      ? 0
+      : targetTimeMs
+      ? computeRemainingSecondsFromTarget(targetTimeMs)
+      : calculateRemainingSeconds(rawStatus, vo.startTime, vo.endTime);
+
+  const displayPrice =
+    st === "end"
+      ? (vo.endPrice ?? vo.currentPrice ?? vo.price ?? 0)
+      : st === "live"
+        ? (vo.currentPrice ?? vo.price ?? 0)
+        : (vo.price ?? vo.currentPrice ?? 0);
+
   return {
     p: vo.plateNumber,
-    sessionCode: vo.plateNumber,
+    sessionCode: vo.sessionCode || vo.plateNumber,
     prov: vo.provinceName || "Toàn quốc",
     type: getPlateTypeLabel(vo.plateType),
     plateTypeEnum: vo.plateType,
     st,
-    price: vo.price ?? 0,
-    step: vo.stepPrice ?? 10000000,
+    price: displayPrice,
+    step: vo.nextStep ?? vo.stepPrice ?? 5000000,
     bids: vo.participantCount ?? 0,
     t,
     startTime: vo.startTime,
     endTime: vo.endTime,
+    targetTimeMs,
+    isRegistered: Boolean(vo.isRegistered),
   };
 };

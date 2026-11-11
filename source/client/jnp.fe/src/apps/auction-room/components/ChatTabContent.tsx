@@ -14,6 +14,8 @@ interface ChatTabContentProps {
   chatInput: string;
   onChangeChatInput: (val: string) => void;
   onSendChat: () => void;
+  canChat?: boolean;
+  isEnded?: boolean;
 }
 
 export const ChatTabContent: React.FC<ChatTabContentProps> = ({
@@ -21,8 +23,11 @@ export const ChatTabContent: React.FC<ChatTabContentProps> = ({
   chatInput,
   onChangeChatInput,
   onSendChat,
+  canChat = true,
+  isEnded = false,
 }) => {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const inputEnabled = !isEnded && canChat;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -61,21 +66,30 @@ export const ChatTabContent: React.FC<ChatTabContentProps> = ({
 
       <ChatInputContainer>
         <input
-          placeholder="Nhập tin nhắn..."
+          placeholder={
+            isEnded
+              ? "Phiên đấu giá đã kết thúc"
+              : canChat
+              ? "Nhập tin nhắn..."
+              : "Nộp cọc để tham gia trò chuyện..."
+          }
           maxLength={200}
+          disabled={!inputEnabled}
           value={chatInput}
           onChange={(e) => onChangeChatInput(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+            if (e.key === "Enter" && !e.nativeEvent.isComposing && inputEnabled) {
               e.preventDefault();
               onSendChat();
             }
           }}
         />
         <button
+          disabled={!inputEnabled}
+          style={!inputEnabled ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
           onClick={(e) => {
             e.preventDefault();
-            onSendChat();
+            if (inputEnabled) onSendChat();
           }}
         >
           Gửi

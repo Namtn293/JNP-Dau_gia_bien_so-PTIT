@@ -26,4 +26,8 @@ public interface AdminGateway {
     CompletableFuture<CommandResult> kick(String userId, String roomId);
 
     CompletableFuture<CommandResult> cancel(String roomId);
+
+    default CompletableFuture<CommandResult> announce(String roomId, String message) {
+        return CompletableFuture.completedFuture(CommandResult.fail("Chưa hỗ trợ gửi thông báo"));
+    }
 }

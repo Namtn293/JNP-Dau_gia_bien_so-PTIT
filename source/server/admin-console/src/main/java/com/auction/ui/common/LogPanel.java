@@ -204,22 +204,9 @@ public class LogPanel extends JPanel {
     }
 
     public static void loadSampleLog(StyledDocument doc) {
-        appendTo(doc, "14:00:00", Level.INFO,
-                "Admin Console đã khởi động");
-
-        appendTo(doc, "14:00:01", Level.SUCCESS,
-                "Kết nối tới server thành công");
-
-        appendTo(doc, "14:00:05", Level.COMMAND,
-                "Gửi yêu cầu xem danh sách phiên đấu giá");
-
-        appendTo(doc, "14:00:06", Level.INFO,
-                "Nhận danh sách phiên đấu giá từ server");
-
-        appendTo(doc, "14:00:10", Level.WARNING,
-                "Một phiên đấu giá sắp kết thúc");
-
-        appendTo(doc, "14:00:15", Level.ERROR,
-                "Không thể gửi lệnh: kết nối bị gián đoạn");
+        String now = LocalTime.now().format(TIME_FORMAT);
+        appendTo(doc, now, Level.INFO, "Admin Console đã khởi động");
+        appendTo(doc, now, Level.INFO, "Đang nhận UDP metrics/alert cổng 8888 & đo RTT cổng 9002");
+        appendTo(doc, now, Level.SUCCESS, "Kênh điều khiển khẩn cấp Raw TCP :9090 sẵn sàng");
     }
 }
