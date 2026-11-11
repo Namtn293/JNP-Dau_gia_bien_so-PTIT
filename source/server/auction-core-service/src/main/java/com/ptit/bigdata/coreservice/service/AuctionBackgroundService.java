@@ -54,8 +54,9 @@ public class AuctionBackgroundService {
 
     /**
      * Chạy định kỳ mỗi 2 giây một lần để quét và xử lý trạng thái các phiên đấu giá
+     * (Đặt initialDelay = 5000 để các tác vụ khởi tạo ApplicationReadyEvent hoàn tất trước khi quét)
      */
-    @Scheduled(fixedDelay = 2000)
+    @Scheduled(initialDelay = 5000, fixedDelay = 2000)
     @Transactional
     public void checkAndProcessAuctionStatus() {
         LocalDateTime now = LocalDateTime.now();

@@ -7,8 +7,11 @@ import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
+import io.swagger.v3.oas.models.servers.Server;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.util.List;
 
 @Configuration
 public class OpenApiConfig {
@@ -18,6 +21,9 @@ public class OpenApiConfig {
     @Bean
     public OpenAPI openAPI() {
         return new OpenAPI()
+                .servers(List.of(
+                        new Server().url("/").description("Default Server URL")
+                ))
                 .info(new Info()
                         .title("Hệ Thống Đấu Giá Biển Số Xe - API Documentation")
                         .description("Tài liệu API RESTful cho Hệ thống đấu giá trực tuyến biển số xe PTIT.")
@@ -39,4 +45,5 @@ public class OpenApiConfig {
                                         .description("Nhập Access Token JWT (không cần gõ tiền tố Bearer)")));
     }
 }
+
 
