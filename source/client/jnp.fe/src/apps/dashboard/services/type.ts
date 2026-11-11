@@ -63,8 +63,22 @@ export interface AuctionItem {
 }
 
 export interface PlaceBidPayload {
+  sessionCode?: string;
   plateNumber: string;
-  amount: number;
+  bidAmount?: number;
+  amount?: number;
+}
+
+export interface WatchVO {
+  sessionCode: string;
+  plateNumber: string;
+  provinceName: string;
+  startPrice: number;
+  currentPrice: number;
+  status: string;
+  startTime: string;
+  endTime: string;
+  watchedAt: string;
 }
 
 export interface AuctionFilterParams {

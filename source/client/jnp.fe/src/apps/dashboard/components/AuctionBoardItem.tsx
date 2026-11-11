@@ -1,5 +1,6 @@
 import React from "react";
 import { Tag } from "antd";
+import { StarFilled, StarOutlined } from "@ant-design/icons";
 import type { AuctionItem, AuctionStatus } from "../services/type";
 import { formatMoney, getTimeLabel } from "../utils/format";
 import { STATUS_LABEL_MAP } from "../utils/constants";
@@ -12,15 +13,20 @@ import {
   PriceText,
   MuteLabel,
   ActionButton,
+  WatchIconButton,
 } from "./styled";
 
 interface AuctionBoardItemProps {
   data: AuctionItem[];
+  watchedSessionCodes?: Set<string>;
+  onToggleWatch?: (item: AuctionItem, isWatched: boolean) => void;
   onOpenBid: (item: AuctionItem) => void;
 }
 
 export const AuctionBoardItem: React.FC<AuctionBoardItemProps> = ({
   data,
+  watchedSessionCodes,
+  onToggleWatch,
   onOpenBid,
 }) => {
   const columns: AuctionStatus[] = ["live", "soon", "end"];
@@ -38,33 +44,62 @@ export const AuctionBoardItem: React.FC<AuctionBoardItemProps> = ({
               </Tag>
             </h3>
 
-            {colItems.map((item) => (
-              <MiniCard key={item.p}>
-                <div style={{ textAlign: "center", margin: "6px 0" }}>
-                  <PlateDisplay $small>{item.p}</PlateDisplay>
-                </div>
+            {colItems.map((item) => {
+              const isWatched =
+                (item.sessionCode && watchedSessionCodes?.has(item.sessionCode)) ||
+                watchedSessionCodes?.has(item.p);
 
-                <RowBetween>
-                  <PriceText $small>{formatMoney(item.price)}</PriceText>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "#586979" }}>
-                    {getTimeLabel(item)}
-                  </span>
-                </RowBetween>
-
-                <RowBetween>
-                  <MuteLabel>
-                    {item.prov} &bull; {item.type}
-                  </MuteLabel>
-                  <ActionButton
-                    $ghost={st === "end"}
-                    onClick={() => onOpenBid(item)}
-                    style={{ padding: "5px 10px", fontSize: 12 }}
+              return (
+                <MiniCard key={item.p}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      margin: "4px 0 6px",
+                    }}
                   >
-                    {st === "end" ? "Xem" : "Đấu giá"}
-                  </ActionButton>
-                </RowBetween>
-              </MiniCard>
-            ))}
+                    <PlateDisplay $small>{item.p}</PlateDisplay>
+                    {onToggleWatch && (
+                      <WatchIconButton
+                        $watched={Boolean(isWatched)}
+                        style={{ width: 28, height: 28, fontSize: 13 }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleWatch(item, Boolean(isWatched));
+                        }}
+                      >
+                        {isWatched ? (
+                          <StarFilled style={{ color: "#f59e0b" }} />
+                        ) : (
+                          <StarOutlined />
+                        )}
+                      </WatchIconButton>
+                    )}
+                  </div>
+
+                  <RowBetween>
+                    <PriceText $small>{formatMoney(item.price)}</PriceText>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "#586979" }}>
+                      {getTimeLabel(item)}
+                    </span>
+                  </RowBetween>
+
+                  <RowBetween>
+                    <MuteLabel>
+                      {item.prov} &bull; {item.type}
+                    </MuteLabel>
+                    <ActionButton
+                      $ghost={st === "end"}
+                      onClick={() => onOpenBid(item)}
+                      style={{ padding: "5px 10px", fontSize: 12 }}
+                    >
+                      {st === "end" ? "Xem" : "Đấu giá"}
+                    </ActionButton>
+                  </RowBetween>
+                </MiniCard>
+              );
+            })}
           </BoardColumn>
         );
       })}

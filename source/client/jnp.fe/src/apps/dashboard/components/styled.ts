@@ -102,6 +102,49 @@ export const UserTrigger = styled.div`
   }
 `;
 
+export const WatchIconButton = styled.button<{ $watched?: boolean }>`
+  background: ${(props) => (props.$watched ? "#fffbeb" : "#f8fafc")};
+  color: ${(props) => (props.$watched ? "#f59e0b" : "#94a3b8")};
+  border: 1px solid ${(props) => (props.$watched ? "#fde68a" : "#e2e8f0")};
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 15px;
+  transition: all 0.2s ease;
+
+  &:hover {
+    color: #f59e0b;
+    background: #fffbeb;
+    border-color: #fcd34d;
+    transform: scale(1.08);
+  }
+`;
+
+export const WatchFilterButton = styled.button<{ $active?: boolean }>`
+  background: ${(props) => (props.$active ? "#f59e0b" : "#ffffff")};
+  color: ${(props) => (props.$active ? "#ffffff" : "#475569")};
+  border: 1px solid ${(props) => (props.$active ? "#f59e0b" : "#cbd5e1")};
+  border-radius: 10px;
+  height: 40px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: #f59e0b;
+    color: ${(props) => (props.$active ? "#ffffff" : "#f59e0b")};
+  }
+`;
+
 export const MainContent = styled.main`
   max-width: 1240px;
   margin: 0 auto;

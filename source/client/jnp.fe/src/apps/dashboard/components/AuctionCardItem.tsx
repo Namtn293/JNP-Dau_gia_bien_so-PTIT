@@ -1,6 +1,6 @@
 import React from "react";
 import { Tag } from "antd";
-import { ClockCircleOutlined } from "@ant-design/icons";
+import { ClockCircleOutlined, StarFilled, StarOutlined } from "@ant-design/icons";
 import type { AuctionItem } from "../services/type";
 import { formatMoney, getTimeLabel, getPriceLabel } from "../utils/format";
 import { STATUS_LABEL_MAP } from "../utils/constants";
@@ -13,15 +13,20 @@ import {
   PriceText,
   MuteLabel,
   ActionButton,
+  WatchIconButton,
 } from "./styled";
 
 interface AuctionCardItemProps {
   item: AuctionItem;
+  isWatched?: boolean;
+  onToggleWatch?: (item: AuctionItem, isWatched: boolean) => void;
   onOpenBid: (item: AuctionItem) => void;
 }
 
 export const AuctionCardItem: React.FC<AuctionCardItemProps> = ({
   item,
+  isWatched = false,
+  onToggleWatch,
   onOpenBid,
 }) => {
   return (
@@ -31,9 +36,26 @@ export const AuctionCardItem: React.FC<AuctionCardItemProps> = ({
           <i />
           {STATUS_LABEL_MAP[item.st]}
         </StatusTag>
-        <Tag color="cyan" style={{ borderRadius: 6, fontWeight: 600 }}>
-          {item.type}
-        </Tag>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <Tag color="cyan" style={{ borderRadius: 6, fontWeight: 600, margin: 0 }}>
+            {item.type}
+          </Tag>
+          {onToggleWatch && (
+            <WatchIconButton
+              $watched={isWatched}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleWatch(item, isWatched);
+              }}
+            >
+              {isWatched ? (
+                <StarFilled style={{ color: "#f59e0b" }} />
+              ) : (
+                <StarOutlined />
+              )}
+            </WatchIconButton>
+          )}
+        </div>
       </RowBetween>
 
       <PlateBox>

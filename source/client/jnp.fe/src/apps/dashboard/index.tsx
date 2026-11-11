@@ -1,10 +1,12 @@
 import React from "react";
-import { Input, Select, Pagination } from "antd";
+import { Input, Select, Pagination, Empty } from "antd";
 import {
   SearchOutlined,
   AppstoreOutlined,
   TableOutlined,
   ProjectOutlined,
+  StarFilled,
+  StarOutlined,
 } from "@ant-design/icons";
 
 // Child components & styled from ./style
@@ -22,12 +24,14 @@ import {
   PaginationWrapper,
   WsStatusBadge,
   WsStatusDot,
+  WatchFilterButton,
 } from "./style";
 
 import TopNavbar from "./components/TopNavbar";
 import AuctionCardItem from "./components/AuctionCardItem";
 import AuctionTableItem from "./components/AuctionTableItem";
 import AuctionBoardItem from "./components/AuctionBoardItem";
+import AuctionListSkeleton from "./components/AuctionListSkeleton";
 import BidModal from "./components/BidModal";
 
 // Hooks & utils
@@ -43,6 +47,8 @@ export const DashboardPage: React.FC = () => {
     data,
     pagedList,
     total,
+    isLoading,
+    isFetching,
     tab,
     setTab,
     viewMode,
@@ -63,11 +69,18 @@ export const DashboardPage: React.FC = () => {
     setPageSize,
     placeBid,
     socketStatus,
+    watchedSessionCodes,
+    onlyWatched,
+    setOnlyWatched,
+    watchedCount,
+    toggleWatch,
   } = useAuctionData();
 
   const handleEnterRoom = (item: AuctionItem) => {
+    const roomId = item.sessionCode || item.p;
     navigate({
-      to: `/phong-dau-gia/${item.p}` as any,
+      to: "/phong-dau-gia/$roomId",
+      params: { roomId },
     });
   };
 
@@ -166,6 +179,18 @@ export const DashboardPage: React.FC = () => {
             options={PLATE_TYPES_LIST.map((t) => ({ label: t, value: t }))}
           />
 
+          <WatchFilterButton
+            $active={onlyWatched}
+            onClick={() => setOnlyWatched(!onlyWatched)}
+          >
+            {onlyWatched ? (
+              <StarFilled style={{ color: "#ffffff" }} />
+            ) : (
+              <StarOutlined style={{ color: "#f59e0b" }} />
+            )}
+            Đang theo dõi ({watchedCount})
+          </WatchFilterButton>
+
           <Select
             value={sortBy}
             onChange={setSortBy}
@@ -180,30 +205,67 @@ export const DashboardPage: React.FC = () => {
         </FilterGrid>
 
         {/* Dynamic View Display */}
-        {viewMode === "grid" && (
-          <CardsGrid>
-            {pagedList.map((item) => (
-              <AuctionCardItem
-                key={item.p}
-                item={item}
+        {isLoading ? (
+          <AuctionListSkeleton viewMode={viewMode} />
+        ) : total === 0 ? (
+          <div
+            style={{
+              background: "#ffffff",
+              borderRadius: 16,
+              border: "1px solid #dbe6ee",
+              padding: "64px 24px",
+              textAlign: "center",
+              boxShadow: "0 4px 14px rgba(0,0,0,0.02)",
+            }}
+          >
+            <Empty
+              description={
+                <span style={{ color: "#64748b", fontSize: 14 }}>
+                  Không tìm thấy phiên đấu giá nào phù hợp với bộ lọc hiện tại
+                </span>
+              }
+            />
+          </div>
+        ) : (
+          <>
+            {viewMode === "grid" && (
+              <CardsGrid>
+                {pagedList.map((item) => {
+                  const isWatched =
+                    (item.sessionCode && watchedSessionCodes?.has(item.sessionCode)) ||
+                    watchedSessionCodes?.has(item.p);
+
+                  return (
+                    <AuctionCardItem
+                      key={item.p}
+                      item={item}
+                      isWatched={Boolean(isWatched)}
+                      onToggleWatch={toggleWatch}
+                      onOpenBid={handleEnterRoom}
+                    />
+                  );
+                })}
+              </CardsGrid>
+            )}
+
+            {viewMode === "table" && (
+              <AuctionTableItem
+                items={pagedList}
+                watchedSessionCodes={watchedSessionCodes}
+                onToggleWatch={toggleWatch}
                 onOpenBid={handleEnterRoom}
               />
-            ))}
-          </CardsGrid>
-        )}
+            )}
 
-        {viewMode === "table" && (
-          <AuctionTableItem
-            items={pagedList}
-            onOpenBid={handleEnterRoom}
-          />
-        )}
-
-        {viewMode === "board" && (
-          <AuctionBoardItem
-            data={data}
-            onOpenBid={handleEnterRoom}
-          />
+            {viewMode === "board" && (
+              <AuctionBoardItem
+                data={data}
+                watchedSessionCodes={watchedSessionCodes}
+                onToggleWatch={toggleWatch}
+                onOpenBid={handleEnterRoom}
+              />
+            )}
+          </>
         )}
 
         {/* Pagination bar */}

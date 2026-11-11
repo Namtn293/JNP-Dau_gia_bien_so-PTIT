@@ -13,9 +13,16 @@ import {
   CustomInputRow,
   AutoBidToggleRow,
   RegulationNote,
+  ViewerAlertBanner,
+  DepositActionBtn,
 } from "./styled";
 import { formatMoney, formatCountdown } from "../util/format";
-import { CheckCircleOutlined, CloseCircleOutlined, InfoCircleOutlined } from "@ant-design/icons";
+import {
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  InfoCircleOutlined,
+  SafetyCertificateOutlined,
+} from "@ant-design/icons";
 
 interface BiddingControlBoxProps {
   currentPrice: number;
@@ -37,6 +44,8 @@ interface BiddingControlBoxProps {
   onToggleAutoBid: (checked: boolean) => void;
   onChangeAutoBidMax: (val: string) => void;
   depositAmount: number;
+  isRegistered?: boolean;
+  onOpenDepositModal?: () => void;
 }
 
 export const BiddingControlBox: React.FC<BiddingControlBoxProps> = ({
@@ -59,6 +68,8 @@ export const BiddingControlBox: React.FC<BiddingControlBoxProps> = ({
   onToggleAutoBid,
   onChangeAutoBidMax,
   depositAmount,
+  isRegistered = false,
+  onOpenDepositModal,
 }) => {
   const urgency =
     remainingSeconds <= 10
@@ -93,21 +104,44 @@ export const BiddingControlBox: React.FC<BiddingControlBoxProps> = ({
         </div>
       </BiddingTopRow>
 
+      {/* Viewer alert banner when not registered */}
+      {!isEnded && !isRegistered && (
+        <ViewerAlertBanner>
+          <div className="banner-text">
+            <SafetyCertificateOutlined />
+            <span>
+              <b>Chế độ Khách theo dõi:</b> Bạn chưa nộp tiền đặt trước cho phiên này. Hãy nộp cọc để tham gia trả giá.
+            </span>
+          </div>
+          {onOpenDepositModal && (
+            <button
+              type="button"
+              className="btn-quick-deposit"
+              onClick={onOpenDepositModal}
+            >
+              Nộp cọc ngay
+            </button>
+          )}
+        </ViewerAlertBanner>
+      )}
+
       {/* User status alert banner */}
-      <UserStatusBanner $state={userLeadState}>
-        {userLeadState === "leading" && (
+      <UserStatusBanner $state={isRegistered ? userLeadState : "none"}>
+        {!isRegistered ? (
           <>
-            <CheckCircleOutlined /> Bạn đang dẫn đầu phiên đấu giá
+            <InfoCircleOutlined /> Bạn chưa nộp cọc (Đang theo dõi phiên)
           </>
-        )}
-        {userLeadState === "outbid" && (
+        ) : userLeadState === "leading" ? (
+          <>
+            <CheckCircleOutlined /> Bạn đang dẫn đầu phiên đấu giá (Đấu giá viên)
+          </>
+        ) : userLeadState === "outbid" ? (
           <>
             <CloseCircleOutlined /> Bạn đã bị vượt giá! Đặt lại để giành vị trí dẫn đầu
           </>
-        )}
-        {userLeadState === "none" && (
+        ) : (
           <>
-            <InfoCircleOutlined /> Bạn chưa đặt giá ở phiên này
+            <CheckCircleOutlined style={{ color: "#059669" }} /> Bạn đã nộp cọc & sẵn sàng đặt giá
           </>
         )}
       </UserStatusBanner>
@@ -117,7 +151,7 @@ export const BiddingControlBox: React.FC<BiddingControlBoxProps> = ({
         {quickSteps.map((k) => (
           <QuickStepBtn
             key={k}
-            disabled={isEnded || userLeadState === "leading"}
+            disabled={isEnded || !isRegistered || userLeadState === "leading"}
             onClick={() => onQuickBid(k)}
           >
             +{formatMoney(stepPrice * k).replace(" ₫", "")}
@@ -125,18 +159,28 @@ export const BiddingControlBox: React.FC<BiddingControlBoxProps> = ({
         ))}
       </QuickIncrementRow>
 
-      {/* Big Main Bid Button */}
-      <MainActionBidBtn
-        $ended={isEnded}
-        disabled={isEnded || userLeadState === "leading"}
-        onClick={onMainBid}
-      >
-        {isEnded
-          ? "Phiên đấu giá đã kết thúc"
-          : userLeadState === "leading"
-          ? "Bạn đang dẫn đầu"
-          : `Đặt giá ${formatMoney(nextMinimumBid)}`}
-      </MainActionBidBtn>
+      {/* Big Action Button: Deposit if not registered, otherwise Bid */}
+      {!isEnded && !isRegistered ? (
+        <DepositActionBtn
+          type="button"
+          onClick={onOpenDepositModal}
+        >
+          <SafetyCertificateOutlined style={{ fontSize: 18 }} />
+          <span>Nộp tiền đặt trước ({formatMoney(depositAmount)}) để tham gia</span>
+        </DepositActionBtn>
+      ) : (
+        <MainActionBidBtn
+          $ended={isEnded}
+          disabled={isEnded || !isRegistered || userLeadState === "leading"}
+          onClick={onMainBid}
+        >
+          {isEnded
+            ? "Phiên đấu giá đã kết thúc"
+            : userLeadState === "leading"
+            ? "Bạn đang dẫn đầu"
+            : `Đặt giá ${formatMoney(nextMinimumBid)}`}
+        </MainActionBidBtn>
+      )}
 
       {/* Custom bid input row */}
       <CustomInputRow>
@@ -144,13 +188,13 @@ export const BiddingControlBox: React.FC<BiddingControlBoxProps> = ({
           inputMode="numeric"
           placeholder={`Nhập giá khác (tối thiểu ${formatMoney(nextMinimumBid)})`}
           value={customBidInput}
-          disabled={isEnded}
+          disabled={isEnded || !isRegistered}
           onChange={(e) => onChangeCustomBid(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") onSubmitCustomBid();
           }}
         />
-        <button disabled={isEnded} onClick={onSubmitCustomBid}>
+        <button disabled={isEnded || !isRegistered} onClick={onSubmitCustomBid}>
           Đặt
         </button>
       </CustomInputRow>
@@ -161,7 +205,7 @@ export const BiddingControlBox: React.FC<BiddingControlBoxProps> = ({
           <input
             type="checkbox"
             checked={autoBidEnabled}
-            disabled={isEnded}
+            disabled={isEnded || !isRegistered}
             onChange={(e) => onToggleAutoBid(e.target.checked)}
           />
           Đặt giá tự động, tối đa
@@ -171,7 +215,7 @@ export const BiddingControlBox: React.FC<BiddingControlBoxProps> = ({
           inputMode="numeric"
           placeholder="Mức tối đa (VNĐ)"
           value={autoBidMax}
-          disabled={isEnded}
+          disabled={isEnded || !isRegistered}
           onChange={(e) => onChangeAutoBidMax(e.target.value)}
         />
       </AutoBidToggleRow>
