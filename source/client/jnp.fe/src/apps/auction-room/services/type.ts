@@ -107,3 +107,19 @@ export interface WsRoomEvent {
   participantCount?: number;
   timestamp?: string;
 }
+
+export type RoomRoleEnum = "BIDDER" | "VIEWER" | "ADMIN" | string;
+export type RegistrationStatusEnum = "ACTIVE" | "CANCELLED" | string;
+
+export interface RegistrationDetailVO {
+  registered: boolean;
+  depositAmount: number;
+  status: RegistrationStatusEnum | null;
+  myRole: RoomRoleEnum;
+}
+
+export interface WalletBalanceVO {
+  balance: number;
+  heldAmount: number;
+  available: number;
+}

@@ -117,5 +117,14 @@ public class WatchServiceImpl implements WatchService {
         if (userId == null || sessionId == null) return false;
         return auctionWatchRepository.existsByUserIdAndSessionId(userId, sessionId);
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isWatched(Long userId, String sessionCode) {
+        if (userId == null || sessionCode == null) return false;
+        return auctionSessionRepository.findBySessionCode(sessionCode)
+                .map(session -> auctionWatchRepository.existsByUserIdAndSessionId(userId, session.getId()))
+                .orElse(false);
+    }
 }
 

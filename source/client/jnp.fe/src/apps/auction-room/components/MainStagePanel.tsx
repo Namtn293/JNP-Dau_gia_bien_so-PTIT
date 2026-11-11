@@ -41,6 +41,11 @@ interface MainStagePanelProps {
   onToggleAutoBid: (checked: boolean) => void;
   onChangeAutoBidMax: (val: string) => void;
   depositAmount: number;
+  isRegistered?: boolean;
+  onOpenDepositModal?: () => void;
+  isWatched?: boolean;
+  onToggleWatch?: () => void;
+  watchLoading?: boolean;
 }
 
 export const MainStagePanel: React.FC<MainStagePanelProps> = ({
@@ -72,6 +77,11 @@ export const MainStagePanel: React.FC<MainStagePanelProps> = ({
   onToggleAutoBid,
   onChangeAutoBidMax,
   depositAmount,
+  isRegistered,
+  onOpenDepositModal,
+  isWatched,
+  onToggleWatch,
+  watchLoading,
 }) => {
   const tabs = [
     { key: "desc", label: "Mô tả" },
@@ -90,6 +100,9 @@ export const MainStagePanel: React.FC<MainStagePanelProps> = ({
           vehicleType={vehicleType}
           lotIndex={lotIndex}
           totalLots={totalLots}
+          isWatched={isWatched}
+          onToggleWatch={onToggleWatch}
+          watchLoading={watchLoading}
         />
 
         {/* Title and Meta Information */}
@@ -139,6 +152,8 @@ export const MainStagePanel: React.FC<MainStagePanelProps> = ({
           onToggleAutoBid={onToggleAutoBid}
           onChangeAutoBidMax={onChangeAutoBidMax}
           depositAmount={depositAmount}
+          isRegistered={isRegistered}
+          onOpenDepositModal={onOpenDepositModal}
         />
       </StageContainer>
     </Panel>

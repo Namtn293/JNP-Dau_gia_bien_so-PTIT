@@ -1,17 +1,22 @@
 import React from "react";
 import { Tag } from "antd";
+import { StarFilled, StarOutlined } from "@ant-design/icons";
 import type { AuctionItem } from "../services/type";
 import { formatMoney, getTimeLabel, getPriceLabel } from "../utils/format";
 import { STATUS_LABEL_MAP } from "../utils/constants";
-import { PlateDisplay, StatusTag, ActionButton } from "./styled";
+import { PlateDisplay, StatusTag, ActionButton, WatchIconButton } from "./styled";
 
 interface AuctionTableItemProps {
   items: AuctionItem[];
+  watchedSessionCodes?: Set<string>;
+  onToggleWatch?: (item: AuctionItem, isWatched: boolean) => void;
   onOpenBid: (item: AuctionItem) => void;
 }
 
 export const AuctionTableItem: React.FC<AuctionTableItemProps> = ({
   items,
+  watchedSessionCodes,
+  onToggleWatch,
   onOpenBid,
 }) => {
   return (
@@ -54,48 +59,72 @@ export const AuctionTableItem: React.FC<AuctionTableItemProps> = ({
           </tr>
         </thead>
         <tbody>
-          {items.map((item) => (
-            <tr key={item.p} style={{ borderBottom: "1px solid #f0f4f7" }}>
-              <td style={{ padding: "12px 16px" }}>
-                <PlateDisplay $small>{item.p}</PlateDisplay>
-              </td>
-              <td style={{ padding: "12px 16px", fontWeight: 600 }}>{item.prov}</td>
-              <td style={{ padding: "12px 16px" }}>
-                <Tag color="cyan" style={{ borderRadius: 6 }}>
-                  {item.type}
-                </Tag>
-              </td>
-              <td style={{ padding: "12px 16px" }}>
-                <StatusTag $st={item.st}>
-                  <i />
-                  {STATUS_LABEL_MAP[item.st]}
-                </StatusTag>
-              </td>
-              <td style={{ padding: "12px 16px", textAlign: "right" }}>
-                <div style={{ fontWeight: 800, color: "#123d50" }}>
-                  {formatMoney(item.price)}
-                </div>
-                <div style={{ fontSize: 11, color: "#586979" }}>
-                  {getPriceLabel(item)}
-                </div>
-              </td>
-              <td style={{ padding: "12px 16px", textAlign: "center", fontWeight: 600 }}>
-                {getTimeLabel(item)}
-              </td>
-              <td style={{ padding: "12px 16px", textAlign: "center", fontWeight: 600 }}>
-                {item.bids}
-              </td>
-              <td style={{ padding: "12px 16px", textAlign: "right" }}>
-                <ActionButton
-                  $ghost={item.st === "end"}
-                  onClick={() => onOpenBid(item)}
-                  style={{ padding: "6px 12px", fontSize: 12 }}
-                >
-                  {item.st === "end" ? "Chi tiết" : "Vào phòng"}
-                </ActionButton>
-              </td>
-            </tr>
-          ))}
+          {items.map((item) => {
+            const isWatched =
+              (item.sessionCode && watchedSessionCodes?.has(item.sessionCode)) ||
+              watchedSessionCodes?.has(item.p);
+
+            return (
+              <tr key={item.p} style={{ borderBottom: "1px solid #f0f4f7" }}>
+                <td style={{ padding: "12px 16px" }}>
+                  <PlateDisplay $small>{item.p}</PlateDisplay>
+                </td>
+                <td style={{ padding: "12px 16px", fontWeight: 600 }}>{item.prov}</td>
+                <td style={{ padding: "12px 16px" }}>
+                  <Tag color="cyan" style={{ borderRadius: 6 }}>
+                    {item.type}
+                  </Tag>
+                </td>
+                <td style={{ padding: "12px 16px" }}>
+                  <StatusTag $st={item.st}>
+                    <i />
+                    {STATUS_LABEL_MAP[item.st]}
+                  </StatusTag>
+                </td>
+                <td style={{ padding: "12px 16px", textAlign: "right" }}>
+                  <div style={{ fontWeight: 800, color: "#123d50" }}>
+                    {formatMoney(item.price)}
+                  </div>
+                  <div style={{ fontSize: 11, color: "#586979" }}>
+                    {getPriceLabel(item)}
+                  </div>
+                </td>
+                <td style={{ padding: "12px 16px", textAlign: "center", fontWeight: 600 }}>
+                  {getTimeLabel(item)}
+                </td>
+                <td style={{ padding: "12px 16px", textAlign: "center", fontWeight: 600 }}>
+                  {item.bids}
+                </td>
+                <td style={{ padding: "12px 16px", textAlign: "right" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
+                    {onToggleWatch && (
+                      <WatchIconButton
+                        $watched={Boolean(isWatched)}
+                        style={{ width: 30, height: 30, fontSize: 14 }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleWatch(item, Boolean(isWatched));
+                        }}
+                      >
+                        {isWatched ? (
+                          <StarFilled style={{ color: "#f59e0b" }} />
+                        ) : (
+                          <StarOutlined />
+                        )}
+                      </WatchIconButton>
+                    )}
+                    <ActionButton
+                      $ghost={item.st === "end"}
+                      onClick={() => onOpenBid(item)}
+                      style={{ padding: "6px 12px", fontSize: 12 }}
+                    >
+                      {item.st === "end" ? "Chi tiết" : "Vào phòng"}
+                    </ActionButton>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

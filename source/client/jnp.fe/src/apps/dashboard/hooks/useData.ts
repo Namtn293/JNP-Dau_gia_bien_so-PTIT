@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import tokenManager from "@/shared/utils/tokenManager";
 import { getUserFromToken } from "@/shared/utils/jwt";
-import { useAuctionSessionsQuery } from "../services/query";
+import { useAuctionSessionsQuery, useWatchedSessionsQuery } from "../services/query";
 import type { AuctionItem, AuctionStatus, WsBidMessage } from "../services/type";
 import { INITIAL_AUCTION_DATA } from "../utils/constants";
 import { mapAuctionSessionVOToItem } from "../utils/format";
@@ -92,10 +92,25 @@ export const useData = () => {
   );
 
   const [data, setData] = useState<AuctionItem[]>(INITIAL_AUCTION_DATA);
+  const [onlyWatched, setOnlyWatched] = useState<boolean>(false);
+
+  // Load danh sách các phiên đang theo dõi của người dùng
+  const { data: watchedResponse, refetch: refetchWatched } = useWatchedSessionsQuery();
+
+  const watchedSessionCodes = useMemo(() => {
+    const set = new Set<string>();
+    if (watchedResponse && Array.isArray(watchedResponse.content)) {
+      watchedResponse.content.forEach((item) => {
+        if (item.sessionCode) set.add(item.sessionCode);
+        if (item.plateNumber) set.add(item.plateNumber);
+      });
+    }
+    return set;
+  }, [watchedResponse]);
 
   // Sync API response to data state when received
   useEffect(() => {
-    if (apiResponse && Array.isArray(apiResponse.content) && apiResponse.content.length > 0) {
+    if (apiResponse && Array.isArray(apiResponse.content)) {
       const mapped = apiResponse.content.map(mapAuctionSessionVOToItem);
       setData(mapped);
     }
@@ -104,7 +119,7 @@ export const useData = () => {
   // Reset page when filters change
   useEffect(() => {
     setPage(1);
-  }, [tab, search, province, plateType, sortBy]);
+  }, [tab, search, province, plateType, sortBy, onlyWatched]);
 
   // Countdown timer for live and upcoming auctions
   useEffect(() => {
@@ -134,8 +149,12 @@ export const useData = () => {
         !plateType ||
         item.type === plateType ||
         item.plateTypeEnum === plateType;
+      const matchWatched =
+        !onlyWatched ||
+        (item.sessionCode && watchedSessionCodes.has(item.sessionCode)) ||
+        watchedSessionCodes.has(item.p);
 
-      return matchTab && matchQuery && matchProv && matchType;
+      return matchTab && matchQuery && matchProv && matchType && matchWatched;
     });
 
     list.sort((a, b) => {
@@ -233,6 +252,11 @@ export const useData = () => {
     setPage,
     pageSize,
     setPageSize,
+    watchedSessionCodes,
+    onlyWatched,
+    setOnlyWatched,
+    watchedCount: watchedSessionCodes.size,
+    refetchWatched,
     socketStatus,
     isSocketConnected,
     sendBid,

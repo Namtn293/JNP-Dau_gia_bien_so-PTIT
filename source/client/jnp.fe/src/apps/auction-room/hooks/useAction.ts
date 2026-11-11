@@ -1,9 +1,14 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useNotification } from "@/shared/hooks/useNotification";
 import { formatMoney, parseMoney, getCurrentTimeString } from "../util/format";
 import type { AuctionLot } from "../services/type";
 import { placeBidRestApi } from "../services/api";
+import {
+  useRegisterAuctionMutation,
+  useWatchAuctionMutation,
+  useUnwatchAuctionMutation,
+} from "../services/mutation";
 
 interface UseActionProps {
   currentPrice: number;
@@ -31,6 +36,12 @@ interface UseActionProps {
   handleAuctionUpdate: (msg: any) => void;
   addSystemNotice?: (msg: string) => void;
   setChatMessages: React.Dispatch<React.SetStateAction<any[]>>;
+  isRegistered?: boolean;
+  setDepositModalOpen: (open: boolean) => void;
+  refetchRegistration?: () => void;
+  refetchWallet?: () => void;
+  isWatched?: boolean;
+  refetchWatchStatus?: () => void;
 }
 
 export const useAction = ({
@@ -53,17 +64,111 @@ export const useAction = ({
   setAutoBidMax,
   sendSocketBid,
   sendSocketChat,
-  handleAuctionUpdate,
-  setChatMessages,
+  // handleAuctionUpdate,
+  // setChatMessages,
+  isRegistered,
+  setDepositModalOpen,
+  refetchRegistration,
+  refetchWallet,
+  isWatched,
+  refetchWatchStatus,
 }: UseActionProps) => {
   const navigate = useNavigate();
   const { showSuccessNotify, showErrorNotify } = useNotification();
+  const registerMutation = useRegisterAuctionMutation();
+  const watchMutation = useWatchAuctionMutation();
+  const unwatchMutation = useUnwatchAuctionMutation();
+  const [togglingWatch, setTogglingWatch] = useState(false);
+
+  const onToggleWatch = useCallback(async () => {
+    if (togglingWatch) return;
+    const targetCode = sessionCode || plateNumber;
+    setTogglingWatch(true);
+
+    try {
+      const res = isWatched
+        ? await unwatchMutation.mutateAsync(targetCode)
+        : await watchMutation.mutateAsync(targetCode);
+
+      // 1. Kiểm tra cờ success trả về từ BE
+      if (res && res.success === false) {
+        showErrorNotify(res.message || "Thao tác không thành công!");
+        return;
+      }
+
+      // 2. Lấy message chính thức từ BE (nếu có)
+      const msg =
+        res?.message ||
+        (typeof res?.data === "string" ? res.data : null) ||
+        (isWatched ? `Đã bỏ theo dõi biển số ${plateNumber}` : `Đã theo dõi biển số ${plateNumber}`);
+
+      showSuccessNotify(msg);
+      refetchWatchStatus?.();
+    } catch (err: any) {
+      const errMsg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Thao tác theo dõi thất bại.";
+      showErrorNotify(errMsg);
+    } finally {
+      setTogglingWatch(false);
+    }
+  }, [
+    sessionCode,
+    plateNumber,
+    isWatched,
+    togglingWatch,
+    watchMutation,
+    unwatchMutation,
+    showSuccessNotify,
+    showErrorNotify,
+    refetchWatchStatus,
+  ]);
+
+  const onOpenDepositModal = useCallback(() => {
+    setDepositModalOpen(true);
+  }, [setDepositModalOpen]);
+
+  const onCloseDepositModal = useCallback(() => {
+    setDepositModalOpen(false);
+  }, [setDepositModalOpen]);
+
+  const onConfirmDeposit = useCallback(async () => {
+    try {
+      const targetCode = sessionCode || plateNumber;
+      await registerMutation.mutateAsync(targetCode);
+      showSuccessNotify(
+        `Nộp tiền đặt trước thành công! Bạn đã được cấp quyền Đấu giá viên chính thức cho biển số ${plateNumber}.`
+      );
+      setDepositModalOpen(false);
+      refetchRegistration?.();
+      refetchWallet?.();
+    } catch (err: any) {
+      showErrorNotify(
+        err?.response?.data?.message || err?.message || "Đặt cọc thất bại. Vui lòng kiểm tra lại số dư ví!"
+      );
+    }
+  }, [
+    sessionCode,
+    plateNumber,
+    registerMutation,
+    showSuccessNotify,
+    showErrorNotify,
+    setDepositModalOpen,
+    refetchRegistration,
+    refetchWallet,
+  ]);
 
   // 1. Prompt confirmation modal before placing bid
   const promptBidModal = useCallback(
     (targetAmount: number) => {
       if (isEnded) {
         showErrorNotify("Phiên đấu giá đã kết thúc");
+        return;
+      }
+      if (!isRegistered) {
+        showErrorNotify("Bạn đang ở chế độ Khách xem. Vui lòng nộp tiền đặt trước (40.000.000 đ) để tham gia trả giá.");
+        setDepositModalOpen(true);
         return;
       }
       if (targetAmount <= currentPrice) {
@@ -75,7 +180,7 @@ export const useAction = ({
         amount: targetAmount,
       });
     },
-    [isEnded, currentPrice, setConfirmModal, showErrorNotify]
+    [isEnded, isRegistered, currentPrice, setConfirmModal, setDepositModalOpen, showErrorNotify]
   );
 
   // 2. Action: Quick bid buttons (+1, +2, +5 steps)
@@ -215,7 +320,8 @@ export const useAction = ({
     (lot: AuctionLot) => {
       const targetRoomId = lot.roomId || lot.plateNumber;
       navigate({
-        to: `/phong-dau-gia/${targetRoomId}` as any,
+        to: "/phong-dau-gia/$roomId",
+        params: { roomId: targetRoomId },
       });
     },
     [navigate]
@@ -240,5 +346,11 @@ export const useAction = ({
     onChangeAutoBidMax,
     onSelectLot,
     onBackToList,
+    onOpenDepositModal,
+    onCloseDepositModal,
+    onConfirmDeposit,
+    depositLoading: registerMutation.isLoading,
+    onToggleWatch,
+    watchLoading: watchMutation.isLoading || unwatchMutation.isLoading,
   };
 };

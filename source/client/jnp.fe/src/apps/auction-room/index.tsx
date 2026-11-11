@@ -1,5 +1,5 @@
 import React from "react";
-import { useParams } from "@tanstack/react-router";
+import { useParams, useLocation } from "@tanstack/react-router";
 import { PageWrapper, MainGrid } from "./style";
 
 // Components
@@ -8,6 +8,7 @@ import LotsListPanel from "./components/LotsListPanel";
 import MainStagePanel from "./components/MainStagePanel";
 import InteractionTabsPanel from "./components/InteractionTabsPanel";
 import BidConfirmModal from "./components/BidConfirmModal";
+import DepositConfirmModal from "./components/DepositConfirmModal";
 import AuctionRoomSkeleton from "./components/AuctionRoomSkeleton";
 
 // Hooks & utils
@@ -16,8 +17,14 @@ import { useAction } from "./hooks/useAction";
 import { QUICK_BID_STEPS } from "./util/constants";
 
 export const AuctionRoomPage: React.FC = () => {
+  const location = useLocation();
   const params = useParams({ strict: false }) as { roomId?: string };
-  const rawRoomId = params?.roomId || "";
+  const pathRoomId = location.pathname.startsWith("/phong-dau-gia/")
+    ? decodeURIComponent(
+        location.pathname.replace("/phong-dau-gia/", "").split("/")[0].split("?")[0]
+      )
+    : "";
+  const rawRoomId = params?.roomId || pathRoomId || "";
 
   const data = useData(rawRoomId);
   const action = useAction({
@@ -46,6 +53,12 @@ export const AuctionRoomPage: React.FC = () => {
     handleAuctionUpdate: data.handleAuctionUpdate,
     addSystemNotice: data.addSystemNotice,
     setChatMessages: data.setChatMessages,
+    isRegistered: data.isRegistered,
+    setDepositModalOpen: data.setDepositModalOpen,
+    refetchRegistration: data.refetchRegistration,
+    refetchWallet: data.refetchWallet,
+    isWatched: data.isWatched,
+    refetchWatchStatus: data.refetchWatchStatus,
   });
 
   React.useEffect(() => {
@@ -112,6 +125,11 @@ export const AuctionRoomPage: React.FC = () => {
           onToggleAutoBid={action.onToggleAutoBid}
           onChangeAutoBidMax={action.onChangeAutoBidMax}
           depositAmount={data.depositAmount}
+          isRegistered={data.isRegistered}
+          onOpenDepositModal={action.onOpenDepositModal}
+          isWatched={data.isWatched}
+          onToggleWatch={action.onToggleWatch}
+          watchLoading={action.watchLoading}
         />
 
         {/* Right: Interaction tabs (Chat, Hist, People) */}
@@ -136,6 +154,18 @@ export const AuctionRoomPage: React.FC = () => {
         plateNumber={data.plateNumber}
         onCancel={action.onCancelModal}
         onConfirm={action.onConfirmBid}
+      />
+
+      {/* 4. Deposit (Ký Quỹ) Confirmation Modal */}
+      <DepositConfirmModal
+        open={data.depositModalOpen}
+        onClose={action.onCloseDepositModal}
+        onConfirm={action.onConfirmDeposit}
+        loading={action.depositLoading}
+        sessionCode={data.sessionCode}
+        plateNumber={data.plateNumber}
+        depositAmount={data.depositAmount || 40_000_000}
+        walletAvailable={data.walletAvailable}
       />
     </PageWrapper>
   );

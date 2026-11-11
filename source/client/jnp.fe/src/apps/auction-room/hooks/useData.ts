@@ -1,5 +1,10 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { useAuctionRoomDetailQuery } from "../services/query";
+import {
+  useAuctionRoomDetailQuery,
+  useAuctionRegistrationQuery,
+  useWalletBalanceQuery,
+  useAuctionWatchStatusQuery,
+} from "../services/query";
 import { useAuctionRoomSocket } from "./useAuctionRoomSocket";
 import type {
   AuctionLot,
@@ -9,6 +14,7 @@ import type {
   WsAuctionMessage,
   WsChatMessage,
   WsRoomEvent,
+  RoomRoleEnum,
 } from "../services/type";
 import { formatMoney, getCurrentTimeString } from "../util/format";
 import { soundManager } from "../feature/audio";
@@ -46,6 +52,51 @@ export const useData = (roomId: string) => {
 
   // 2. Real-time state
   const [sessionCode, setSessionCode] = useState(roomId || "");
+
+  // 3. User Registration (Deposit) & Wallet Balance
+  const token = tokenManager.getAccessToken();
+  const isLoggedIn = Boolean(token);
+  const targetCode = sessionCode || roomId;
+
+  const {
+    data: registrationData,
+    isLoading: isRegistrationLoading,
+    refetch: refetchRegistration,
+  } = useAuctionRegistrationQuery(targetCode, {
+    enabled: isLoggedIn && !!targetCode,
+  });
+
+  const { data: walletData, refetch: refetchWallet } = useWalletBalanceQuery({
+    enabled: isLoggedIn,
+  });
+
+  const {
+    data: watchStatusData,
+    isLoading: isWatchStatusLoading,
+    refetch: refetchWatchStatus,
+  } = useAuctionWatchStatusQuery(targetCode, {
+    enabled: isLoggedIn && !!targetCode,
+  });
+
+  const [isWatched, setIsWatched] = useState(false);
+
+  useEffect(() => {
+    if (typeof watchStatusData === "boolean") {
+      setIsWatched(watchStatusData);
+    }
+  }, [watchStatusData]);
+
+  const [isRegistered, setIsRegistered] = useState(false);
+  const [userRole, setUserRole] = useState<RoomRoleEnum>("VIEWER");
+  const [depositModalOpen, setDepositModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (registrationData) {
+      const reg = Boolean(registrationData.registered);
+      setIsRegistered(reg);
+      setUserRole(registrationData.myRole || (reg ? "BIDDER" : "VIEWER"));
+    }
+  }, [registrationData]);
   const [title, setTitle] = useState("");
   const [plateNumber, setPlateNumber] = useState("");
   const [provinceName, setProvinceName] = useState("");
@@ -100,8 +151,8 @@ export const useData = (roomId: string) => {
         map.set(selfName, {
           id: selfId,
           name: selfName,
-          role: "Người tham gia",
-          statusText: "Đang trực tuyến",
+          role: isRegistered ? "Đấu giá viên" : "Khách theo dõi",
+          statusText: isRegistered ? "Đã nộp cọc" : "Đang theo dõi",
           isSelf: true,
           isLeader: selfName === currentLeadUser || currentLeadUser === "Bạn",
         });
@@ -128,7 +179,7 @@ export const useData = (roomId: string) => {
         return Array.from(map.values());
       });
     },
-    [selfName, selfId]
+    [selfName, selfId, isRegistered]
   );
 
   // Sync initial query detail (guarded with ref to run only once per payload)
@@ -309,6 +360,9 @@ export const useData = (roomId: string) => {
       } else if (event.event === "START") {
         setIsEnded(false);
         addSystemNotice(event.message || "Phiên đấu giá đã chính thức bắt đầu!");
+      } else if (event.event === "ROLE_CHANGED" || (event as any).type === "ROLE_CHANGED") {
+        refetchRegistration();
+        refetchWallet();
       } else if (event.message) {
         addSystemNotice(event.message);
       }
@@ -418,6 +472,20 @@ export const useData = (roomId: string) => {
     setAutoBidMax,
     confirmModal,
     setConfirmModal,
+    isRegistered,
+    setIsRegistered,
+    userRole,
+    setUserRole,
+    isRegistrationLoading,
+    walletAvailable: walletData?.available ?? 0,
+    depositModalOpen,
+    setDepositModalOpen,
+    refetchRegistration,
+    refetchWallet,
+    isWatched,
+    setIsWatched,
+    isWatchStatusLoading,
+    refetchWatchStatus,
     lots,
     setLots,
     chatMessages,

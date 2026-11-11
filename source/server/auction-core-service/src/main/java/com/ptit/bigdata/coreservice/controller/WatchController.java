@@ -28,7 +28,7 @@ public class WatchController {
             throw new BusinessException(ErrorCode.BID_UNAUTHORIZED);
         }
         watchService.watch(userId, sessionCode);
-        return ResponseUtil.ok("Đã theo dõi phiên đấu giá " + sessionCode);
+        return ResponseUtil.ok("Đã theo dõi phiên đấu giá " + sessionCode, sessionCode);
     }
 
     @DeleteMapping("/{sessionCode}")
@@ -38,7 +38,16 @@ public class WatchController {
             throw new BusinessException(ErrorCode.BID_UNAUTHORIZED);
         }
         watchService.unwatch(userId, sessionCode);
-        return ResponseUtil.ok("Đã bỏ theo dõi phiên đấu giá " + sessionCode);
+        return ResponseUtil.ok("Đã bỏ theo dõi phiên đấu giá " + sessionCode, sessionCode);
+    }
+
+    @GetMapping("/{sessionCode}/status")
+    public SuccessResponse<Boolean> checkWatchStatus(@PathVariable("sessionCode") String sessionCode) {
+        Long userId = ThreadContext.getCurrentUserId();
+        if (userId == null) {
+            return ResponseUtil.ok(false);
+        }
+        return ResponseUtil.ok(watchService.isWatched(userId, sessionCode));
     }
 
     @GetMapping

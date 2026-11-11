@@ -3,6 +3,7 @@ import type {
   AuctionSessionVO,
   GetAuctionSessionsParams,
   PageResponse,
+  WatchVO,
   // PlaceBidPayload,
 } from "./type";
 
@@ -30,4 +31,24 @@ export const placeBidApi = async (
     bidAmount,
   });
   return (response as any)?.data ?? response;
+};
+
+export const getWatchedListApi = async (
+  page = 0,
+  size = 100
+): Promise<PageResponse<WatchVO>> => {
+  const response = await axiosClient.get<any>("/api/v1/watch", {
+    params: { page, size },
+  });
+  return (response as any)?.data ?? response;
+};
+
+export const watchSessionApi = async (sessionCode: string): Promise<any> => {
+  const response = await axiosClient.post<any>(`/api/v1/watch/${sessionCode}`);
+  return response;
+};
+
+export const unwatchSessionApi = async (sessionCode: string): Promise<any> => {
+  const response = await axiosClient.delete<any>(`/api/v1/watch/${sessionCode}`);
+  return response;
 };

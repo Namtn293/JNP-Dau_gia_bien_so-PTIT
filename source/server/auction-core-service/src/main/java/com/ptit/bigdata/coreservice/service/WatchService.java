@@ -12,5 +12,7 @@ public interface WatchService {
     Page<WatchVO> getWatchedSessions(Long userId, Pageable pageable);
 
     boolean isWatched(Long userId, Long sessionId);
+
+    boolean isWatched(Long userId, String sessionCode);
 }
 

@@ -415,6 +415,37 @@ export const LotIndexTag = styled.span`
   z-index: 3;
 `;
 
+export const WatchPlateButton = styled.button<{ $watched?: boolean }>`
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  z-index: 4;
+  background: ${(props) =>
+    props.$watched ? "rgba(255, 255, 255, 0.95)" : "rgba(19, 58, 77, 0.75)"};
+  color: ${(props) => (props.$watched ? "#f59e0b" : "#ffffff")};
+  border: 1px solid
+    ${(props) => (props.$watched ? "#fbbf24" : "rgba(255, 255, 255, 0.3)")};
+  backdrop-filter: blur(6px);
+  padding: 5px 12px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+
+  &:hover {
+    background: #ffffff;
+    color: #f59e0b;
+    border-color: #f59e0b;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+`;
+
 export const StageInfo = styled.div`
   padding: 16px 20px 4px;
 
@@ -1040,4 +1071,187 @@ export const SkeletonFeedRow = styled.div`
   gap: 10px;
   padding: 10px 14px;
   border-bottom: 1px solid #f1f5f9;
+`;
+
+export const ViewerAlertBanner = styled.div`
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  color: #92400e;
+
+  .banner-text {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+
+    .anticon {
+      font-size: 16px;
+      color: #d97706;
+      flex-shrink: 0;
+    }
+  }
+
+  .btn-quick-deposit {
+    background: #d97706;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.2s;
+
+    &:hover {
+      background: #b45309;
+    }
+  }
+`;
+
+export const DepositActionBtn = styled.button`
+  width: 100%;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: all 0.2s ease;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45);
+    transform: translateY(-1px);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+`;
+
+export const DepositModalBody = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 8px 0;
+
+  .notice-box {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 13px;
+    color: #166534;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    line-height: 1.5;
+
+    .anticon {
+      font-size: 16px;
+      color: #16a34a;
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
+  }
+
+  .session-summary {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+
+      .label {
+        color: #64748b;
+      }
+      .val {
+        font-weight: 700;
+        color: #1e293b;
+      }
+      .val.highlight {
+        color: #059669;
+        font-size: 16px;
+      }
+    }
+  }
+
+  .wallet-status-box {
+    border-radius: 10px;
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    &.sufficient {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1e40af;
+    }
+
+    &.insufficient {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+    }
+
+    .wallet-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+
+      .sub {
+        font-size: 12px;
+        opacity: 0.85;
+      }
+      .amount {
+        font-size: 16px;
+        font-weight: 800;
+      }
+    }
+
+    .btn-topup-link {
+      background: #256b8c;
+      color: #ffffff;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+
+      &:hover {
+        background: #1e5670;
+      }
+    }
+  }
 `;
