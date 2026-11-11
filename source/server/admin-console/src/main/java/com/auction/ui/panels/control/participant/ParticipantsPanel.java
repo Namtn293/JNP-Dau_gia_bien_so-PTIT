@@ -140,8 +140,9 @@ public class ParticipantsPanel extends JPanel {
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         table.setDefaultRenderer(Object.class, new ParticipantRenderer());
         table.getTableHeader().setFont(FONT_LABEL);
-        table.getTableHeader().setPreferredSize(new Dimension(0, 40));
+        table.getTableHeader().setPreferredSize(new Dimension(0, 38));
         table.getTableHeader().setReorderingAllowed(false);
+        configureParticipantColumnWidths();
         table.getSelectionModel().addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting() && !rebuilding) {
                 onRowPicked();
@@ -253,6 +254,12 @@ public class ParticipantsPanel extends JPanel {
             }
         }
         table.clearSelection();
+    }
+
+    private void configureParticipantColumnWidths() {
+        configureTableColumns(table,
+                new int[] { 95, 195, 125, 85, 150, 75 },
+                new int[] { 70, 130, 95, 65, 110, 55 });
     }
 
     private static Object[] toRow(ParticipantInfo p) {

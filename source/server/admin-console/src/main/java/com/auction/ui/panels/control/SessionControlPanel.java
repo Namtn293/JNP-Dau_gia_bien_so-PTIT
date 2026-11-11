@@ -56,13 +56,13 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
         this.selection = selection;
 
         setLayout(new BorderLayout(0, 12));
-        setBorder(BorderFactory.createEmptyBorder(16, 20, 16, 20));
+        setBorder(BorderFactory.createEmptyBorder(14, 18, 12, 18));
 
         add(header, BorderLayout.NORTH);
         add(createBody(), BorderLayout.CENTER);
 
         LogPanel logPanel = new LogPanel(logDocument);
-        logPanel.setPreferredSize(new Dimension(0, 190));
+        logPanel.setPreferredSize(new Dimension(0, 140));
         add(logPanel, BorderLayout.SOUTH);
 
         refresh();
@@ -78,14 +78,14 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
 
         // Khung can thiệp cuộn riêng, giống QuickControlPanel trên tab Giám sát
         JScrollPane interventionScroll = new JScrollPane(intervention);
-        interventionScroll.setPreferredSize(new Dimension(330, 0));
+        interventionScroll.setPreferredSize(new Dimension(360, 0));
         interventionScroll.setBorder(BorderFactory.createEmptyBorder());
         interventionScroll.setOpaque(false);
         interventionScroll.getViewport().setOpaque(false);
         interventionScroll.getVerticalScrollBar().setUnitIncrement(16);
         interventionScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
 
-        JPanel body = new JPanel(new BorderLayout(16, 0));
+        JPanel body = new JPanel(new BorderLayout(14, 0));
         body.setOpaque(false);
         body.add(left, BorderLayout.CENTER);
         body.add(interventionScroll, BorderLayout.EAST);

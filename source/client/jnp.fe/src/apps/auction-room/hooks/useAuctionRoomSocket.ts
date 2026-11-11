@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import tokenManager from "@/shared/utils/tokenManager";
 import { useStomp, useStompSubscription } from "@/shared/realtime";
 import type {
@@ -9,6 +9,7 @@ import type {
 
 interface UseAuctionRoomSocketProps {
   roomId: string;
+  presenceReady?: boolean;
   onAuctionUpdate?: (msg: WsAuctionMessage) => void;
   onChatMessage?: (msg: WsChatMessage) => void;
   onRoomEvent?: (event: WsRoomEvent) => void;
@@ -17,6 +18,7 @@ interface UseAuctionRoomSocketProps {
 
 export const useAuctionRoomSocket = ({
   roomId,
+  presenceReady = true,
   onAuctionUpdate,
   onChatMessage,
   onRoomEvent,
@@ -48,16 +50,36 @@ export const useAuctionRoomSocket = ({
     shouldSubscribe
   );
 
-  // Báo danh vào phòng khi socket kết nối và báo rời phòng khi thoát
+  // Chỉ gửi JOIN 1 lần khi thực sự bước vào phiên mới, tránh gửi trùng JOIN/LEAVE khi socket reconnect hoặc chuyển tab
+  const activePresenceRoomRef = useRef<string | null>(null);
+  const publishRef = useRef(publish);
+  publishRef.current = publish;
+
   useEffect(() => {
-    if (!shouldSubscribe || !isConnected) return;
+    if (!shouldSubscribe || !isConnected || !presenceReady || !roomId) return;
+    if (activePresenceRoomRef.current === roomId) return;
 
-    publish(`/app/room/${roomId}/join`, { roomId, event: "JOIN" });
+    const previousRoom = activePresenceRoomRef.current;
+    if (previousRoom && previousRoom !== roomId) {
+      publishRef.current(`/app/room/${previousRoom}/leave`, { roomId: previousRoom, event: "LEAVE" });
+      activePresenceRoomRef.current = null;
+    }
 
+    if (publishRef.current(`/app/room/${roomId}/join`, { roomId, event: "JOIN" })) {
+      activePresenceRoomRef.current = roomId;
+    }
+  }, [roomId, shouldSubscribe, isConnected, presenceReady]);
+
+  // Chỉ gửi LEAVE duy nhất khi component phòng đấu giá thực sự unmount
+  useEffect(() => {
     return () => {
-      publish(`/app/room/${roomId}/leave`, { roomId, event: "LEAVE" });
+      const joinedRoom = activePresenceRoomRef.current;
+      if (joinedRoom) {
+        activePresenceRoomRef.current = null;
+        publishRef.current(`/app/room/${joinedRoom}/leave`, { roomId: joinedRoom, event: "LEAVE" });
+      }
     };
-  }, [roomId, shouldSubscribe, isConnected, publish]);
+  }, []);
 
   const sendBid = useCallback(
     (payload: {

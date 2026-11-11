@@ -12,9 +12,13 @@ export interface AuctionLot {
 }
 
 export interface BidHistoryItem {
+  userId?: number | string;
   userName: string;
   bidAmount: number;
+  increment?: number;
+  source?: "MANUAL" | "AUTO" | string;
   time: string;
+  bidTime?: string;
   isWinning?: boolean;
   isMine?: boolean;
 }
@@ -53,13 +57,21 @@ export interface AuctionRoomDetail {
   depositAmount: number;
   startTime: string;
   endTime: string;
+  startTimeEpochMs?: number;
+  endTimeEpochMs?: number;
+  serverTimeMs?: number;
   remainingSeconds: number;
   status: AuctionRoomStatus;
   bidCount: number;
   participantCount: number;
   leadingUser: string;
+  leadingUserId?: number | string;
   reserveMet: boolean;
   pinnedNotice: string;
+  myRole?: RoomRoleEnum;
+  isRegistered?: boolean;
+  nextStep?: number;
+  nextMinBid?: number;
   lots: AuctionLot[];
   initialBids: BidHistoryItem[];
 }
@@ -79,13 +91,23 @@ export interface SendChatPayload {
 
 export interface WsAuctionMessage {
   roomId?: string;
+  userId?: string | number;
   plateNumber?: string;
   userName?: string;
   bidAmount?: number;
   currentPrice?: number;
   stepPrice?: number;
+  nextStep?: number;
+  nextMinBid?: number;
   bidCount?: number;
   timestamp?: string;
+  bidTime?: string;
+  remainingSeconds?: number;
+  endTime?: string;
+  endTimeEpochMs?: number;
+  serverTimeMs?: number;
+  extended?: boolean;
+  source?: "MANUAL" | "AUTO" | string;
   status?: string;
   type?: "BID" | "EXTEND" | "NEW_HIGHEST" | "STATUS_CHANGE" | string;
 }
@@ -102,10 +124,28 @@ export interface WsChatMessage {
 
 export interface WsRoomEvent {
   roomId: string;
-  event: "JOIN" | "LEAVE" | "HALT" | "RESUME" | "CANCEL" | "END" | string;
+  event:
+    | "JOIN"
+    | "LEAVE"
+    | "START"
+    | "HALT"
+    | "RESUME"
+    | "CANCEL"
+    | "END"
+    | "ANNOUNCEMENT"
+    | "ANNOUNCEMENT_REMOVED"
+    | string;
   message?: string;
   participantCount?: number;
   timestamp?: string;
+  pinned?: boolean;
+  level?: "INFO" | "WARNING" | "IMPORTANT" | string;
+  announcementId?: number;
+  adminName?: string;
+  remainingSeconds?: number;
+  endTime?: string;
+  endTimeEpochMs?: number;
+  serverTimeMs?: number;
 }
 
 export type RoomRoleEnum = "BIDDER" | "VIEWER" | "ADMIN" | string;

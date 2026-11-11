@@ -23,11 +23,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -51,13 +52,15 @@ public class AuctionBackgroundService {
     private final AuctionRegistrationRepository auctionRegistrationRepository;
     private final AuctionProperties auctionProperties;
     private final AutoBidScheduler autoBidScheduler;
+    private final StepPriceCalculator stepPriceCalculator;
+    private final TransactionTemplate transactionTemplate;
 
     /**
      * Chạy định kỳ mỗi 2 giây một lần để quét và xử lý trạng thái các phiên đấu giá
-     * (Đặt initialDelay = 5000 để các tác vụ khởi tạo ApplicationReadyEvent hoàn tất trước khi quét)
+     * (Không bọc toàn hàm trong @Transactional để mỗi phiên commit DB xong mới broadcast WS,
+     * tránh race condition client nhận event START/END rồi refetch phải trạng thái SOON/LIVE cũ)
      */
     @Scheduled(initialDelay = 5000, fixedDelay = 2000)
-    @Transactional
     public void checkAndProcessAuctionStatus() {
         LocalDateTime now = LocalDateTime.now();
 
@@ -66,7 +69,11 @@ public class AuctionBackgroundService {
                 .findByStatusAndEndTimeBefore(AuctionStatusEnum.LIVE, now);
 
         for (AuctionSession session : expiredSessions) {
-            handleEndSession(session, now);
+            try {
+                handleEndSession(session.getId(), now);
+            } catch (Exception e) {
+                log.error("[BACKGROUND-SERVICE] Lỗi chốt phiên LIVE {}: ", session.getSessionCode(), e);
+            }
         }
 
         // 1b. Tự động chốt các phiên SOON đã quá endTime sang END
@@ -74,7 +81,11 @@ public class AuctionBackgroundService {
                 .findByStatusAndEndTimeBefore(AuctionStatusEnum.SOON, now);
 
         for (AuctionSession session : expiredSoonSessions) {
-            handleEndSession(session, now);
+            try {
+                handleEndSession(session.getId(), now);
+            } catch (Exception e) {
+                log.error("[BACKGROUND-SERVICE] Lỗi chốt phiên SOON {}: ", session.getSessionCode(), e);
+            }
         }
 
         // 2. Tự động chuyển các phiên SOON đã đến startTime sang LIVE
@@ -82,191 +93,286 @@ public class AuctionBackgroundService {
                 .findByStatusAndStartTimeBeforeAndEndTimeAfter(AuctionStatusEnum.SOON, now, now);
 
         for (AuctionSession session : startingSessions) {
-            handleStartSession(session, now);
+            try {
+                handleStartSession(session.getId(), now);
+            } catch (Exception e) {
+                log.error("[BACKGROUND-SERVICE] Lỗi mở phiên {}: ", session.getSessionCode(), e);
+            }
         }
 
         // 3. Quét thông báo phiên sắp bắt đầu (STARTING_SOON)
-        checkStartingSoonSessions(now);
+        try {
+            transactionTemplate.executeWithoutResult(status -> checkStartingSoonSessions(now));
+        } catch (Exception e) {
+            log.error("[BACKGROUND-SERVICE] Lỗi quét STARTING_SOON: ", e);
+        }
 
         // 4. Quét thông báo phiên sắp kết thúc (ENDING_SOON)
-        checkEndingSoonSessions(now);
+        try {
+            transactionTemplate.executeWithoutResult(status -> checkEndingSoonSessions(now));
+        } catch (Exception e) {
+            log.error("[BACKGROUND-SERVICE] Lỗi quét ENDING_SOON: ", e);
+        }
     }
+
+    private record EndSessionPayload(
+            Long sessionId,
+            String sessionCode,
+            String plateNumber,
+            long finalPrice,
+            int bidCount,
+            String time
+    ) {}
+
+    private record StartSessionPayload(
+            Long sessionId,
+            String sessionCode,
+            String plateNumber,
+            long currentPrice,
+            long nextStep,
+            int bidCount,
+            long remainingSeconds,
+            String endTimeStr,
+            Long endTimeEpochMs,
+            String time
+    ) {}
 
     /**
      * Xử lý kết thúc phiên đấu giá:
-     * - Cập nhật status = END
-     * - Chốt endPrice & winningPrice
-     * - Ghi nhận người trúng đấu giá vào session (userInfoId)
-     * - Broadcast sự kiện END tới Dashboard và Auction Room
+     * - Commit status = END, endPrice, hoàn/thu cọc trong transaction trước
+     * - Sau khi transaction commit mới broadcast sự kiện END tới Dashboard và Auction Room
      */
-    private void handleEndSession(AuctionSession session, LocalDateTime now) {
-        log.info("[BACKGROUND-SERVICE] Phiên {} ({}) đã hết giờ. Bắt đầu tự động chốt kết quả...",
-                session.getSessionCode(), session.getTitle());
-
-        session.setStatus(AuctionStatusEnum.END);
-
-        long finalPrice = session.getCurrentPrice() != null ? session.getCurrentPrice() : session.getStartPrice();
-        session.setEndPrice(finalPrice);
-        session.setWinningPrice(finalPrice);
-
-        // Tìm lượt trả giá cao nhất / mới nhất để xác định người trúng
-        List<BidHistory> bids = bidHistoryRepository.findByAuctionSessionIdOrderByBidTimeDesc(session.getId());
-        if (!bids.isEmpty()) {
-            BidHistory winningBid = bids.get(0);
-            winningBid.setIsWinningBid(true);
-            bidHistoryRepository.save(winningBid);
-
-            if (winningBid.getUserID() != null) {
-                session.setUserInfoId(winningBid.getUserID());
-                log.info("[BACKGROUND-SERVICE] Người trúng đấu giá phiên {}: User ID {}",
-                        session.getSessionCode(), winningBid.getUserID());
+    private void handleEndSession(Long sessionId, LocalDateTime now) {
+        EndSessionPayload payload = transactionTemplate.execute(txStatus -> {
+            AuctionSession session = auctionSessionRepository.findById(sessionId).orElse(null);
+            if (session == null || session.getStatus() == AuctionStatusEnum.END) {
+                return null;
             }
+
+            log.info("[BACKGROUND-SERVICE] Phiên {} ({}) đã hết giờ. Bắt đầu tự động chốt kết quả...",
+                    session.getSessionCode(), session.getTitle());
+
+            session.setStatus(AuctionStatusEnum.END);
+
+            long finalPrice = session.getCurrentPrice() != null ? session.getCurrentPrice() : session.getStartPrice();
+            session.setEndPrice(finalPrice);
+            session.setWinningPrice(finalPrice);
+
+            List<BidHistory> bids = bidHistoryRepository.findByAuctionSessionIdOrderByBidTimeDesc(session.getId());
+            if (!bids.isEmpty()) {
+                BidHistory winningBid = bids.get(0);
+                winningBid.setIsWinningBid(true);
+                bidHistoryRepository.save(winningBid);
+
+                if (winningBid.getUserID() != null) {
+                    session.setUserInfoId(winningBid.getUserID());
+                    log.info("[BACKGROUND-SERVICE] Người trúng đấu giá phiên {}: User ID {}",
+                            session.getSessionCode(), winningBid.getUserID());
+                }
+            }
+
+            auctionSessionRepository.save(session);
+
+            try {
+                walletService.handleSessionEnded(session.getId());
+            } catch (Exception e) {
+                log.error("[BACKGROUND-SERVICE] Lỗi xử lý cọc ví phiên {}: ", session.getSessionCode(), e);
+            }
+
+            String plateNumber = "";
+            if (session.getNumberPlateId() != null) {
+                plateNumber = numberPlateRepository.findById(session.getNumberPlateId())
+                        .map(NumberPlate::getPlateNumber)
+                        .orElse("");
+            }
+
+            String time = DateTimeFormatter.ofPattern("HH:mm:ss").format(LocalTime.now());
+
+            Long winnerUserId = session.getUserInfoId();
+            Set<Long> bidderUserIds = bids.stream()
+                    .map(BidHistory::getUserID)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+
+            if (winnerUserId != null) {
+                notificationService.notifyUser(winnerUserId, NotificationTypeEnum.ENDED_WON,
+                        "Chúc mừng! Bạn đã trúng đấu giá",
+                        String.format("Bạn đã trúng đấu giá biển số %s trong phiên %s với giá %,d VNĐ.", plateNumber, session.getSessionCode(), finalPrice),
+                        session.getSessionCode());
+            }
+
+            for (Long bId : bidderUserIds) {
+                if (!bId.equals(winnerUserId)) {
+                    notificationService.notifyUser(bId, NotificationTypeEnum.ENDED_LOST,
+                            "Phiên đấu giá đã kết thúc",
+                            String.format("Phiên đấu giá biển số %s đã kết thúc với mức giá %,d VNĐ.", plateNumber, finalPrice),
+                            session.getSessionCode());
+                }
+            }
+
+            List<AuctionWatch> watchers = auctionWatchRepository.findBySessionId(session.getId());
+            for (AuctionWatch w : watchers) {
+                if (!bidderUserIds.contains(w.getUserId())) {
+                    notificationService.notifyUser(w.getUserId(), NotificationTypeEnum.ENDED,
+                            "Phiên bạn theo dõi đã kết thúc",
+                            String.format("Phiên đấu giá biển số %s đã kết thúc với mức giá %,d VNĐ.", plateNumber, finalPrice),
+                            session.getSessionCode());
+                }
+            }
+
+            int bidCount = session.getBidCount() != null ? session.getBidCount() : bids.size();
+            log.info("[BACKGROUND-SERVICE] Đã hoàn tất chốt phiên {} với giá: {} VNĐ",
+                    session.getSessionCode(), finalPrice);
+            return new EndSessionPayload(session.getId(), session.getSessionCode(), plateNumber, finalPrice, bidCount, time);
+        });
+
+        if (payload == null) {
+            return;
         }
 
-        auctionSessionRepository.save(session);
-
-        // Hủy lịch và tắt toàn bộ auto-bid của phiên này
+        // Hủy lịch và tắt toàn bộ auto-bid sau khi đã chốt
         try {
-            autoBidScheduler.cancelSessionTasks(session.getId());
+            autoBidScheduler.cancelSessionTasks(payload.sessionId());
         } catch (Exception e) {
-            log.error("[BACKGROUND-SERVICE] Lỗi tắt auto-bid phiên {}: ", session.getSessionCode(), e);
+            log.error("[BACKGROUND-SERVICE] Lỗi tắt auto-bid phiên {}: ", payload.sessionCode(), e);
         }
 
-        // Xử lý ví tiền ảo: Khấu trừ cọc người thắng, hoàn cọc người thua
-        try {
-            walletService.handleSessionEnded(session.getId());
-        } catch (Exception e) {
-            log.error("[BACKGROUND-SERVICE] Lỗi xử lý cọc ví phiên {}: ", session.getSessionCode(), e);
-        }
-
-        // Lấy thông tin biển số để broadcast
-        String plateNumber = "";
-        if (session.getNumberPlateId() != null) {
-            plateNumber = numberPlateRepository.findById(session.getNumberPlateId())
-                    .map(NumberPlate::getPlateNumber)
-                    .orElse("");
-        }
-
-        String time = DateTimeFormatter.ofPattern("HH:mm:ss").format(LocalTime.now());
-
-        // 1. Gửi thông điệp cập nhật trạng thái tới trang danh sách biển số (/topic/auctions)
+        // Broadcast sau khi DB đã commit
         BidMessageVO statusMessage = BidMessageVO.builder()
-                .roomId(session.getSessionCode())
-                .plateNumber(plateNumber)
-                .currentPrice(finalPrice)
+                .roomId(payload.sessionCode())
+                .plateNumber(payload.plateNumber())
+                .currentPrice(payload.finalPrice())
+                .bidCount(payload.bidCount())
+                .remainingSeconds(0L)
                 .status("END")
                 .type("STATUS_CHANGE")
-                .timestamp(time)
+                .timestamp(payload.time())
                 .build();
         messagingTemplate.convertAndSend("/topic/auctions", statusMessage);
+        messagingTemplate.convertAndSend("/topic/auction/" + payload.sessionCode(), statusMessage);
 
-        // 2. Gửi thông báo kết thúc tới phòng đấu giá (/topic/auction/{roomId})
-        messagingTemplate.convertAndSend("/topic/auction/" + session.getSessionCode(), statusMessage);
-
-        // 3. Gửi sự kiện END vào kênh thông báo phòng (/topic/room/{roomId})
         RoomEventVO endEvent = RoomEventVO.builder()
-                .roomId(session.getSessionCode())
+                .roomId(payload.sessionCode())
                 .event("END")
-                .message("Phiên đấu giá đã kết thúc! Mức giá chốt: " + finalPrice + " VNĐ")
-                .timestamp(time)
+                .message("Phiên đấu giá đã kết thúc! Mức giá chốt: " + payload.finalPrice() + " VNĐ")
+                .remainingSeconds(0L)
+                .timestamp(payload.time())
                 .build();
-        messagingTemplate.convertAndSend("/topic/room/" + session.getSessionCode(), endEvent);
-
-        // Gửi thông báo kết quả:
-        Long winnerUserId = session.getUserInfoId();
-        List<BidHistory> sessionBids = bidHistoryRepository.findByAuctionSessionIdOrderByBidTimeDesc(session.getId());
-        Set<Long> bidderUserIds = sessionBids.stream()
-                .map(BidHistory::getUserID)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-
-        if (winnerUserId != null) {
-            notificationService.notifyUser(winnerUserId, NotificationTypeEnum.ENDED_WON,
-                    "Chúc mừng! Bạn đã trúng đấu giá",
-                    String.format("Bạn đã trúng đấu giá biển số %s trong phiên %s với giá %,d VNĐ.", plateNumber, session.getSessionCode(), finalPrice),
-                    session.getSessionCode());
-        }
-
-        for (Long bId : bidderUserIds) {
-            if (!bId.equals(winnerUserId)) {
-                notificationService.notifyUser(bId, NotificationTypeEnum.ENDED_LOST,
-                        "Phiên đấu giá đã kết thúc",
-                        String.format("Phiên đấu giá biển số %s đã kết thúc với mức giá %,d VNĐ.", plateNumber, finalPrice),
-                        session.getSessionCode());
-            }
-        }
-
-        List<AuctionWatch> watchers = auctionWatchRepository.findBySessionId(session.getId());
-        for (AuctionWatch w : watchers) {
-            if (!bidderUserIds.contains(w.getUserId())) {
-                notificationService.notifyUser(w.getUserId(), NotificationTypeEnum.ENDED,
-                        "Phiên bạn theo dõi đã kết thúc",
-                        String.format("Phiên đấu giá biển số %s đã kết thúc với mức giá %,d VNĐ.", plateNumber, finalPrice),
-                        session.getSessionCode());
-            }
-        }
-
-        log.info("[BACKGROUND-SERVICE] Đã hoàn tất chốt phiên {} với giá: {} VNĐ",
-                session.getSessionCode(), finalPrice);
+        messagingTemplate.convertAndSend("/topic/room/" + payload.sessionCode(), endEvent);
     }
 
     /**
-     * Xử lý chuyển phiên từ SOON sang LIVE khi đến giờ bắt đầu
+     * Xử lý chuyển phiên từ SOON sang LIVE khi đến giờ bắt đầu:
+     * - Commit status = LIVE trong DB trước
+     * - Sau khi commit mới kích hoạt auto-bid và broadcast sự kiện START/STATUS_CHANGE kèm remainingSeconds
      */
-    private void handleStartSession(AuctionSession session, LocalDateTime now) {
-        log.info("[BACKGROUND-SERVICE] Phiên {} ({}) đã đến giờ bắt đầu. Tự động chuyển status = LIVE...",
-                session.getSessionCode(), session.getTitle());
+    private void handleStartSession(Long sessionId, LocalDateTime now) {
+        StartSessionPayload payload = transactionTemplate.execute(txStatus -> {
+            AuctionSession session = auctionSessionRepository.findById(sessionId).orElse(null);
+            if (session == null || session.getStatus() != AuctionStatusEnum.SOON) {
+                return null;
+            }
 
-        session.setStatus(AuctionStatusEnum.LIVE);
-        auctionSessionRepository.save(session);
+            log.info("[BACKGROUND-SERVICE] Phiên {} ({}) đã đến giờ bắt đầu. Tự động chuyển status = LIVE...",
+                    session.getSessionCode(), session.getTitle());
 
-        // Kích hoạt auto-bid nếu có cấu hình trước đó
+            session.setStatus(AuctionStatusEnum.LIVE);
+            auctionSessionRepository.save(session);
+
+            String plateNumber = "";
+            if (session.getNumberPlateId() != null) {
+                plateNumber = numberPlateRepository.findById(session.getNumberPlateId())
+                        .map(NumberPlate::getPlateNumber)
+                        .orElse("");
+            }
+
+            long currentPrice = session.getCurrentPrice() != null
+                    ? session.getCurrentPrice()
+                    : (session.getStartPrice() != null ? session.getStartPrice() : 40_000_000L);
+            long nextStep = stepPriceCalculator.stepFor(currentPrice);
+            long remainingSeconds = 180L;
+            String endTimeStr = null;
+            Long endTimeEpochMs = null;
+            if (session.getEndTime() != null) {
+                endTimeEpochMs = session.getEndTime().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+                remainingSeconds = Math.max(1L, Duration.between(now, session.getEndTime()).getSeconds());
+                endTimeStr = session.getEndTime().toString();
+            }
+            int bidCount = session.getBidCount() != null ? session.getBidCount() : 0;
+            String time = DateTimeFormatter.ofPattern("HH:mm:ss").format(LocalTime.now());
+
+            Set<Long> interestedUserIds = new HashSet<>();
+            auctionWatchRepository.findBySessionId(session.getId()).forEach(w -> interestedUserIds.add(w.getUserId()));
+            auctionRegistrationRepository.findBySessionIdAndStatus(session.getId(), RegistrationStatusEnum.ACTIVE)
+                    .forEach(r -> interestedUserIds.add(r.getUserId()));
+
+            if (!interestedUserIds.isEmpty()) {
+                notificationService.notifyUsers(new ArrayList<>(interestedUserIds), NotificationTypeEnum.STARTED,
+                        "Phiên đấu giá đã bắt đầu!",
+                        String.format("Phiên đấu giá biển số %s (%s) đã chính thức mở sàn.", plateNumber, session.getSessionCode()),
+                        session.getSessionCode());
+            }
+
+            return new StartSessionPayload(
+                    session.getId(),
+                    session.getSessionCode(),
+                    plateNumber,
+                    currentPrice,
+                    nextStep,
+                    bidCount,
+                    remainingSeconds,
+                    endTimeStr,
+                    endTimeEpochMs,
+                    time
+            );
+        });
+
+        if (payload == null) {
+            return;
+        }
+
+        // Kích hoạt auto-bid sau khi status = LIVE đã commit xuống DB
         try {
-            autoBidScheduler.scheduleNextAutoBid(session.getId());
+            autoBidScheduler.scheduleNextAutoBid(payload.sessionId());
         } catch (Exception e) {
-            log.error("[BACKGROUND-SERVICE] Lỗi kích hoạt auto-bid phiên {}: ", session.getSessionCode(), e);
+            log.error("[BACKGROUND-SERVICE] Lỗi kích hoạt auto-bid phiên {}: ", payload.sessionCode(), e);
         }
 
-        String plateNumber = "";
-        if (session.getNumberPlateId() != null) {
-            plateNumber = numberPlateRepository.findById(session.getNumberPlateId())
-                    .map(NumberPlate::getPlateNumber)
-                    .orElse("");
-        }
-
-        String time = DateTimeFormatter.ofPattern("HH:mm:ss").format(LocalTime.now());
+        long serverNowMs = System.currentTimeMillis();
+        long exactRemaining = payload.endTimeEpochMs() != null
+                ? Math.max(1L, (long) Math.ceil((payload.endTimeEpochMs() - serverNowMs) / 1000.0))
+                : payload.remainingSeconds();
 
         BidMessageVO startMessage = BidMessageVO.builder()
-                .roomId(session.getSessionCode())
-                .plateNumber(plateNumber)
-                .currentPrice(session.getCurrentPrice() != null ? session.getCurrentPrice() : session.getStartPrice())
+                .roomId(payload.sessionCode())
+                .plateNumber(payload.plateNumber())
+                .currentPrice(payload.currentPrice())
+                .stepPrice(payload.nextStep())
+                .nextStep(payload.nextStep())
+                .nextMinBid(payload.currentPrice() + payload.nextStep())
+                .bidCount(payload.bidCount())
+                .remainingSeconds(exactRemaining)
+                .endTime(payload.endTimeStr())
+                .endTimeEpochMs(payload.endTimeEpochMs())
+                .serverTimeMs(serverNowMs)
                 .status("LIVE")
                 .type("STATUS_CHANGE")
-                .timestamp(time)
+                .timestamp(payload.time())
                 .build();
         messagingTemplate.convertAndSend("/topic/auctions", startMessage);
-        messagingTemplate.convertAndSend("/topic/auction/" + session.getSessionCode(), startMessage);
+        messagingTemplate.convertAndSend("/topic/auction/" + payload.sessionCode(), startMessage);
 
         RoomEventVO startEvent = RoomEventVO.builder()
-                .roomId(session.getSessionCode())
+                .roomId(payload.sessionCode())
                 .event("START")
                 .message("Phiên đấu giá đã chính thức bắt đầu!")
-                .timestamp(time)
+                .remainingSeconds(exactRemaining)
+                .endTime(payload.endTimeStr())
+                .endTimeEpochMs(payload.endTimeEpochMs())
+                .serverTimeMs(serverNowMs)
+                .timestamp(payload.time())
                 .build();
-        messagingTemplate.convertAndSend("/topic/room/" + session.getSessionCode(), startEvent);
-
-        // Gửi thông báo STARTED tới watchers và người đã đăng ký
-        Set<Long> interestedUserIds = new HashSet<>();
-        auctionWatchRepository.findBySessionId(session.getId()).forEach(w -> interestedUserIds.add(w.getUserId()));
-        auctionRegistrationRepository.findBySessionIdAndStatus(session.getId(), RegistrationStatusEnum.ACTIVE)
-                .forEach(r -> interestedUserIds.add(r.getUserId()));
-
-        if (!interestedUserIds.isEmpty()) {
-            notificationService.notifyUsers(new ArrayList<>(interestedUserIds), NotificationTypeEnum.STARTED,
-                    "Phiên đấu giá đã bắt đầu!",
-                    String.format("Phiên đấu giá biển số %s (%s) đã chính thức mở sàn.", plateNumber, session.getSessionCode()),
-                    session.getSessionCode());
-        }
+        messagingTemplate.convertAndSend("/topic/room/" + payload.sessionCode(), startEvent);
     }
 
     private void checkStartingSoonSessions(LocalDateTime now) {

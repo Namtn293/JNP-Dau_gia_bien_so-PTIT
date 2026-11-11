@@ -35,8 +35,9 @@ import com.auction.model.CommandResult;
 import com.auction.model.RoomInfo;
 import com.auction.ui.common.ButtonStyles;
 import com.auction.ui.common.CommandLogger;
+import com.auction.ui.common.UiKit;
 
-public class QuickControlPanel extends JPanel {
+public class QuickControlPanel extends UiKit.ScrollablePanel {
     private final AdminGateway gateway;
     private final StyledDocument logDocument;
 
@@ -51,11 +52,13 @@ public class QuickControlPanel extends JPanel {
     private JLabel statusLabel;
     private JComboBox<String> roomComboBox;
     private JTextField kickAccountField;
+    private JTextField announceField;
 
     private JButton haltButton;
     private JButton resumeButton;
     private JButton kickButton;
     private JButton cancelButton;
+    private JButton announceButton;
 
     public QuickControlPanel(AdminGateway gateway, StyledDocument logDocument) {
         this.gateway = gateway;
@@ -75,7 +78,9 @@ public class QuickControlPanel extends JPanel {
     /** Hiển thị thông tin phòng và bật/tắt nút theo trạng thái phòng đó. */
     public void showRoom(RoomInfo room) {
         plateLabel.setText(room.plate());
-        roomInfoLabel.setText(room.id() + " • " + room.region());
+        String roomInfo = room.id() + " • " + room.region();
+        roomInfoLabel.setText("<html><body style='width: 245px'>" + roomInfo + "</body></html>");
+        roomInfoLabel.setToolTipText(roomInfo);
         statusLabel.setText("• " + room.status().label());
 
         syncing = true;
@@ -182,17 +187,43 @@ public class QuickControlPanel extends JPanel {
         panel.add(Box.createVerticalStrut(16));
 
         panel.add(createButtonPanel());
+        panel.add(Box.createVerticalStrut(12));
+        panel.add(createAnnouncePanel());
 
         return panel;
+    }
+
+    private JPanel createAnnouncePanel() {
+        JPanel p = new JPanel();
+        p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
+        p.setOpaque(false);
+        p.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        p.add(createLeftLabel("Thông điệp gửi tới phòng (TCP ANNOUNCE)", FONT_NORMAL, COLOR_TEXT));
+        p.add(Box.createVerticalStrut(4));
+
+        JPanel row = new JPanel(new BorderLayout(6, 0));
+        row.setOpaque(false);
+        row.setAlignmentX(Component.LEFT_ALIGNMENT);
+        row.setMaximumSize(new Dimension(Short.MAX_VALUE, 32));
+
+        announceField = new JTextField();
+        announceField.setFont(FONT_NORMAL);
+        announceButton = ButtonStyles.filled("Gửi", COLOR_PRIMARY);
+
+        row.add(announceField, BorderLayout.CENTER);
+        row.add(announceButton, BorderLayout.EAST);
+        p.add(row);
+        return p;
     }
 
     private JPanel createButtonPanel() {
         JPanel gridPanel = new JPanel(new GridLayout(2, 2, 10, 12));
         gridPanel.setOpaque(false);
         gridPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        gridPanel.setMinimumSize(new Dimension(280, 240));
-        gridPanel.setPreferredSize(new Dimension(280, 240));
-        gridPanel.setMaximumSize(new Dimension(Short.MAX_VALUE, 240));
+        gridPanel.setMinimumSize(new Dimension(220, 220));
+        gridPanel.setPreferredSize(new Dimension(280, 235));
+        gridPanel.setMaximumSize(new Dimension(Short.MAX_VALUE, 260));
 
         haltButton = createButton("HALT", COLOR_DANGER);
         resumeButton = createButton("RESUME", COLOR_PRIMARY);
@@ -200,14 +231,14 @@ public class QuickControlPanel extends JPanel {
         cancelButton = createCancelButton("CANCEL");
 
         gridPanel.add(createActionGroup(haltButton,
-                "<html>HALT tạm dừng phiên, khóa đặt giá.<br>Đếm ngược bị đóng băng.</html>"));
+                "<html><body style='width: 112px'>HALT tạm dừng phiên, khóa đặt giá. Đếm ngược bị đóng băng.</body></html>"));
         gridPanel.add(createActionGroup(resumeButton,
-                "<html>RESUME mở lại đặt giá, cộng " + AdminConfig.EXTENSION_SECONDS
-                        + " giây.<br>Đếm ngược được cập nhật sau lệnh.</html>"));
+                "<html><body style='width: 112px'>RESUME mở lại đặt giá, cộng " + AdminConfig.EXTENSION_SECONDS
+                        + " giây.</body></html>"));
         gridPanel.add(createActionGroup(kickButton,
-                "<html>KICK cưỡng chế ngắt kết nối WebSocket<br>của tài khoản.</html>"));
+                "<html><body style='width: 112px'>KICK gửi cảnh báo ngắt kết nối của tài khoản.</body></html>"));
         gridPanel.add(createActionGroup(cancelButton,
-                "<html>CANCEL hủy phiên, hoàn 100% tiền cọc.<br>Bắt buộc xác nhận trước khi gửi.</html>"));
+                "<html><body style='width: 112px'>CANCEL hủy phiên, hoàn 100% tiền cọc (cần xác nhận).</body></html>"));
 
         return gridPanel;
     }
@@ -294,6 +325,17 @@ public class QuickControlPanel extends JPanel {
         });
 
         cancelButton.addActionListener(e -> confirmAndCancel());
+
+        announceButton.addActionListener(e -> {
+            String roomId = selectedRoomId();
+            String msg = announceField.getText().trim();
+            if (roomId == null || msg.isEmpty()) {
+                return;
+            }
+            sendCommand("> ANNOUNCE " + roomId + " " + msg, gateway.announce(roomId, msg));
+            announceField.setText("");
+        });
+        announceField.addActionListener(e -> announceButton.doClick());
 
         kickAccountField.getDocument().addDocumentListener(new DocumentListener() {
             @Override

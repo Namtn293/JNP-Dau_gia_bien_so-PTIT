@@ -28,6 +28,7 @@ public class PriceSeriesServiceImpl implements PriceSeriesService {
     private final AuctionSessionRepository auctionSessionRepository;
     private final BidHistoryRepository bidHistoryRepository;
     private final UserInfoRepository userInfoRepository;
+    private final com.ptit.bigdata.coreservice.core.auth.repository.UserRepository userRepository;
     private final AuctionProperties auctionProperties;
 
     @Override
@@ -50,13 +51,15 @@ public class PriceSeriesServiceImpl implements PriceSeriesService {
 
         // 2. Các điểm tiếp theo lấy từ BidHistory theo thứ tự thời gian tăng dần
         List<BidHistory> bids = bidHistoryRepository.findByAuctionSessionIdOrderByBidTimeAsc(session.getId());
+        java.util.Set<Long> userIds = bids.stream()
+                .map(BidHistory::getUserID)
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+        java.util.Map<Long, String> nameMap = batchResolveDisplayNames(userIds);
         for (BidHistory b : bids) {
-            String name = "Người dùng #" + (b.getUserID() != null ? b.getUserID() : "ẩn danh");
-            if (b.getUserID() != null) {
-                name = userInfoRepository.findById(b.getUserID())
-                        .map(UserInfo::getFullName)
-                        .orElse(name);
-            }
+            String name = b.getUserID() != null
+                    ? nameMap.getOrDefault(b.getUserID(), "Người dùng #" + b.getUserID())
+                    : "ẩn danh";
 
             points.add(PricePointVO.builder()
                     .time(b.getBidTime())
@@ -85,6 +88,27 @@ public class PriceSeriesServiceImpl implements PriceSeriesService {
                 .points(points)
                 .stepTiers(auctionProperties.getStepTiers())
                 .build();
+    }
+
+    private java.util.Map<Long, String> batchResolveDisplayNames(java.util.Set<Long> userIds) {
+        java.util.Map<Long, String> result = new java.util.HashMap<>();
+        if (userIds == null || userIds.isEmpty()) return result;
+
+        java.util.Map<String, String> infoByUsername = new java.util.HashMap<>();
+        java.util.Map<Long, String> infoById = new java.util.HashMap<>();
+        userInfoRepository.findAll().forEach(ui -> {
+            String best = (ui.getFullName() != null && !ui.getFullName().isBlank()) ? ui.getFullName() : ui.getUserName();
+            if (ui.getUserName() != null) infoByUsername.put(ui.getUserName(), best);
+            if (ui.getId() != null) infoById.put(ui.getId(), best);
+        });
+
+        userRepository.findAllById(userIds).forEach(u -> {
+            result.put(u.getId(), infoByUsername.getOrDefault(u.getUsername(), u.getUsername()));
+        });
+        for (Long id : userIds) {
+            result.putIfAbsent(id, infoById.getOrDefault(id, "Người dùng #" + id));
+        }
+        return result;
     }
 
     private String maskUserName(String name) {

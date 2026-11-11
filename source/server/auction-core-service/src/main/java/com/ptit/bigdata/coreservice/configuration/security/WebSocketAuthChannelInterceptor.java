@@ -92,8 +92,16 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
         // Trường hợp 2: Có gửi header -> Bắt buộc phải hợp lệ
         String token = authHeader.startsWith("Bearer ") ? authHeader.substring(7).trim() : authHeader.trim();
 
-        if (jwtService.isExpired(token)) {
+        try {
+            if (jwtService.isExpired(token)) {
+                throw new WebSocketSecurityException("TOKEN_EXPIRED", "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại");
+            }
+        } catch (WebSocketSecurityException e) {
+            throw e;
+        } catch (io.jsonwebtoken.ExpiredJwtException e) {
             throw new WebSocketSecurityException("TOKEN_EXPIRED", "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại");
+        } catch (Exception e) {
+            throw new WebSocketSecurityException("TOKEN_INVALID", "Token không hợp lệ hoặc sai định dạng");
         }
 
         Optional<Token> tokenOpt = tokenRepository.findByToken(token);

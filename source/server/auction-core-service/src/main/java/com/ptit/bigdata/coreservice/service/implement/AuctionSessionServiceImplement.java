@@ -32,6 +32,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
@@ -45,10 +46,12 @@ public class AuctionSessionServiceImplement implements AuctionSessionService {
     private final ProvinceRepository provinceRepository;
     private final BidHistoryRepository bidHistoryRepository;
     private final UserInfoRepository userInfoRepository;
+    private final com.ptit.bigdata.coreservice.core.auth.repository.UserRepository userRepository;
     private final StepPriceCalculator stepPriceCalculator;
     private final RoomRoleResolver roomRoleResolver;
     private final AuctionRegistrationRepository auctionRegistrationRepository;
     private final com.ptit.bigdata.coreservice.service.WatchService watchService;
+    private final com.ptit.bigdata.coreservice.repository.AuctionWatchRepository auctionWatchRepository;
     private final com.ptit.bigdata.coreservice.service.RoomAnnouncementService roomAnnouncementService;
 
     @Override
@@ -63,21 +66,59 @@ public class AuctionSessionServiceImplement implements AuctionSessionService {
         }
         Page<AuctionSessionVO> page = auctionSessionRepository.getAuctionSession(pageable, statusEnum);
         Long currentUserId = ThreadContext.getCurrentUserId();
-        // Bổ sung nextStep, nextMinBid và isWatched
+        Set<String> watchedCodes = new HashSet<>();
+        Set<String> registeredCodes = new HashSet<>();
+        if (currentUserId != null && !page.isEmpty()) {
+            List<Long> watchedIds = auctionWatchRepository.findByUserId(currentUserId).stream()
+                    .map(com.ptit.bigdata.coreservice.entity.AuctionWatch::getSessionId)
+                    .toList();
+            List<Long> registeredIds = auctionRegistrationRepository
+                    .findByUserIdAndStatus(currentUserId, RegistrationStatusEnum.ACTIVE).stream()
+                    .map(AuctionRegistration::getSessionId)
+                    .toList();
+
+            Set<Long> relatedSessionIds = new HashSet<>(watchedIds);
+            relatedSessionIds.addAll(registeredIds);
+            if (!relatedSessionIds.isEmpty()) {
+                Map<Long, String> codeById = new HashMap<>();
+                auctionSessionRepository.findAllById(relatedSessionIds)
+                        .forEach(s -> codeById.put(s.getId(), s.getSessionCode()));
+                for (Long id : watchedIds) {
+                    String c = codeById.get(id);
+                    if (c != null) {
+                        watchedCodes.add(c);
+                    }
+                }
+                for (Long id : registeredIds) {
+                    String c = codeById.get(id);
+                    if (c != null) {
+                        registeredCodes.add(c);
+                    }
+                }
+            }
+        }
+        // Bổ sung nextStep, nextMinBid, isWatched, isRegistered và mốc UTC epoch để đồng bộ đồng hồ
+        long serverNowMs = System.currentTimeMillis();
         page.forEach(vo -> {
             long curPrice = vo.getCurrentPrice() != null ? vo.getCurrentPrice() : (vo.getPrice() != null ? vo.getPrice() : 40_000_000L);
             long step = stepPriceCalculator.stepFor(curPrice);
             vo.setNextStep(step);
             vo.setNextMinBid(curPrice + step);
             vo.setStepPrice(step);
-            if (currentUserId != null && vo.getSessionCode() != null) {
-                auctionSessionRepository.findBySessionCode(vo.getSessionCode()).ifPresent(s -> {
-                    vo.setIsWatched(watchService.isWatched(currentUserId, s.getId()));
-                });
-            } else {
-                vo.setIsWatched(false);
-            }
+            vo.setIsWatched(currentUserId != null && vo.getSessionCode() != null && watchedCodes.contains(vo.getSessionCode()));
+            vo.setIsRegistered(currentUserId != null && vo.getSessionCode() != null && registeredCodes.contains(vo.getSessionCode()));
+            vo.setStartTimeEpochMs(isoToEpochMs(vo.getStartTime()));
+            vo.setEndTimeEpochMs(isoToEpochMs(vo.getEndTime()));
+            vo.setServerTimeMs(serverNowMs);
         });
+        if (currentUserId != null && !registeredCodes.isEmpty() && page.getContent().size() > 1) {
+            List<AuctionSessionVO> sorted = new ArrayList<>(page.getContent());
+            sorted.sort((a, b) -> Boolean.compare(
+                    Boolean.TRUE.equals(b.getIsRegistered()),
+                    Boolean.TRUE.equals(a.getIsRegistered())
+            ));
+            return new org.springframework.data.domain.PageImpl<>(sorted, pageable, page.getTotalElements());
+        }
         return page;
     }
 
@@ -160,14 +201,20 @@ public class AuctionSessionServiceImplement implements AuctionSessionService {
 
         LocalDateTime now = LocalDateTime.now();
         long remaining = 0;
-        if (session.getEndTime() != null) {
-            if (session.getEndTime().isAfter(now)) {
-                remaining = Math.max(0, Duration.between(now, session.getEndTime()).getSeconds());
-            } else {
-                remaining = 0;
+        if (session.getStatus() == AuctionStatusEnum.SOON) {
+            if (session.getStartTime() != null && session.getStartTime().isAfter(now)) {
+                remaining = Math.max(0, Duration.between(now, session.getStartTime()).getSeconds());
             }
-        } else if (session.getStatus() == AuctionStatusEnum.LIVE) {
-            remaining = 180;
+        } else if (session.getStatus() != AuctionStatusEnum.END) {
+            if (session.getEndTime() != null) {
+                if (session.getEndTime().isAfter(now)) {
+                    remaining = Math.max(0, Duration.between(now, session.getEndTime()).getSeconds());
+                } else {
+                    remaining = 0;
+                }
+            } else if (session.getStatus() == AuctionStatusEnum.LIVE) {
+                remaining = 180;
+            }
         }
 
         long currentPrice = session.getCurrentPrice() != null ? session.getCurrentPrice() : session.getStartPrice();
@@ -185,23 +232,27 @@ public class AuctionSessionServiceImplement implements AuctionSessionService {
                     currentUserId, session.getId(), RegistrationStatusEnum.ACTIVE);
         }
 
-        // Bids history
+        // Bids history (batch resolve display names to avoid N+1 DB calls)
         List<BidHistoryItemVO> bidItems = new ArrayList<>();
         String leader = null;
+        Long leadingUserId = session.getUserInfoId();
         List<BidHistory> bids = bidHistoryRepository.findByAuctionSessionIdOrderByBidTimeDesc(session.getId());
         DateTimeFormatter timeFmt = DateTimeFormatter.ofPattern("HH:mm:ss");
 
         if (!bids.isEmpty()) {
+            Map<Long, String> userNameMap = batchResolveDisplayNames(
+                    bids.stream().map(BidHistory::getUserID).filter(Objects::nonNull).collect(java.util.stream.Collectors.toSet())
+            );
             for (BidHistory b : bids) {
-                String userName = "Người dùng #" + (b.getUserID() != null ? b.getUserID() : "ẩn danh");
-                if (b.getUserID() != null) {
-                    userName = userInfoRepository.findById(b.getUserID())
-                            .map(UserInfo::getFullName)
-                            .orElse(userName);
-                }
+                String userName = b.getUserID() != null
+                        ? userNameMap.getOrDefault(b.getUserID(), "Người dùng #" + b.getUserID())
+                        : "Người dùng ẩn danh";
                 String masked = maskUserName(userName);
                 if (leader == null) {
                     leader = masked;
+                    if (leadingUserId == null) {
+                        leadingUserId = b.getUserID();
+                    }
                 }
                 long prevPrice = b.getPreviousPrice() != null ? b.getPreviousPrice() : startPrice;
                 long inc = Math.max(0L, b.getBidAmount() - prevPrice);
@@ -218,27 +269,42 @@ public class AuctionSessionServiceImplement implements AuctionSessionService {
             }
         }
 
-        // Lots list in session
+        // Lots list in session (batch load NumberPlate & Province to avoid N+1 DB calls)
         List<AuctionLotVO> lots = new ArrayList<>();
         List<AuctionSession> allSessions = auctionSessionRepository.findAll();
+        Map<Long, NumberPlate> plateMap = new HashMap<>();
+        numberPlateRepository.findAll().forEach(p -> plateMap.put(p.getId(), p));
+        Map<Long, Province> provinceMap = new HashMap<>();
+        provinceRepository.findAll().forEach(pr -> provinceMap.put(pr.getId(), pr));
+
         for (AuctionSession s : allSessions) {
             String lotPlate = "Biển số";
             String lotProv = "Toàn quốc";
             String lotType = "OTHER";
             if (s.getNumberPlateId() != null) {
-                NumberPlate np = numberPlateRepository.findById(s.getNumberPlateId()).orElse(null);
+                NumberPlate np = plateMap.get(s.getNumberPlateId());
                 if (np != null) {
                     lotPlate = np.getPlateNumber();
                     if (np.getPlateType() != null) lotType = np.getPlateType().name();
                     if (np.getProvinceId() != null) {
-                        Province pr = provinceRepository.findById(np.getProvinceId()).orElse(null);
+                        Province pr = provinceMap.get(np.getProvinceId());
                         if (pr != null) lotProv = pr.getName();
                     }
                 }
             }
             boolean isCur = s.getSessionCode().equalsIgnoreCase(session.getSessionCode());
-            String timeLabel = s.getStatus() == AuctionStatusEnum.LIVE ? "Đang đấu" :
-                    (s.getStartTime() != null ? s.getStartTime().format(DateTimeFormatter.ofPattern("HH:mm")) : "Sắp đấu");
+            String timeLabel;
+            if (s.getStatus() == AuctionStatusEnum.LIVE) {
+                timeLabel = "Đang đấu";
+            } else if (s.getStatus() == AuctionStatusEnum.PAUSED) {
+                timeLabel = "Tạm dừng";
+            } else if (s.getStatus() == AuctionStatusEnum.END) {
+                timeLabel = "Đã kết thúc";
+            } else {
+                timeLabel = s.getStartTime() != null
+                        ? s.getStartTime().format(DateTimeFormatter.ofPattern("HH:mm"))
+                        : "Sắp đấu";
+            }
 
             lots.add(AuctionLotVO.builder()
                     .roomId(s.getSessionCode())
@@ -259,6 +325,29 @@ public class AuctionSessionServiceImplement implements AuctionSessionService {
         }
         var announcements = roomAnnouncementService.getRecentAnnouncements(session.getSessionCode());
 
+        // Tính mốc UTC Epoch & serverTimeMs ngay lúc trả response (sau khi hoàn tất query Neon DB) để không bị trễ
+        long serverNowMs = System.currentTimeMillis();
+        Long startEpochMs = session.getStartTime() != null
+                ? session.getStartTime().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                : null;
+        Long endEpochMs = session.getEndTime() != null
+                ? session.getEndTime().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                : null;
+        long exactRemaining = 0L;
+        if (session.getStatus() == AuctionStatusEnum.SOON) {
+            if (startEpochMs != null && startEpochMs > serverNowMs) {
+                exactRemaining = Math.max(0L, (long) Math.ceil((startEpochMs - serverNowMs) / 1000.0));
+            }
+        } else if (session.getStatus() != AuctionStatusEnum.END) {
+            if (endEpochMs != null) {
+                exactRemaining = endEpochMs > serverNowMs
+                        ? Math.max(0L, (long) Math.ceil((endEpochMs - serverNowMs) / 1000.0))
+                        : 0L;
+            } else if (session.getStatus() == AuctionStatusEnum.LIVE) {
+                exactRemaining = 180L;
+            }
+        }
+
         return AuctionRoomDetailVO.builder()
                 .sessionCode(session.getSessionCode())
                 .title(session.getTitle())
@@ -277,17 +366,65 @@ public class AuctionSessionServiceImplement implements AuctionSessionService {
                 .isRegistered(isRegistered)
                 .startTime(session.getStartTime() != null ? session.getStartTime().toString() : null)
                 .endTime(session.getEndTime() != null ? session.getEndTime().toString() : null)
-                .remainingSeconds(remaining)
+                .startTimeEpochMs(startEpochMs)
+                .endTimeEpochMs(endEpochMs)
+                .serverTimeMs(serverNowMs)
+                .remainingSeconds(exactRemaining)
                 .status(session.getStatus() != null ? session.getStatus().name() : "LIVE")
                 .bidCount(session.getBidCount() != null ? session.getBidCount() : bidItems.size())
                 .participantCount(session.getParticipantCount() != null ? session.getParticipantCount() : 0L)
                 .leadingUser(leader)
+                .leadingUserId(leadingUserId)
                 .reserveMet(true)
                 .pinnedNotice(pinnedNotice)
                 .announcements(announcements)
                 .lots(lots)
                 .initialBids(bidItems)
                 .build();
+    }
+
+    private Long isoToEpochMs(String iso) {
+        if (iso == null || iso.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDateTime.parse(iso).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private Map<Long, String> batchResolveDisplayNames(Set<Long> userIds) {
+        Map<Long, String> result = new HashMap<>();
+        if (userIds == null || userIds.isEmpty()) return result;
+
+        Map<String, String> infoByUsername = new HashMap<>();
+        Map<Long, String> infoById = new HashMap<>();
+        userInfoRepository.findAll().forEach(ui -> {
+            String best = (ui.getFullName() != null && !ui.getFullName().isBlank()) ? ui.getFullName() : ui.getUserName();
+            if (ui.getUserName() != null) infoByUsername.put(ui.getUserName(), best);
+            if (ui.getId() != null) infoById.put(ui.getId(), best);
+        });
+
+        userRepository.findAllById(userIds).forEach(u -> {
+            String name = infoByUsername.getOrDefault(u.getUsername(), u.getUsername());
+            result.put(u.getId(), name);
+        });
+
+        for (Long id : userIds) {
+            result.putIfAbsent(id, infoById.getOrDefault(id, "Người dùng #" + id));
+        }
+        return result;
+    }
+
+    private String resolveDisplayName(Long userId) {
+        if (userId == null) return "Người dùng ẩn danh";
+        return userRepository.findById(userId)
+                .flatMap(u -> userInfoRepository.findByUserName(u.getUsername())
+                        .map(ui -> (ui.getFullName() != null && !ui.getFullName().isBlank()) ? ui.getFullName() : u.getUsername()))
+                .orElseGet(() -> userInfoRepository.findById(userId)
+                        .map(UserInfo::getFullName)
+                        .orElse("Người dùng #" + userId));
     }
 
     private String maskUserName(String name) {

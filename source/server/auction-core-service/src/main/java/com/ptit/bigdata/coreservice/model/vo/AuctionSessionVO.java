@@ -22,6 +22,9 @@ public class AuctionSessionVO {
     private String sessionStatus;
     private String startTime;
     private String endTime;
+    private Long startTimeEpochMs;
+    private Long endTimeEpochMs;
+    private Long serverTimeMs;
     private Long stepPrice;
     private Long participantCount;
     private Long endPrice;
@@ -29,6 +32,7 @@ public class AuctionSessionVO {
     private Long currentPrice; // mới: giá hiện tại
     private String sessionCode;
     private Boolean isWatched;
+    private Boolean isRegistered;
     private Long nextStep;
     private Long nextMinBid;
 

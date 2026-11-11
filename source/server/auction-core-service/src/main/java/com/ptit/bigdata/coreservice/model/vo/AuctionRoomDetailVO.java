@@ -25,11 +25,15 @@ public class AuctionRoomDetailVO {
     private Long depositAmount;
     private String startTime;
     private String endTime;
+    private Long startTimeEpochMs;
+    private Long endTimeEpochMs;
+    private Long serverTimeMs;
     private Long remainingSeconds;
     private String status; // LIVE, SOON, END
     private Integer bidCount;
     private Long participantCount;
     private String leadingUser;
+    private Long leadingUserId;
     private Boolean reserveMet;
     private String pinnedNotice;
     private String myRole;

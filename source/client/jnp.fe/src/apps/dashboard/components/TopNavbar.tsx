@@ -6,6 +6,7 @@ import {
   LogoutOutlined,
   LoginOutlined,
   BellOutlined,
+  SafetyCertificateOutlined,
 } from "@ant-design/icons";
 import { useNavigate } from "@tanstack/react-router";
 import {
@@ -104,6 +105,12 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
 
   const initials = useMemo(() => getInitials(displayName), [displayName]);
 
+  const isAdmin = useMemo(() => {
+    if (!isLogin || !token) return false;
+    const payload = parseJwt(token);
+    return Boolean(payload?.sub === "admin" || payload?.roles?.includes("ROLE_ADMIN"));
+  }, [isLogin, token]);
+
   const handleLogout = () => {
     tokenManager.removeAllToken();
     setToken(undefined);
@@ -115,6 +122,16 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
 
   const userMenuItems: MenuProps["items"] = isLogin
     ? [
+        ...(isAdmin
+          ? [
+              {
+                key: "admin-monitor",
+                icon: <SafetyCertificateOutlined style={{ color: "#d97706" }} />,
+                label: "Quản trị & Giám sát",
+                onClick: () => navigate({ to: "/quan-tri" }),
+              },
+            ]
+          : []),
         {
           key: "profile",
           icon: <UserOutlined style={{ color: "#256b8c" }} />,
@@ -152,6 +169,27 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
         </Brand>
 
         <NavActions>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => navigate({ to: "/quan-tri" })}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "6px 12px",
+                borderRadius: 8,
+                border: "1px solid #f59e0b",
+                background: "#fffbeb",
+                color: "#b45309",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              <SafetyCertificateOutlined /> Quản trị
+            </button>
+          )}
           {isLogin ? (
             <NotificationBell />
           ) : (

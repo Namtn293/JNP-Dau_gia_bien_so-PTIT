@@ -18,8 +18,8 @@ public final class AdminConfig {
     public static final String OPERATOR_ROLE = "Quản trị viên • Ca trực 14:00–22:00";
 
     // Mặc định khi mở màn hình
-    public static final String DEFAULT_ROOM_ID = "AUC-1023";
-    public static final String DEFAULT_KICK_ACCOUNT = "U-0842";
+    public static final String DEFAULT_ROOM_ID = "SES-HN-30K88888";
+    public static final String DEFAULT_KICK_ACCOUNT = "";
 
     // Trạng thái phòng dùng để bật tắt nút điều khiển
     public static final String STATUS_PAUSED = "Tạm dừng";
@@ -30,6 +30,8 @@ public final class AdminConfig {
     // Cổng mạng
     public static final int UDP_PORT = 8888;
     public static final int RAW_TCP_PORT = 9090;
+    public static final String CORE_HOST = "127.0.0.1";
+    public static final int CORE_HTTP_PORT = 8080;
 
     // Tài chính (theo tổng quan dự án)
     public static final long DEPOSIT_VND = 40_000_000L;

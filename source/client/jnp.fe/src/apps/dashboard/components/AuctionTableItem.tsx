@@ -1,6 +1,6 @@
 import React from "react";
 import { Tag } from "antd";
-import { StarFilled, StarOutlined } from "@ant-design/icons";
+import { CheckCircleFilled, StarFilled, StarOutlined } from "@ant-design/icons";
 import type { AuctionItem } from "../services/type";
 import { formatMoney, getTimeLabel, getPriceLabel } from "../utils/format";
 import { STATUS_LABEL_MAP } from "../utils/constants";
@@ -76,10 +76,21 @@ export const AuctionTableItem: React.FC<AuctionTableItemProps> = ({
                   </Tag>
                 </td>
                 <td style={{ padding: "12px 16px" }}>
-                  <StatusTag $st={item.st}>
-                    <i />
-                    {STATUS_LABEL_MAP[item.st]}
-                  </StatusTag>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <StatusTag $st={item.st}>
+                      <i />
+                      {STATUS_LABEL_MAP[item.st]}
+                    </StatusTag>
+                    {item.isRegistered && (
+                      <Tag
+                        icon={<CheckCircleFilled />}
+                        color="success"
+                        style={{ borderRadius: 6, fontWeight: 700, margin: 0 }}
+                      >
+                        Đã nộp cọc
+                      </Tag>
+                    )}
+                  </div>
                 </td>
                 <td style={{ padding: "12px 16px", textAlign: "right" }}>
                   <div style={{ fontWeight: 800, color: "#123d50" }}>

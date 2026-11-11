@@ -48,6 +48,8 @@ const getTagConfig = (type?: string) => {
       return { label: "Trúng đấu giá", bg: "#f6ffed", color: "#389e0d", border: "#b7eb8f" };
     case "ENDED_LOST":
       return { label: "Không trúng", bg: "#f5f5f5", color: "#595959", border: "#d9d9d9" };
+    case "ENDED":
+      return { label: "Đã kết thúc", bg: "#f5f5f5", color: "#595959", border: "#d9d9d9" };
     case "AUTO_BID_STOPPED":
       return { label: "Tự động dừng", bg: "#fff1f0", color: "#cf1322", border: "#ffa39e" };
     case "SHILL_ALERT":
@@ -59,7 +61,7 @@ const getTagConfig = (type?: string) => {
     case "BID_SUCCESS":
       return { label: "Đặt giá thành công", bg: "#e6f7ff", color: "#0958d9", border: "#91c5ff" };
     default:
-      return { label: "Quá hạn", bg: "#fff1f0", color: "#cf1322", border: "#ffa39e" };
+      return { label: "Thông báo", bg: "#f1f5f9", color: "#475569", border: "#cbd5e1" };
   }
 };
 
@@ -140,6 +142,16 @@ export const NotificationBell: React.FC = () => {
   const handleClickItem = (item: NotificationItem) => {
     if (!item.isRead) {
       markReadMutation.mutate(item.id);
+    }
+    if (item.type === "SHILL_ALERT") {
+      setOpen(false);
+      navigate({ to: "/quan-tri" });
+      return;
+    }
+    if (item.type === "WALLET_TOPUP") {
+      setOpen(false);
+      navigate({ to: "/profile" });
+      return;
     }
     if (item.sessionCode) {
       setOpen(false);

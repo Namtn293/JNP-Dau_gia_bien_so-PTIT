@@ -6,14 +6,18 @@ import type { AuctionLot } from "../services/type";
 import { placeBidRestApi } from "../services/api";
 import {
   useRegisterAuctionMutation,
+  useCancelRegistrationMutation,
   useWatchAuctionMutation,
   useUnwatchAuctionMutation,
+  useConfigureAutoBidMutation,
+  useDisableAutoBidMutation,
 } from "../services/mutation";
 
 interface UseActionProps {
   currentPrice: number;
   stepPrice: number;
   isEnded: boolean;
+  roomStatus?: "LIVE" | "SOON" | "PAUSED" | "END";
   leader?: string;
   plateNumber: string;
   sessionCode: string;
@@ -48,6 +52,7 @@ export const useAction = ({
   currentPrice,
   stepPrice,
   isEnded,
+  roomStatus = "LIVE",
   plateNumber,
   sessionCode,
   currentUser,
@@ -76,8 +81,11 @@ export const useAction = ({
   const navigate = useNavigate();
   const { showSuccessNotify, showErrorNotify } = useNotification();
   const registerMutation = useRegisterAuctionMutation();
+  const cancelRegisterMutation = useCancelRegistrationMutation();
   const watchMutation = useWatchAuctionMutation();
   const unwatchMutation = useUnwatchAuctionMutation();
+  const configureAutoBidMutation = useConfigureAutoBidMutation();
+  const disableAutoBidMutation = useDisableAutoBidMutation();
   const [togglingWatch, setTogglingWatch] = useState(false);
 
   const onToggleWatch = useCallback(async () => {
@@ -159,11 +167,43 @@ export const useAction = ({
     refetchWallet,
   ]);
 
+  const onCancelDeposit = useCallback(async () => {
+    try {
+      const targetCode = sessionCode || plateNumber;
+      await cancelRegisterMutation.mutateAsync(targetCode);
+      showSuccessNotify(
+        `Đã hủy đăng ký tham gia biển số ${plateNumber} và hoàn lại 100% tiền cọc vào ví.`
+      );
+      refetchRegistration?.();
+      refetchWallet?.();
+    } catch (err: any) {
+      showErrorNotify(
+        err?.response?.data?.message || err?.data?.message || err?.message || "Không thể hủy cọc!"
+      );
+    }
+  }, [
+    sessionCode,
+    plateNumber,
+    cancelRegisterMutation,
+    showSuccessNotify,
+    showErrorNotify,
+    refetchRegistration,
+    refetchWallet,
+  ]);
+
   // 1. Prompt confirmation modal before placing bid
   const promptBidModal = useCallback(
     (targetAmount: number) => {
-      if (isEnded) {
+      if (isEnded || roomStatus === "END") {
         showErrorNotify("Phiên đấu giá đã kết thúc");
+        return;
+      }
+      if (roomStatus === "PAUSED") {
+        showErrorNotify("Phiên đấu giá đang tạm dừng khẩn cấp bởi Ban tổ chức");
+        return;
+      }
+      if (roomStatus === "SOON") {
+        showErrorNotify("Phiên đấu giá chưa bắt đầu");
         return;
       }
       if (!isRegistered) {
@@ -180,7 +220,7 @@ export const useAction = ({
         amount: targetAmount,
       });
     },
-    [isEnded, isRegistered, currentPrice, setConfirmModal, setDepositModalOpen, showErrorNotify]
+    [isEnded, roomStatus, isRegistered, currentPrice, setConfirmModal, setDepositModalOpen, showErrorNotify]
   );
 
   // 2. Action: Quick bid buttons (+1, +2, +5 steps)
@@ -209,7 +249,7 @@ export const useAction = ({
     promptBidModal(val);
   }, [customBidInput, currentPrice, stepPrice, promptBidModal, showErrorNotify]);
 
-  // 5. Action: Confirm and execute bid
+  // 5. Action: Confirm and execute bid (gọi REST để nhận kết quả đồng bộ từ BidService; server tự broadcast STOMP tới phòng)
   const onConfirmBid = useCallback(async () => {
     const amount = confirmModal.amount;
     setConfirmModal({ open: false, amount: 0 });
@@ -220,28 +260,17 @@ export const useAction = ({
       return;
     }
 
-    setMyLastBid(amount);
-
-    const userName = currentUser?.name || "Bạn";
-    const bidPayload = {
-      roomId: sessionCode,
-      plateNumber,
-      bidAmount: amount,
-      currentPrice: amount,
-      userName,
-      timestamp: getCurrentTimeString(),
-    };
-
     try {
-      // 1. Gửi qua WebSocket tới server
-      const sent = sendSocketBid(bidPayload);
-      if (!sent) {
-        // 2. Fallback qua REST API nếu socket gián đoạn
-        await placeBidRestApi(sessionCode, amount);
-      }
-      showSuccessNotify(`Đã gửi yêu cầu đặt giá ${formatMoney(amount)} cho biển số ${plateNumber}!`);
+      await placeBidRestApi(sessionCode, amount);
+      setMyLastBid(amount);
+      showSuccessNotify(`Đặt giá thành công ${formatMoney(amount)} cho biển số ${plateNumber}!`);
     } catch (err: any) {
-      showErrorNotify(err?.message || "Đặt giá thất bại. Vui lòng thử lại!");
+      const errMsg =
+        err?.response?.data?.message ||
+        err?.data?.message ||
+        err?.message ||
+        "Đặt giá thất bại. Vui lòng thử lại!";
+      showErrorNotify(errMsg);
     }
   }, [
     confirmModal.amount,
@@ -249,10 +278,8 @@ export const useAction = ({
     setConfirmModal,
     setCustomBidInput,
     setMyLastBid,
-    currentUser,
     sessionCode,
     plateNumber,
-    sendSocketBid,
     showSuccessNotify,
     showErrorNotify,
   ]);
@@ -287,24 +314,91 @@ export const useAction = ({
     });
   }, [setSoundEnabled, showSuccessNotify]);
 
-  // 9. Action: Toggle auto-bidding proxy
+  // 9. Action: Toggle auto-bidding proxy (Server-side AutoBidScheduler)
   const onToggleAutoBid = useCallback(
-    (checked: boolean) => {
+    async (checked: boolean) => {
+      const targetCode = sessionCode || plateNumber;
       if (checked) {
         const maxVal = parseMoney(autoBidMax);
-        if (maxVal <= currentPrice) {
-          showErrorNotify(`Mức giá tự động tối đa phải cao hơn giá hiện tại (${formatMoney(currentPrice)})`);
+        const minRequired = currentPrice + stepPrice;
+        if (maxVal < minRequired) {
+          showErrorNotify(
+            `Mức giá tự động tối đa phải tối thiểu bằng giá đặt kế tiếp (${formatMoney(minRequired)})`
+          );
           return;
         }
-        setAutoBidEnabled(true);
-        showSuccessNotify(`Đã kích hoạt tự động đặt giá tới mức tối đa ${formatMoney(maxVal)}`);
+        try {
+          await configureAutoBidMutation.mutateAsync({
+            sessionCode: targetCode,
+            maxAmount: maxVal,
+          });
+          setAutoBidEnabled(true);
+          showSuccessNotify(
+            `Đã kích hoạt đấu giá tự động trên server tới mức tối đa ${formatMoney(maxVal)}`
+          );
+        } catch (err: any) {
+          showErrorNotify(
+            err?.response?.data?.message || err?.message || "Không thể bật đấu giá tự động"
+          );
+        }
       } else {
-        setAutoBidEnabled(false);
-        showSuccessNotify("Đã tắt tính năng tự động đặt giá");
+        try {
+          await disableAutoBidMutation.mutateAsync(targetCode);
+          setAutoBidEnabled(false);
+          showSuccessNotify("Đã tắt tính năng tự động đặt giá");
+        } catch (err: any) {
+          showErrorNotify(
+            err?.response?.data?.message || err?.message || "Không thể tắt đấu giá tự động"
+          );
+        }
       }
     },
-    [autoBidMax, currentPrice, setAutoBidEnabled, showSuccessNotify, showErrorNotify]
+    [
+      sessionCode,
+      plateNumber,
+      autoBidMax,
+      currentPrice,
+      stepPrice,
+      configureAutoBidMutation,
+      disableAutoBidMutation,
+      setAutoBidEnabled,
+      showSuccessNotify,
+      showErrorNotify,
+    ]
   );
+
+  // 9b. Action: Update auto bid max while enabled
+  const onUpdateAutoBidMax = useCallback(async () => {
+    const targetCode = sessionCode || plateNumber;
+    const maxVal = parseMoney(autoBidMax);
+    const minRequired = currentPrice + stepPrice;
+    if (maxVal < minRequired) {
+      showErrorNotify(
+        `Mức giá tự động tối đa phải tối thiểu bằng ${formatMoney(minRequired)}`
+      );
+      return;
+    }
+    try {
+      await configureAutoBidMutation.mutateAsync({
+        sessionCode: targetCode,
+        maxAmount: maxVal,
+      });
+      showSuccessNotify(`Đã cập nhật mức trần tự động: ${formatMoney(maxVal)}`);
+    } catch (err: any) {
+      showErrorNotify(
+        err?.response?.data?.message || err?.message || "Không thể cập nhật mức trần tự động"
+      );
+    }
+  }, [
+    sessionCode,
+    plateNumber,
+    autoBidMax,
+    currentPrice,
+    stepPrice,
+    configureAutoBidMutation,
+    showSuccessNotify,
+    showErrorNotify,
+  ]);
 
   // 10. Action: Change auto bid max input
   const onChangeAutoBidMax = useCallback(
@@ -344,12 +438,15 @@ export const useAction = ({
     onToggleSound,
     onToggleAutoBid,
     onChangeAutoBidMax,
+    onUpdateAutoBidMax,
+    autoBidLoading: configureAutoBidMutation.isLoading || disableAutoBidMutation.isLoading,
     onSelectLot,
     onBackToList,
     onOpenDepositModal,
     onCloseDepositModal,
     onConfirmDeposit,
-    depositLoading: registerMutation.isLoading,
+    onCancelDeposit,
+    depositLoading: registerMutation.isLoading || cancelRegisterMutation.isLoading,
     onToggleWatch,
     watchLoading: watchMutation.isLoading || unwatchMutation.isLoading,
   };
