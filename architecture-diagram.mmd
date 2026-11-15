@@ -1,0 +1,52 @@
+flowchart TB
+    %% ------------------- TẦNG CLIENTS -------------------
+    subgraph CLIENTS["TẦNG CLIENTS (GIAO DIỆN & QUẢN TRỊ)"]
+        direction LR
+        WEB["Web Client (ReactJS / Vite)<br/>Port: 5173<br/>• Tra cứu & Sảnh chờ đấu giá<br/>• Phòng đấu giá thời gian thực & Chat"]
+        ADMIN["Admin Console (Java Swing)<br/>Desktop Application<br/>• Giám sát Telemetry máy chủ & Đo Ping<br/>• Lệnh điều hành khẩn cấp (HALT/RESUME)"]
+    end
+
+    %% ------------------- TẦNG CORE BACKEND -------------------
+    subgraph CORE["TẦNG MÁY CHỦ TRUNG TÂM (AUCTION CORE SERVICE)"]
+        SPRING["Auction Core Service (Spring Boot 3 - Java 21)<br/>• HTTP REST API (:8080)<br/>• WebSocket/STOMP Broker (:8080/ws)<br/>• Raw TCP Control Server (:9090)<br/>• Background Scheduler (Quét chốt phiên mỗi 2s)<br/>• UDP Metrics Publisher (Bắn gói tin sang :9001)"]
+        DB[("Neon Cloud PostgreSQL<br/>(Lưu trữ Biển số, Phiên đấu giá, Lịch sử Bid, User)")]
+    end
+
+    %% ------------------- TẦNG TELEMETRY & GIÁM SÁT -------------------
+    subgraph TELEMETRY["TẦNG TELEMETRY & GIÁM SÁT HẠ TẦNG"]
+        UDP_SRV["UDP Telemetry Server (Java DatagramSocket)<br/>• Cổng 9001: Nhận luồng gói tin METRICS<br/>• Cổng 9002: Echo PING/PONG đo độ trễ RTT<br/>• Cổng 8888: Forward chỉ số & Cảnh báo ngưỡng quá tải"]
+    end
+
+    %% ------------------- TẦNG DỊCH VỤ NGOÀI -------------------
+    subgraph EXTERNAL["TẦNG DỊCH VỤ NGOÀI"]
+        MAIL["Mail Server (SMTP Port: 587)<br/>Mailtrap / Gmail<br/>(Bắt tay STARTTLS, chứng thực AUTH LOGIN/PLAIN)"]
+    end
+
+    %% ------------------- CÁC LUỒNG GIAO TIẾP MẠNG -------------------
+    %% 1. Web Client <-> Core
+    WEB -->|"1. HTTP/1.1 REST (Auth JWT, Tra cứu biển số, Nộp cọc)"| SPRING
+    WEB <-->|"2. WebSocket / STOMP over TCP (Nhảy giá tức thì, Chat, Đếm ngược)"| SPRING
+    SPRING <-->|"3. JDBC over TLS (HikariCP Connection Pool)"| DB
+
+    %% 2. Core -> UDP Server
+    SPRING -->|"4. UDP Datagram (:9001) [CPU, RAM, Online Users]"| UDP_SRV
+
+    %% 3. UDP Server <-> Admin Console
+    UDP_SRV -->|"5. UDP Datagram (:8888) [Forward Telemetry & Cảnh báo ngưỡng]"| ADMIN
+    ADMIN <-->|"6. UDP Datagram (:9002) [Ping Probe đo độ trễ RTT]"| UDP_SRV
+
+    %% 4. Admin Console -> Core & Mail
+    ADMIN -.->|"7. Raw TCP Socket (:9090) [Lệnh khẩn: HALT, RESUME, KICK, CANCEL]"| SPRING
+    ADMIN -->|"8. Raw TCP Socket + STARTTLS (:587) [Gửi email biên bản trúng thầu]"| MAIL
+
+    %% ------------------- STYLING MÀU SẮC GIAO DIỆN -------------------
+    classDef clientStyle fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
+    classDef serverStyle fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+    classDef telemetryStyle fill:#fff3e0,stroke:#e65100,stroke-width:2px,color:#bf360c;
+    classDef extStyle fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px,color:#4a148c;
+
+    class WEB,ADMIN clientStyle;
+    class SPRING,DB serverStyle;
+    class UDP_SRV telemetryStyle;
+    class MAIL extStyle;
+

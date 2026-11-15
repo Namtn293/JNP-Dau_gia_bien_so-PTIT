@@ -14,17 +14,32 @@ import { formatMoney, getCurrentTimeString } from "../util/format";
 import { soundManager } from "../feature/audio";
 import { LOCAL_STORAGE_KEYS } from "@/constants";
 import { lcStorage } from "@/shared/utils";
+import tokenManager from "@/shared/utils/tokenManager";
+import { getUserFromToken } from "@/shared/utils/jwt";
 
 export const useData = (roomId: string) => {
   const currentUser = useMemo(() => {
-    return lcStorage.get<any>(LOCAL_STORAGE_KEYS.user) || {
-      name: "Bạn",
-      id: "U-ME",
-    };
+    const stored = lcStorage.get<any>(LOCAL_STORAGE_KEYS.user);
+    if (stored && (stored.fullName || stored.name)) {
+      return stored;
+    }
+    const token = tokenManager.getAccessToken();
+    if (token) {
+      const fromJwt = getUserFromToken(token);
+      if (fromJwt) {
+        return {
+          id: fromJwt.id,
+          name: fromJwt.displayName,
+          fullName: fromJwt.fullName,
+          email: fromJwt.email,
+        };
+      }
+    }
+    return null;
   }, []);
 
-  const selfName = currentUser?.fullName || currentUser?.name || "Bạn";
-  const selfId = currentUser?.id ? String(currentUser.id) : "U-ME";
+  const selfName = currentUser?.fullName || currentUser?.name || "";
+  const selfId = currentUser?.id ? String(currentUser.id) : "";
 
   // 1. Fetch initial detail from API
   const { data: initialDetail, isLoading } = useAuctionRoomDetailQuery(roomId);
@@ -118,6 +133,7 @@ export const useData = (roomId: string) => {
 
   // Sync initial query detail (guarded with ref to run only once per payload)
   const lastSyncedDetailRef = useRef<any>(null);
+  const hasAnnouncedEndRef = useRef(false);
 
   useEffect(() => {
     if (!initialDetail) return;
@@ -135,7 +151,11 @@ export const useData = (roomId: string) => {
     setDepositAmount(initialDetail.depositAmount || 40_000_000);
     setReserveMet(initialDetail.reserveMet ?? true);
     setRemainingSeconds(initialDetail.remainingSeconds || 0);
-    setIsEnded(initialDetail.status === "END");
+    const ended = initialDetail.status === "END" || (initialDetail.remainingSeconds ?? 0) <= 0;
+    setIsEnded(ended);
+    if (ended) {
+      hasAnnouncedEndRef.current = true;
+    }
     if (initialDetail.leadingUser) setLeader(initialDetail.leadingUser);
     if (initialDetail.pinnedNotice) setPinnedNotice(initialDetail.pinnedNotice);
     if (initialDetail.lots?.length) setLots(initialDetail.lots);
@@ -330,15 +350,18 @@ export const useData = (roomId: string) => {
 
   // Countdown timer effect
   useEffect(() => {
-    if (isEnded) return;
+    if (isLoading || isEnded || remainingSeconds <= 0) return;
 
     const timer = setInterval(() => {
       setRemainingSeconds((prev) => {
         if (prev <= 1) {
           setIsEnded(true);
-          const winner = leader || "Không có người đặt giá";
-          const finalPriceStr = currentPrice > 0 ? formatMoney(currentPrice) : "giá khởi điểm";
-          addSystemNotice(`Phiên đấu giá kết thúc! Người thắng cuộc: ${winner} với mức giá ${finalPriceStr}`);
+          if (!hasAnnouncedEndRef.current) {
+            hasAnnouncedEndRef.current = true;
+            const winner = leader || "Không có người đặt giá";
+            const finalPriceStr = currentPrice > 0 ? formatMoney(currentPrice) : "giá khởi điểm";
+            addSystemNotice(`Phiên đấu giá kết thúc! Người thắng cuộc: ${winner} với mức giá: ${finalPriceStr}`);
+          }
           return 0;
         }
         if (prev === 31) {
@@ -350,7 +373,7 @@ export const useData = (roomId: string) => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isEnded, leader, currentPrice, soundEnabled, addSystemNotice]);
+  }, [isLoading, isEnded, remainingSeconds, leader, currentPrice, soundEnabled, addSystemNotice]);
 
   return {
     currentUser,

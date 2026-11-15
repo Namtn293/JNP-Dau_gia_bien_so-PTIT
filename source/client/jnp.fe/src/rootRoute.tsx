@@ -2,10 +2,10 @@ import {
   ADMIN_LOGIN_ROUTE,
   FORGOT_PASSWORD_ROUTE,
   GOOGLE_CALLBACK_ROUTE,
-  LOCAL_STORAGE_KEYS,
   LOGIN_CAN_BO_ROUTE,
 } from "@/constants";
-import { lcStorage } from "@/shared/utils";
+import tokenManager from "@/shared/utils/tokenManager";
+import { isJwtExpired } from "@/shared/utils/jwt";
 import NotFound404 from "@shared/components/404";
 import {
   Outlet,
@@ -17,6 +17,7 @@ import { App } from "antd";
 import { useEffect } from "react";
 import ErrorFallback from "~/shared/components/error-boundary/ErrorFallback";
 import { usePageTitle } from "./shared/hooks/usePageTitle";
+import { StompProvider, UserChannels } from "@/shared/realtime";
 
 function RootComponent() {
   usePageTitle();
@@ -33,10 +34,11 @@ function RootComponent() {
   }, [location.pathname, notification, message]);
 
   return (
-    <>
+    <StompProvider>
+      <UserChannels />
       <Outlet />
       {/* <TanStackRouterDevtools position="bottom-right" /> */}
-    </>
+    </StompProvider>
   );
 }
 
@@ -44,16 +46,25 @@ export const rootRoute = createRootRoute({
   component: RootComponent,
 
   beforeLoad: async ({ location }) => {
-    const accessToken = lcStorage.get<string>(LOCAL_STORAGE_KEYS.accessToken);
-    const loggedIn = !!accessToken;
+    const token = tokenManager.getAccessToken();
+    const loggedIn = Boolean(token && !isJwtExpired(token));
 
     const isPublic =
+      location.pathname === "/" ||
       location.pathname.startsWith(ADMIN_LOGIN_ROUTE) ||
       location.pathname.startsWith(FORGOT_PASSWORD_ROUTE) ||
       location.pathname.startsWith(LOGIN_CAN_BO_ROUTE) ||
-      location.pathname.startsWith(GOOGLE_CALLBACK_ROUTE);
+      location.pathname.startsWith(GOOGLE_CALLBACK_ROUTE) ||
+      location.pathname.startsWith("/danh-sach-dau-gia") ||
+      location.pathname.startsWith("/phong-dau-gia");
 
-    if (!loggedIn && (!isPublic || location.pathname === "/")) {
+    if (location.pathname === "/") {
+      throw redirect({
+        to: "/danh-sach-dau-gia",
+      });
+    }
+
+    if (!loggedIn && !isPublic) {
       throw redirect({
         to: ADMIN_LOGIN_ROUTE,
         search: {
@@ -62,7 +73,7 @@ export const rootRoute = createRootRoute({
       });
     }
 
-    if (loggedIn && (location.pathname === "/" || location.pathname === ADMIN_LOGIN_ROUTE)) {
+    if (loggedIn && location.pathname === ADMIN_LOGIN_ROUTE) {
       throw redirect({
         to: "/danh-sach-dau-gia",
       });

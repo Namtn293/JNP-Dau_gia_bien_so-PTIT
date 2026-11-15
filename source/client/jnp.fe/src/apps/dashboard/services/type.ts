@@ -49,6 +49,7 @@ export interface GetAuctionSessionsParams {
 
 export interface AuctionItem {
   p: string;
+  sessionCode?: string;
   prov: string;
   type: string;
   plateTypeEnum?: PlateTypeEnum | string;

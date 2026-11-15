@@ -7,7 +7,7 @@ export const usePlaceBidMutation = () => {
   const queryClient = useQueryClient();
 
   return useMutation(
-    (payload: PlaceBidPayload) => placeBidApi(payload),
+    (payload: PlaceBidPayload) => placeBidApi(payload.sessionCode, payload.bidAmount),
     {
       onSuccess: () => {
         queryClient.invalidateQueries(AUCTION_QUERY_KEY);

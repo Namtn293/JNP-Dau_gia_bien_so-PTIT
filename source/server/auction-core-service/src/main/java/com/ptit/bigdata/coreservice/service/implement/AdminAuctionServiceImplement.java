@@ -29,7 +29,6 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import com.ptit.bigdata.coreservice.model.vo.RoomEventVO;
 import java.time.LocalTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -50,38 +49,28 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
     public List<AdminRoomVO> getRooms() {
         List<AuctionSession> sessions = auctionSessionRepository.findAll();
         if (sessions.isEmpty()) {
-            return List.of();
+            return getDefaultMockRooms();
         }
 
         List<AdminRoomVO> result = new ArrayList<>();
         LocalDateTime now = LocalDateTime.now();
 
-        // Lấy biển số và tỉnh theo lô (2 truy vấn) thay vì mỗi phòng một truy vấn
-        Set<Long> plateIds = sessions.stream()
-                .map(AuctionSession::getNumberPlateId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
+        // Cache provinces and number plates to minimize DB queries
         Map<Long, NumberPlate> plateMap = new HashMap<>();
-        for (NumberPlate p : numberPlateRepository.findAllById(plateIds)) {
-            plateMap.put(p.getId(), p);
-        }
-
-        Set<Long> provinceIds = plateMap.values().stream()
-                .map(NumberPlate::getProvinceId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
         Map<Long, Province> provinceMap = new HashMap<>();
-        for (Province p : provinceRepository.findAllById(provinceIds)) {
-            provinceMap.put(p.getId(), p);
-        }
 
         for (AuctionSession session : sessions) {
-            NumberPlate plate = session.getNumberPlateId() != null
-                    ? plateMap.get(session.getNumberPlateId())
-                    : null;
-            Province province = (plate != null && plate.getProvinceId() != null)
-                    ? provinceMap.get(plate.getProvinceId())
-                    : null;
+            NumberPlate plate = null;
+            Province province = null;
+
+            if (session.getNumberPlateId() != null) {
+                plate = plateMap.computeIfAbsent(session.getNumberPlateId(),
+                        id -> numberPlateRepository.findById(id).orElse(null));
+                if (plate != null && plate.getProvinceId() != null) {
+                    province = provinceMap.computeIfAbsent(plate.getProvinceId(),
+                            id -> provinceRepository.findById(id).orElse(null));
+                }
+            }
 
             String plateNumber = plate != null ? plate.getPlateNumber() : extractPlateFromTitle(session.getTitle());
             String regionName = province != null ? province.getName() : "Toàn quốc";
@@ -112,52 +101,61 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
     public List<AdminParticipantVO> getParticipants(String roomId) {
         Optional<AuctionSession> sessionOpt = auctionSessionRepository.findBySessionCode(roomId);
         if (sessionOpt.isEmpty()) {
-            return List.of();
+            return Collections.emptyList();
         }
 
-        List<BidHistory> bids = bidHistoryRepository
-                .findByAuctionSessionIdOrderByBidTimeDesc(sessionOpt.get().getId());
+        Long sessionId = sessionOpt.get().getId();
+        List<BidHistory> bids = bidHistoryRepository.findByAuctionSessionIdOrderByBidTimeDesc(sessionId);
+        List<com.ptit.bigdata.coreservice.entity.AuctionRegistration> registrations =
+                auctionRegistrationRepository.findBySessionId(sessionId);
 
-        // Nhóm theo người dùng, bỏ qua lượt đặt giá cũ chưa gắn người dùng (userID
-        // null)
+        Set<Long> allUserIds = new LinkedHashSet<>();
+        for (com.ptit.bigdata.coreservice.entity.AuctionRegistration registration : registrations) {
+            if (registration.getUserId() != null) {
+                allUserIds.add(registration.getUserId());
+            }
+        }
+
         Map<Long, List<BidHistory>> userBids = new LinkedHashMap<>();
-        for (BidHistory b : bids) {
-            if (b.getUserID() == null) {
+        for (BidHistory bid : bids) {
+            if (bid.getUserID() == null) {
                 continue;
             }
-            userBids.computeIfAbsent(b.getUserID(), k -> new ArrayList<>()).add(b);
-        }
-        if (userBids.isEmpty()) {
-            return List.of();
+            allUserIds.add(bid.getUserID());
+            userBids.computeIfAbsent(bid.getUserID(), key -> new ArrayList<>()).add(bid);
         }
 
-        // Một truy vấn cho tất cả người dùng, tránh gọi DB từng người mỗi lần làm mới
+        if (allUserIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
         Map<Long, UserInfo> users = new HashMap<>();
-        for (UserInfo u : userInfoRepository.findAllById(userBids.keySet())) {
-            users.put(u.getId(), u);
+        for (UserInfo user : userInfoRepository.findAllById(allUserIds)) {
+            users.put(user.getId(), user);
         }
 
         LocalDateTime since = LocalDateTime.now().minusSeconds(5);
         List<AdminParticipantVO> list = new ArrayList<>();
-        for (Map.Entry<Long, List<BidHistory>> entry : userBids.entrySet()) {
-            Long userId = entry.getKey();
-            List<BidHistory> hist = entry.getValue();
+        for (Long userId : allUserIds) {
+            List<BidHistory> history = userBids.getOrDefault(userId, Collections.emptyList());
             UserInfo user = users.get(userId);
-            String name = (user != null && user.getFullName() != null)
+            String name = user != null && user.getFullName() != null
                     ? user.getFullName()
                     : "Người dùng #" + userId;
-            long maxBid = hist.stream().mapToLong(BidHistory::getBidAmount).max().orElse(0L);
-            int recentBids = (int) hist.stream()
-                    .filter(b -> b.getBidTime() != null && b.getBidTime().isAfter(since))
+            long maxBid = history.stream().mapToLong(BidHistory::getBidAmount).max().orElse(0L);
+            int recentBids = (int) history.stream()
+                    .filter(bid -> bid.getBidTime() != null && bid.getBidTime().isAfter(since))
                     .count();
+            String role = roomRoleResolver.resolve(userId, sessionId).name();
 
             list.add(AdminParticipantVO.builder()
-                    .userId(String.valueOf(userId)) // ID thật trong main_user_info
+                    .userId("U-" + String.format("%04d", userId))
                     .fullName(name)
-                    .connection("CONNECTED") // chưa có dữ liệu thật, xem ghi chú bên dưới
-                    .bidsInLast5s(recentBids) // trước đây là tổng số lượt đặt giá
+                    .connection("CONNECTED")
+                    .bidsInLast5s(recentBids)
                     .lastPrice(maxBid)
-                    .rttMs(32) // chưa có dữ liệu thật
+                    .rttMs(32)
+                    .role(role)
                     .build());
         }
         return list;
@@ -171,8 +169,8 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
         double ramTotalGb = 16.0;
 
         try {
-            com.sun.management.OperatingSystemMXBean osBean = (com.sun.management.OperatingSystemMXBean) ManagementFactory
-                    .getOperatingSystemMXBean();
+            com.sun.management.OperatingSystemMXBean osBean =
+                    (com.sun.management.OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
             double cpuLoad = osBean.getCpuLoad();
             if (cpuLoad >= 0) {
                 cpuPercent = Math.round(cpuLoad * 1000.0) / 10.0;
@@ -190,8 +188,7 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
                 .filter(s -> s.getStatus() == AuctionStatusEnum.LIVE)
                 .mapToLong(s -> s.getParticipantCount() != null ? s.getParticipantCount() : 0L)
                 .sum();
-        if (online == 0)
-            online = 251;
+        if (online == 0) online = 251;
 
         return AdminServerMetricsVO.builder()
                 .cpuPercent(cpuPercent)
@@ -211,8 +208,7 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
         if (messagingTemplate != null) {
             String time = DateTimeFormatter.ofPattern("HH:mm:ss").format(LocalTime.now());
             messagingTemplate.convertAndSend("/topic/room/" + roomId,
-                    new RoomEventVO(roomId, "HALT", "Phiên đấu giá đã bị tạm dừng khẩn cấp bởi quản trị viên.", null,
-                            time));
+                    new RoomEventVO(roomId, "HALT", "Phiên đấu giá đã bị tạm dừng khẩn cấp bởi quản trị viên.", null, time));
         }
         return AdminCommandResultVO.ok("Đã tạm dừng phiên " + roomId + ". Đóng băng đồng hồ và khóa lệnh đặt giá.");
     }
@@ -238,8 +234,7 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
         if (messagingTemplate != null) {
             String time = DateTimeFormatter.ofPattern("HH:mm:ss").format(LocalTime.now());
             messagingTemplate.convertAndSend("/topic/room/" + roomId,
-                    new RoomEventVO(roomId, "RESUME",
-                            "Phiên đấu giá đã được tiếp tục. Đồng hồ đếm ngược cộng thêm 30 giây.", null, time));
+                    new RoomEventVO(roomId, "RESUME", "Phiên đấu giá đã được tiếp tục. Đồng hồ đếm ngược cộng thêm 30 giây.", null, time));
         }
         return AdminCommandResultVO.ok("Đã tiếp tục phiên " + roomId + ". Đồng hồ đếm ngược đã cộng thêm 30 giây.");
     }
@@ -250,11 +245,9 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
         if (messagingTemplate != null) {
             String time = DateTimeFormatter.ofPattern("HH:mm:ss").format(LocalTime.now());
             messagingTemplate.convertAndSend("/topic/room/" + roomId,
-                    new RoomEventVO(roomId, "KICK", "Tài khoản " + userId + " đã bị ngắt kết nối khỏi phòng.", null,
-                            time));
+                    new RoomEventVO(roomId, "KICK", "Tài khoản " + userId + " đã bị ngắt kết nối khỏi phòng.", null, time));
         }
-        return AdminCommandResultVO
-                .ok("Đã cưỡng chế ngắt kết nối WebSocket của tài khoản " + userId + " ra khỏi phòng " + roomId);
+        return AdminCommandResultVO.ok("Đã cưỡng chế ngắt kết nối WebSocket của tài khoản " + userId + " ra khỏi phòng " + roomId);
     }
 
     @Override
@@ -270,8 +263,7 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
         if (messagingTemplate != null) {
             String time = DateTimeFormatter.ofPattern("HH:mm:ss").format(LocalTime.now());
             messagingTemplate.convertAndSend("/topic/room/" + roomId,
-                    new RoomEventVO(roomId, "CANCEL",
-                            "Phiên đấu giá đã bị hủy. Quy trình hoàn cọc 100% đã được kích hoạt.", null, time));
+                    new RoomEventVO(roomId, "CANCEL", "Phiên đấu giá đã bị hủy. Quy trình hoàn cọc 100% đã được kích hoạt.", null, time));
         }
         return AdminCommandResultVO.ok("Đã hủy phiên " + roomId + ". Đã kích hoạt hoàn trả 100% tiền cọc.");
     }
@@ -328,8 +320,7 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
     }
 
     private String extractPlateFromTitle(String title) {
-        if (title == null)
-            return "Chưa cập nhật";
+        if (title == null) return "Chưa cập nhật";
         // Try to extract pattern like 30K-999.99
         int idx = title.indexOf("biển số xe ô tô ");
         if (idx != -1) {
@@ -348,9 +339,9 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
                 new AdminRoomVO("AUC-1023", "30K - 999.99", "Hà Nội", "PAUSED", 42, 245_000_000L, "02:18", 32),
                 new AdminRoomVO("AUC-1024", "30L - 686.86", "Hà Nội", "ACTIVE", 51, 120_000_000L, "07:36", 326),
                 new AdminRoomVO("AUC-1025", "51M - 123.45", "TP.HCM", "WAITING", 29, 40_000_000L, "Chưa bắt đầu", 32),
-                new AdminRoomVO("AUC-1026", "43B - 888.89", "Đà Nẵng", "SCHEDULED", 0, 40_000_000L, "15:00 hôm nay",
-                        32),
+                new AdminRoomVO("AUC-1026", "43B - 888.89", "Đà Nẵng", "SCHEDULED", 0, 40_000_000L, "15:00 hôm nay", 32),
                 new AdminRoomVO("AUC-1019", "30K - 567.89", "Hà Nội", "CLOSED", 12, 210_000_000L, "00:00", 32),
-                new AdminRoomVO("AUC-1018", "51L - 666.68", "TP.HCM", "SETTLED", 11, 195_000_000L, "00:00", 32));
+                new AdminRoomVO("AUC-1018", "51L - 666.68", "TP.HCM", "SETTLED", 11, 195_000_000L, "00:00", 32)
+        );
     }
 }

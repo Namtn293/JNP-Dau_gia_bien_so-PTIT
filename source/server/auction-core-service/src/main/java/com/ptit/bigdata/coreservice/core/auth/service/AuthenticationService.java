@@ -78,13 +78,19 @@ public class AuthenticationService {
     }
 
     public String login(LoginDTO dto) throws BusinessException {
-        User user = userRepository.findByUserName(dto.getUserName())
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_ALREADY_EXIST));
+        Optional<User> userOpt = userRepository.findByUserName(dto.getUserName());
+        if (userOpt.isEmpty()) {
+            Optional<UserInfo> userInfoByEmail = userInfoRepository.findByEmail(dto.getUserName());
+            if (userInfoByEmail.isPresent()) {
+                userOpt = userRepository.findByUserName(userInfoByEmail.get().getUserName());
+            }
+        }
+        User user = userOpt.orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_ALREADY_EXIST));
         if (!passwordEncoder.matches(dto.getPassword(), user.getPassword())) {
             throw new BusinessException(ErrorCode.PASSWORD_NOT_CORRECT);
         }
 
-        UserInfo userInfo = userInfoRepository.findByUserName(dto.getUserName())
+        UserInfo userInfo = userInfoRepository.findByUserName(user.getUsername())
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_ALREADY_EXIST));
         if (userInfo.getStatus().equals(StatusEnum.BANNED)) {
             throw new BusinessException(ErrorCode.ACCOUNT_BANNED);
@@ -209,10 +215,14 @@ public class AuthenticationService {
             throw new BusinessException(ErrorCode.PHONE_NUMBER_EXISTS);
         }
 
-        // Tự sinh password ngẫu nhiên nếu FE không truyền
-        String rawPassword = (dto.getPassword() != null && !dto.getPassword().isBlank())
-                ? dto.getPassword()
-                : UUID.randomUUID().toString();
+        String rawPassword;
+        if (dto.getPassword() == null || dto.getPassword().trim().isBlank()) {
+            rawPassword = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+        } else if (dto.getPassword().trim().length() < 6) {
+            throw new BusinessException(ErrorCode.PASSWORD_NOT_CORRECT);
+        } else {
+            rawPassword = dto.getPassword().trim();
+        }
 
         // 1. Tạo tài khoản đăng nhập (AUTH_USER)
         User user = new User();

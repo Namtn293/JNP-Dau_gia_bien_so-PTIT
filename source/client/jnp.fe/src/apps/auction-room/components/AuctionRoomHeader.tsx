@@ -16,7 +16,7 @@ interface AuctionRoomHeaderProps {
 }
 
 export const AuctionRoomHeader: React.FC<AuctionRoomHeaderProps> = ({
-  userName = "Người dùng",
+  userName,
   onLogout,
 }) => {
   return <TopNavbar userName={userName} onLogout={onLogout} fluid={true} />;

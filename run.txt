@@ -4,9 +4,9 @@ HUONG DAN CHAY UDP -> CORE -> ADMIN -> CLIENT
 Dieu kien:
 - Mo 3 terminal rieng, tat ca bat dau tu thu muc goc repository.
 - Mo them terminal thu tu tu de chay client.
-- Da cai Maven va JDK 27; kiem tra bang `java -version`.
+- Da cai Maven va JDK 21; kiem tra bang `java -version`.
 - Da cai Node.js va dependencies cua client (`cd source/client/jnp.fe && npm install`).
-- Database Neon da duoc cau hinh trong `source/server/auction-core-service/src/main/resources/application.yml`.
+- Database Neon da duoc cau hinh. Khong ghi password Neon vao file nay.
 - Cac service chay tren cung may, dung dia chi 127.0.0.1.
 
 1. Terminal 1 - UDP Server
@@ -26,7 +26,7 @@ cd source/server/auction-core-service
 
 Giu terminal nay mo. Core can ket noi Neon thanh cong truoc khi gui metrics.
 Neu thay "password authentication failed", cap nhat password cua role
-neondb_owner trong `application.yml`.
+neondb_owner qua cau hinh rieng, khong commit password vao repository.
 
 3. Terminal 3 - Admin Console
 -----------------------------
@@ -54,7 +54,7 @@ Kiem tra ket noi:
   UDP 8888 va ping UDP Server o UDP 9002.
 
 Neu Maven bao khong tim thay, kiem tra da cd vao dung module. Neu loi class
-version, chuyen JAVA_HOME/PATH sang JDK 27 roi mo terminal moi.
+version, chuyen JAVA_HOME/PATH sang JDK 21 roi mo terminal moi.
 
 Luu y: cac lenh dieu khien phien trong Admin hien chua duoc ket noi voi raw
 TCP cua Core; file nay chi huong dan test luong UDP metrics va RTT.

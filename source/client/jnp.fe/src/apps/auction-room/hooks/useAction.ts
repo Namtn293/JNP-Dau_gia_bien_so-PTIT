@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useNotification } from "@/shared/hooks/useNotification";
 import { formatMoney, parseMoney, getCurrentTimeString } from "../util/format";
 import type { AuctionLot } from "../services/type";
+import { placeBidRestApi } from "../services/api";
 
 interface UseActionProps {
   currentPrice: number;
@@ -104,7 +105,7 @@ export const useAction = ({
   }, [customBidInput, currentPrice, stepPrice, promptBidModal, showErrorNotify]);
 
   // 5. Action: Confirm and execute bid
-  const onConfirmBid = useCallback(() => {
+  const onConfirmBid = useCallback(async () => {
     const amount = confirmModal.amount;
     setConfirmModal({ open: false, amount: 0 });
     setCustomBidInput("");
@@ -126,13 +127,17 @@ export const useAction = ({
       timestamp: getCurrentTimeString(),
     };
 
-    // Broadcast through socket if active, otherwise trigger local update
-    const sent = sendSocketBid(bidPayload);
-    if (!sent) {
-      handleAuctionUpdate(bidPayload);
+    try {
+      // 1. Gửi qua WebSocket tới server
+      const sent = sendSocketBid(bidPayload);
+      if (!sent) {
+        // 2. Fallback qua REST API nếu socket gián đoạn
+        await placeBidRestApi(sessionCode, amount);
+      }
+      showSuccessNotify(`Đã gửi yêu cầu đặt giá ${formatMoney(amount)} cho biển số ${plateNumber}!`);
+    } catch (err: any) {
+      showErrorNotify(err?.message || "Đặt giá thất bại. Vui lòng thử lại!");
     }
-
-    showSuccessNotify(`Đặt giá thành công ${formatMoney(amount)} cho biển số ${plateNumber}!`);
   }, [
     confirmModal.amount,
     currentPrice,
@@ -143,7 +148,6 @@ export const useAction = ({
     sessionCode,
     plateNumber,
     sendSocketBid,
-    handleAuctionUpdate,
     showSuccessNotify,
     showErrorNotify,
   ]);
@@ -161,22 +165,13 @@ export const useAction = ({
     const senderName = currentUser?.fullName || currentUser?.name || "Bạn";
     const sent = sendSocketChat(trimmed, senderName);
 
-    // Only add local message if socket is not connected
     if (!sent) {
-      setChatMessages((prev) => [
-        ...prev,
-        {
-          id: `local-${Date.now()}`,
-          senderName,
-          content: trimmed,
-          time: getCurrentTimeString(),
-          isMine: true,
-        },
-      ]);
+      showErrorNotify("Mất kết nối máy chủ, không thể gửi tin nhắn chat!");
+      return;
     }
 
     setChatInput("");
-  }, [chatInput, currentUser, sendSocketChat, setChatMessages, setChatInput]);
+  }, [chatInput, currentUser, sendSocketChat, showErrorNotify, setChatInput]);
 
   // 8. Action: Toggle audio sound
   const onToggleSound = useCallback(() => {
