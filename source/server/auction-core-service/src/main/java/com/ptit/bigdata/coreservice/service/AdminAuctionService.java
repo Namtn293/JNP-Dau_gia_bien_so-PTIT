@@ -4,6 +4,7 @@ import com.ptit.bigdata.coreservice.model.vo.AdminCommandResultVO;
 import com.ptit.bigdata.coreservice.model.vo.AdminParticipantVO;
 import com.ptit.bigdata.coreservice.model.vo.AdminRoomVO;
 import com.ptit.bigdata.coreservice.model.vo.AdminServerMetricsVO;
+import com.ptit.bigdata.coreservice.model.vo.AdminAuctionResultVO;
 
 import java.util.List;
 
@@ -11,6 +12,8 @@ public interface AdminAuctionService {
     List<AdminRoomVO> getRooms();
 
     List<AdminParticipantVO> getParticipants(String roomId);
+
+    AdminAuctionResultVO getResult(String roomId);
 
     AdminServerMetricsVO getMetrics();
 

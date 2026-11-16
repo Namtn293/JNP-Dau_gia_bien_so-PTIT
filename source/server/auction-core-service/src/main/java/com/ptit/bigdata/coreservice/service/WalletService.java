@@ -22,6 +22,6 @@ public interface WalletService {
 
     void handleSessionEnded(Long sessionId);
 
-    void handleSessionCancelled(Long sessionId);
+    int handleSessionCancelled(Long sessionId);
 }
 

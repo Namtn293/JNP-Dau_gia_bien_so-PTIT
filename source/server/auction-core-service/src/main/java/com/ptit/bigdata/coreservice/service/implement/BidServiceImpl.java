@@ -19,6 +19,7 @@ import com.ptit.bigdata.coreservice.repository.NumberPlateRepository;
 import com.ptit.bigdata.coreservice.repository.UserInfoRepository;
 import com.ptit.bigdata.coreservice.service.BidService;
 import com.ptit.bigdata.coreservice.service.StepPriceCalculator;
+import com.ptit.bigdata.coreservice.service.KickedUserRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -42,6 +43,7 @@ public class BidServiceImpl implements BidService {
     private final UserInfoRepository userInfoRepository;
     private final StepPriceCalculator stepPriceCalculator;
     private final ApplicationEventPublisher eventPublisher;
+    private final KickedUserRegistry kickedUserRegistry;
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.ptit.bigdata.coreservice.service.NotificationService notificationService;
@@ -63,6 +65,10 @@ public class BidServiceImpl implements BidService {
         // 2. Khóa dòng phiên đấu giá để chống race condition
         AuctionSession session = auctionSessionRepository.findBySessionCodeForUpdate(sessionCode)
                 .orElseThrow(() -> new BusinessException(ErrorCode.AUCTION_NOT_FOUND));
+
+        if (kickedUserRegistry.isKicked(userId, sessionCode)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
 
         // 3. Trạng thái phiên phải là LIVE và chưa hết giờ
         LocalDateTime now = LocalDateTime.now();

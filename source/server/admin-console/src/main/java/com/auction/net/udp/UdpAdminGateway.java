@@ -15,6 +15,7 @@ import com.auction.model.CommandResult;
 import com.auction.model.ParticipantInfo;
 import com.auction.model.RoomInfo;
 import com.auction.model.ServerMetrics;
+import com.auction.model.AuctionResult;
 
 /**
  * Gateway dùng số liệu thật từ UDP: CPU, RAM, người trực tuyến từ METRICS; RTT
@@ -164,8 +165,25 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
     }
 
     @Override
+    public CompletableFuture<AuctionResult> fetchResult(String roomId) {
+        return delegate.fetchResult(roomId);
+    }
+
+    @Override
+    public CompletableFuture<CommandResult> announce(String roomId, String message) {
+        return delegate.announce(roomId, message);
+    }
+
+    @Override
     public void close() {
         metricsListener.close();
         pingProbe.close();
+        if (delegate instanceof AutoCloseable closeable) {
+            try {
+                closeable.close();
+            } catch (Exception e) {
+                log.debug("Không đóng được CoreAdminGateway: {}", e.getMessage());
+            }
+        }
     }
 }

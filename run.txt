@@ -7,6 +7,8 @@ Dieu kien:
 - Da cai Maven va JDK 21; kiem tra bang `java -version`.
 - Da cai Node.js va dependencies cua client (`cd source/client/jnp.fe && npm install`).
 - Database Neon da duoc cau hinh. Khong ghi password Neon vao file nay.
+- `TCP_CONTROL_SECRET`, `CORE_ADMIN_USER` va `CORE_ADMIN_PASSWORD` co the dat trong `application.yml` local; bien moi truong cung ho tro va duoc uu tien.
+- Dat `ADMIN_DATA_SOURCE=core` (mac dinh) de lay du lieu that.
 - Cac service chay tren cung may, dung dia chi 127.0.0.1.
 
 1. Terminal 1 - UDP Server

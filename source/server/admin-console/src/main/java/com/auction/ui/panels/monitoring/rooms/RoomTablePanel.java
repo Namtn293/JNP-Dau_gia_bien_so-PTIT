@@ -372,7 +372,7 @@ public class RoomTablePanel extends JPanel {
             if (!isSelected) {
                 RoomStatus status = (RoomStatus) table.getValueAt(row, COL_STATUS);
                 setForeground(column == COL_RTT
-                        ? rttColor((Integer) value)
+                        ? (Integer) value > 0 ? rttColor((Integer) value) : COLOR_MUTED
                         : statusColor(status));
             }
             return this;
@@ -383,7 +383,7 @@ public class RoomTablePanel extends JPanel {
         return switch (column) {
             case COL_STATUS -> "● " + value;
             case COL_PRICE -> formatVnd((Long) value);
-            case COL_RTT -> value + " ms";
+            case COL_RTT -> ((Integer) value) > 0 ? value + " ms" : "—";
             default -> String.valueOf(value);
         };
     }

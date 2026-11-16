@@ -3,6 +3,7 @@ package com.auction.model;
 public enum ConnectionState {
     CONNECTED("Đã kết nối"),
     CHECK_NEEDED("Cần kiểm tra"),
+    UNKNOWN("—"),
     DISCONNECTED("Mất kết nối");
 
     private final String label;

@@ -6,22 +6,24 @@ import java.util.Locale;
 public final class MailTemplates {
     private MailTemplates() { }
 
-    /** Thông báo trúng đấu giá. Số tiền cần thanh toán = giá trúng - tiền cọc. */
-    public static MailMessage winnerNotice(String to, String roomId, String plate,
-                                           long finalPrice, long deposit) {
-        long due = finalPrice - deposit;
+    /** Biên bản kết quả phiên đã kết thúc. Số tiền cần thanh toán = giá trúng - tiền cọc. */
+    public static MailMessage winnerNotice(String to, String winnerName, String winnerUserId, String roomId, String plate,
+                                           long finalPrice, long deposit, String endTime) {
+        long due = Math.max(0, finalPrice - deposit);
         String subject = "[Đấu giá] Thông báo trúng đấu giá biển số " + plate;
         String body = """
-                Chào bạn,
-
-                Chúc mừng bạn đã trúng đấu giá biển số %s trong phiên %s.
+                Biên bản kết quả đấu giá
+                Người trúng: %s
+                Mã người dùng: %s
+                Phiên: %s
+                Biển số: %s
+                Trạng thái: Đã kết thúc
+                Thời điểm kết thúc: %s
 
                 Giá trúng: %s VNĐ
                 Tiền cọc đã nộp: %s VNĐ (sẽ được trừ vào số tiền thanh toán)
                 Số tiền cần thanh toán: %s VNĐ
-
-                Đây là email mẫu phục vụ kiểm thử.
-                """.formatted(plate, roomId, vnd(finalPrice), vnd(deposit), vnd(due));
+                """.formatted(winnerName, winnerUserId, roomId, plate, endTime, vnd(finalPrice), vnd(deposit), vnd(due));
         return new MailMessage(to, subject, body);
     }
 

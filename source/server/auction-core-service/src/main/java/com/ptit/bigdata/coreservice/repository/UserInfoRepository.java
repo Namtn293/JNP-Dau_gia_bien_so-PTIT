@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Collection;
 
 @Repository
 public interface UserInfoRepository extends JpaRepository<UserInfo, Long> {
@@ -15,6 +16,8 @@ public interface UserInfoRepository extends JpaRepository<UserInfo, Long> {
     List<UserInfo> findAll();
 
     Optional<UserInfo> findByUserName(String userName);
+
+    List<UserInfo> findByUserNameIn(Collection<String> userNames);
 
     Optional<UserInfo> findByEmail(String email);
 

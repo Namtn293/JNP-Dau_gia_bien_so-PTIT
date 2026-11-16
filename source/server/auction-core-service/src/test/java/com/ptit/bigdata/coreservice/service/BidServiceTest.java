@@ -65,7 +65,8 @@ class BidServiceTest {
                 userRepository,
                 userInfoRepository,
                 stepPriceCalculator,
-                eventPublisher
+                eventPublisher,
+                new KickedUserRegistry()
         );
     }
 

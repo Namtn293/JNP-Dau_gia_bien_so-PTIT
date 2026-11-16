@@ -7,6 +7,7 @@ import com.auction.mail.MailConfig;
 import com.auction.mail.MailMessage;
 import com.auction.mail.MailService;
 import com.auction.mail.MailTemplates;
+import com.auction.model.AuctionResult;
 import com.auction.AdminConfig;
 import com.auction.gateway.mock.MockAdminGateway;
 import com.auction.net.core.CoreAdminGateway;
@@ -47,6 +48,8 @@ public class AdminConsoleUI extends JFrame {
 
     private StyledDocument logDocument;
     private MailService mailService;
+    private AdminGateway gateway;
+    private RoomSelection roomSelection;
 
     public AdminConsoleUI() {
         initializeUI(); // Khởi tạo giao diện
@@ -66,13 +69,13 @@ public class AdminConsoleUI extends JFrame {
         AdminGateway dataGateway = createDataGateway();
         UdpAdminGateway udpGateway = new UdpAdminGateway(dataGateway);
         udpGateway.addAlertListener(new AlertLogger(logDocument));
-        AdminGateway gateway = udpGateway;
-        RoomSelection selection = new RoomSelection();
+        gateway = udpGateway;
+        roomSelection = new RoomSelection();
 
         // 2 tab
         tabbedPane = new JTabbedPane(JTabbedPane.TOP);
-        tabbedPane.addTab("Giám sát đấu giá", new MonitoringPanel(gateway, logDocument, selection));
-        tabbedPane.addTab("Điều khiển phiên", new SessionControlPanel(gateway, logDocument, selection));
+        tabbedPane.addTab("Giám sát đấu giá", new MonitoringPanel(gateway, logDocument, roomSelection));
+        tabbedPane.addTab("Điều khiển phiên", new SessionControlPanel(gateway, logDocument, roomSelection));
 
         add(createHeaderPanel(), BorderLayout.NORTH);
         add(tabbedPane, BorderLayout.CENTER);
@@ -127,10 +130,10 @@ public class AdminConsoleUI extends JFrame {
         user.setLayout(new BoxLayout(user, BoxLayout.Y_AXIS));
         user.setOpaque(false);
 
-        JLabel userName = new JLabel(AdminConfig.OPERATOR_NAME);
+        JLabel userName = new JLabel(AdminConfig.CORE_ADMIN_USER.isBlank() ? "Quản trị viên" : AdminConfig.CORE_ADMIN_USER);
         userName.setFont(FONT_NORMAL);
 
-        JLabel userRole = new JLabel(AdminConfig.OPERATOR_ROLE);
+        JLabel userRole = new JLabel("Quản trị viên");
         userRole.setFont(FONT_SMALL);
         userRole.setForeground(COLOR_MUTED);
 
@@ -139,6 +142,12 @@ public class AdminConsoleUI extends JFrame {
 
         right.add(connection);
         right.add(user);
+        if ("mock".equalsIgnoreCase(AdminConfig.DATA_SOURCE)) {
+            JLabel mockLabel = new JLabel("DỮ LIỆU MẪU");
+            mockLabel.setForeground(COLOR_DANGER);
+            mockLabel.setFont(FONT_SMALL.deriveFont(java.awt.Font.BOLD));
+            right.add(mockLabel);
+        }
         header.add(right, BorderLayout.EAST);
 
         // output
@@ -176,15 +185,20 @@ public class AdminConsoleUI extends JFrame {
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
         right.setOpaque(false);
 
-        JButton mailButton = new JButton("Gửi email mẫu");
+        JButton mailButton = new JButton("Gửi email biên bản");
         mailButton.setFont(FONT_SMALL);
         mailButton.setFocusPainted(false);
-        mailButton.addActionListener(e -> sendSampleMail());
+        mailButton.addActionListener(e -> sendWinnerNotice());
+
+        JButton announceButton = new JButton("Phát thông báo phòng");
+        announceButton.setFont(FONT_SMALL);
+        announceButton.addActionListener(e -> announceToRoom());
 
         JLabel version = new JLabel("Chỉ quản trị viên • Phiên bản 1.0");
         version.setFont(FONT_SMALL);
         version.setForeground(COLOR_MUTED);
 
+        right.add(announceButton);
         right.add(mailButton);
         right.add(version);
         statusBar.add(right, BorderLayout.EAST);
@@ -192,40 +206,64 @@ public class AdminConsoleUI extends JFrame {
         return statusBar;
     }
 
-    // ===== Gửi email mẫu =====
+    // ===== Gửi email biên bản thật =====
 
     /**
-     * Hỏi địa chỉ người nhận, gửi email mẫu trên luồng nền và ghi kết quả vào nhật
+     * Lấy biên bản từ core, xác nhận địa chỉ nhận, gửi email trên luồng nền và ghi kết quả vào nhật
      * ký.
      */
-    private void sendSampleMail() {
-        String input = JOptionPane.showInputDialog(this,
-                "Nhập email người nhận:", "Gửi email mẫu", JOptionPane.QUESTION_MESSAGE);
-        if (input == null || input.isBlank()) {
+    private void sendWinnerNotice() {
+        String roomId = JOptionPane.showInputDialog(this,
+                "Mã phiên đã kết thúc:", "Gửi email biên bản", JOptionPane.QUESTION_MESSAGE);
+        if (roomId == null || roomId.isBlank()) {
             return;
         }
-        String to = input.trim();
-
-        LogPanel.appendTo(logDocument, LogPanel.Level.COMMAND, "> MAIL " + to);
-        try {
-            if (mailService == null) {
-                mailService = new MailService(MailConfig.fromEnv());
+        String normalizedRoomId = roomId.trim();
+        gateway.fetchResult(normalizedRoomId).whenComplete((result, fetchError) -> SwingUtilities.invokeLater(() -> {
+            if (fetchError != null) {
+                LogPanel.appendTo(logDocument, LogPanel.Level.ERROR,
+                        "Không lấy được biên bản: " + rootMessage(fetchError));
+                return;
             }
-            // Dữ liệu mẫu theo phiên AUC-1023 trong thiết kế
-            MailMessage message = MailTemplates.winnerNotice(
-                    to, "AUC-1023", "30K - 999.99", 245_000_000L, 40_000_000L);
+            confirmAndSendResult(result);
+        }));
+    }
 
+    private void confirmAndSendResult(AuctionResult result) {
+        String defaultEmail = result.winnerEmail() == null ? "" : result.winnerEmail();
+        String to = (String) JOptionPane.showInputDialog(this,
+                "Người thắng: " + result.winnerName() + " (ID " + result.winnerUserId() + ")\n" +
+                        "Biển " + result.plate() + " • Giá " + result.finalPrice() + " VNĐ\nEmail nhận (có thể đổi để demo):",
+                "Xác nhận gửi biên bản " + result.sessionCode(), JOptionPane.QUESTION_MESSAGE, null, null, defaultEmail);
+        if (to == null || to.isBlank()) return;
+        try {
+            if (mailService == null) mailService = new MailService(MailConfig.fromEnv());
+            MailMessage message = MailTemplates.winnerNotice(to.trim(), result.winnerName(), result.winnerUserId(),
+                    result.sessionCode(), result.plate(), result.finalPrice(), result.depositAmount(), result.endTime());
+            LogPanel.appendTo(logDocument, LogPanel.Level.COMMAND, "> MAIL RESULT " + result.sessionCode() + " -> " + to.trim());
             mailService.send(message).whenComplete((ignored, ex) -> SwingUtilities.invokeLater(() -> {
-                if (ex == null) {
-                    LogPanel.appendTo(logDocument, LogPanel.Level.SUCCESS, "Đã gửi email mẫu tới " + to);
-                } else {
-                    LogPanel.appendTo(logDocument, LogPanel.Level.ERROR,
-                            "Gửi email thất bại: " + rootMessage(ex));
-                }
+                if (ex == null) LogPanel.appendTo(logDocument, LogPanel.Level.SUCCESS, "Đã gửi biên bản tới " + to.trim());
+                else LogPanel.appendTo(logDocument, LogPanel.Level.ERROR, "Gửi email thất bại: " + rootMessage(ex));
             }));
         } catch (IllegalStateException | IllegalArgumentException ex) {
             LogPanel.appendTo(logDocument, LogPanel.Level.ERROR, ex.getMessage());
         }
+    }
+
+    private void announceToRoom() {
+        String roomId = roomSelection.roomId();
+        if (roomId == null || roomId.isBlank()) {
+            roomId = JOptionPane.showInputDialog(this, "Mã phòng:", "Phát thông báo", JOptionPane.QUESTION_MESSAGE);
+        }
+        if (roomId == null || roomId.isBlank()) return;
+        String message = JOptionPane.showInputDialog(this, "Nội dung thông báo:", "Phát thông báo vào " + roomId,
+                JOptionPane.QUESTION_MESSAGE);
+        if (message == null || message.isBlank()) return;
+        String targetRoom = roomId.trim();
+        gateway.announce(targetRoom, message.trim()).whenComplete((result, error) -> SwingUtilities.invokeLater(() -> {
+            if (error != null) LogPanel.appendTo(logDocument, LogPanel.Level.ERROR, "Không gửi được thông báo: " + rootMessage(error));
+            else LogPanel.appendTo(logDocument, result.success() ? LogPanel.Level.SUCCESS : LogPanel.Level.ERROR, result.message());
+        }));
     }
 
     /**
@@ -254,6 +292,6 @@ public class AdminConsoleUI extends JFrame {
         return new CoreAdminGateway(
                 new CoreHttpClient(AdminConfig.CORE_BASE_URL,
                         AdminConfig.CORE_ADMIN_USER, AdminConfig.CORE_ADMIN_PASSWORD),
-                new CoreTcpClient(AdminConfig.CORE_TCP_HOST, AdminConfig.CORE_TCP_PORT));
+                new CoreTcpClient(AdminConfig.CORE_TCP_HOST, AdminConfig.CORE_TCP_PORT, AdminConfig.TCP_CONTROL_SECRET));
     }
 }

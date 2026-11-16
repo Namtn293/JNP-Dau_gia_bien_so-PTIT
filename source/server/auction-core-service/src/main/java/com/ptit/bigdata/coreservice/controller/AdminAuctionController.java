@@ -4,6 +4,7 @@ import com.ptit.bigdata.coreservice.model.vo.AdminCommandResultVO;
 import com.ptit.bigdata.coreservice.model.vo.AdminParticipantVO;
 import com.ptit.bigdata.coreservice.model.vo.AdminRoomVO;
 import com.ptit.bigdata.coreservice.model.vo.AdminServerMetricsVO;
+import com.ptit.bigdata.coreservice.model.vo.AdminAuctionResultVO;
 import com.ptit.bigdata.coreservice.service.AdminAuctionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -27,6 +28,11 @@ public class AdminAuctionController {
     @GetMapping("/auction/rooms/{roomId}/participants")
     public ResponseEntity<List<AdminParticipantVO>> getParticipants(@PathVariable("roomId") String roomId) {
         return ResponseEntity.ok(adminAuctionService.getParticipants(roomId));
+    }
+
+    @GetMapping("/auction/rooms/{roomId}/result")
+    public ResponseEntity<AdminAuctionResultVO> getResult(@PathVariable("roomId") String roomId) {
+        return ResponseEntity.ok(adminAuctionService.getResult(roomId));
     }
 
     @GetMapping("/metrics/overview")

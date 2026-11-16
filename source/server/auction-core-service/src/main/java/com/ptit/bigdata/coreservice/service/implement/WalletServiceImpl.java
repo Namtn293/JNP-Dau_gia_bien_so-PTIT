@@ -328,12 +328,13 @@ public class WalletServiceImpl implements WalletService {
 
     @Override
     @Transactional
-    public void handleSessionCancelled(Long sessionId) {
+    public int handleSessionCancelled(Long sessionId) {
         AuctionSession session = auctionSessionRepository.findById(sessionId).orElse(null);
-        if (session == null) return;
+        if (session == null) return 0;
 
         List<AuctionRegistration> activeRegs = auctionRegistrationRepository.findBySessionIdAndStatus(sessionId, RegistrationStatusEnum.ACTIVE);
         log.info("[SESSION-CANCEL-WALLET] Hoàn 100% cọc phiên {} cho {} người đăng ký", session.getSessionCode(), activeRegs.size());
+        int refunded = 0;
 
         for (AuctionRegistration reg : activeRegs) {
             try {
@@ -347,10 +348,12 @@ public class WalletServiceImpl implements WalletService {
                         "Hoàn 100% cọc do admin hủy phiên " + session.getSessionCode());
                 reg.setStatus(RegistrationStatusEnum.CANCELLED);
                 auctionRegistrationRepository.save(reg);
+                refunded++;
             } catch (Exception e) {
                 log.error("[SESSION-CANCEL-WALLET-ERR] Lỗi khi hoàn cọc cho user {}: ", reg.getUserId(), e);
             }
         }
+        return refunded;
     }
 
     private Wallet getOrCreateWallet(Long userId) {

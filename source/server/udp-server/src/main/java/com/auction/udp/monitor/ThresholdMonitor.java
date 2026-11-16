@@ -11,8 +11,8 @@ import com.auction.udp.store.LatestMetrics;
 
 /**
  * So snapshot với ngưỡng và phát ALERT:
- * - Khi mức đổi (bình thường -> cảnh báo -> nghiêm trọng) thì phát ngay.
- * - Khi vẫn ở mức cảnh báo hoặc nghiêm trọng, nhắc lại mỗi REPEAT_MS.
+ * - Cảnh báo chỉ phát sau khi ngưỡng được duy trì liên tục đủ lâu.
+ * - Khi vẫn ở mức cảnh báo hoặc nghiêm trọng, nhắc lại theo REPEAT_MS.
  * - Khi trở về bình thường, phát RESOLVED một lần.
  * - Core im lặng quá silenceMs được coi là nghiêm trọng, và RESOLVED khi core
  * gửi lại.
@@ -20,7 +20,8 @@ import com.auction.udp.store.LatestMetrics;
  */
 public final class ThresholdMonitor {
     /** Khoảng nhắc lại khi một chỉ số vẫn vượt ngưỡng. */
-    public static final long REPEAT_MS = 10_000;
+    public static final long MIN_SUSTAINED_MS = 30_000;
+    public static final long REPEAT_MS = 30_000;
 
     /** Ngưỡng của một chỉ số: "cpu" hoặc "ram" (phần trăm). */
     public record Rule(String metric, double warning, double critical) {
@@ -35,8 +36,9 @@ public final class ThresholdMonitor {
     private final Consumer<Message.Alert> sink;
     private final Rule[] rules;
 
-    private final Map<String, State> states = new HashMap<>();
     private final Map<String, Long> lastEmitAt = new HashMap<>();
+    private final Map<String, Long> aboveSince = new HashMap<>();
+    private final Map<String, State> alertedStates = new HashMap<>();
     private final AtomicLong seq = new AtomicLong();
     private boolean coreSilent;
 
@@ -77,23 +79,24 @@ public final class ThresholdMonitor {
             State next = value >= rule.critical() ? State.CRITICAL
                     : value >= rule.warning() ? State.WARNING
                     : State.NORMAL;
-            State prev = states.getOrDefault(rule.metric(), State.NORMAL);
-
-            if (next == prev) {
-                long lastAt = lastEmitAt.getOrDefault(rule.metric(), 0L);
-                if (next != State.NORMAL && now - lastAt >= REPEAT_MS) {
-                    emitLevel(rule, next, value, now);
+            if (next == State.NORMAL) {
+                State alerted = alertedStates.remove(rule.metric());
+                aboveSince.remove(rule.metric());
+                if (alerted != null) {
+                    double crossed = alerted == State.CRITICAL ? rule.critical() : rule.warning();
+                    emit(Message.Level.RESOLVED, rule.metric(), value, crossed, now);
                 }
                 continue;
             }
 
-            states.put(rule.metric(), next);
+            long since = aboveSince.computeIfAbsent(rule.metric(), ignored -> now);
+            if (now - since < MIN_SUSTAINED_MS) continue;
 
-            if (next == State.NORMAL) {
-                double crossed = prev == State.CRITICAL ? rule.critical() : rule.warning();
-                emit(Message.Level.RESOLVED, rule.metric(), value, crossed, now);
-            } else {
+            State alerted = alertedStates.get(rule.metric());
+            long lastAt = lastEmitAt.getOrDefault(rule.metric(), 0L);
+            if (alerted != next || now - lastAt >= REPEAT_MS) {
                 emitLevel(rule, next, value, now);
+                alertedStates.put(rule.metric(), next);
             }
         }
     }
@@ -114,7 +117,7 @@ public final class ThresholdMonitor {
     private static double valueOf(String metric, Message.Metrics m) {
         return switch (metric) {
             case "cpu" -> m.cpu();
-            case "ram" -> m.ramUsedGb() / m.ramTotalGb() * 100.0;
+            case "ram" -> m.ramTotalGb() > 0 ? m.ramUsedGb() / m.ramTotalGb() * 100.0 : 0.0;
             default -> throw new IllegalArgumentException("chỉ số không hỗ trợ: " + metric);
         };
     }

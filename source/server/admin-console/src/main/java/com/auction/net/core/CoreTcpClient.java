@@ -22,6 +22,7 @@ import java.util.concurrent.Executors;
 public class CoreTcpClient implements AutoCloseable {
     private final String host;
     private final int port;
+    private final String secret;
     private final ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "core-tcp-control");
         t.setDaemon(true);
@@ -31,10 +32,16 @@ public class CoreTcpClient implements AutoCloseable {
     private Socket socket;
     private BufferedReader in;
     private BufferedWriter out;
+    private boolean authenticated;
 
     public CoreTcpClient(String host, int port) {
+        this(host, port, "");
+    }
+
+    public CoreTcpClient(String host, int port, String secret) {
         this.host = host;
         this.port = port;
+        this.secret = secret;
     }
 
     /** Gửi một lệnh và trả về dòng phản hồi nguyên gốc. */
@@ -52,6 +59,19 @@ public class CoreTcpClient implements AutoCloseable {
         ensureConnected();
 
         try {
+            if (!authenticated) {
+                if (secret == null || secret.isBlank()) {
+                    throw new IOException("Chưa cấu hình TCP_CONTROL_SECRET");
+                }
+                out.write("AUTH " + secret);
+                out.newLine();
+                out.flush();
+                String authReply = in.readLine();
+                if (authReply == null || !authReply.startsWith("OK")) {
+                    throw new IOException(authReply != null ? authReply : "Core đã đóng kết nối khi xác thực");
+                }
+                authenticated = true;
+            }
             out.write(command);
             out.write('\n');
             out.flush();
@@ -96,6 +116,7 @@ public class CoreTcpClient implements AutoCloseable {
         socket = null;
         in = null;
         out = null;
+        authenticated = false;
     }
 
     @Override

@@ -14,7 +14,6 @@ public class AdminServerMetricsVO {
     private int cpuCores;
     private double ramUsedGb;
     private double ramTotalGb;
-    private int pingMs;
     private int onlineUsers;
     private double bidsPerSecond;
 }

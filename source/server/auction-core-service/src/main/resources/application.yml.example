@@ -4,6 +4,9 @@ server:
 spring:
   application:
     name: auction-core-service
+  google:
+    # Phải khớp với VITE_GOOGLE_CLIENT_ID ở web client; để trống thì đăng nhập Google bị từ chối.
+    client-id: "${GOOGLE_CLIENT_ID:}"
 
   datasource:
     url: "jdbc:postgresql://ep-little-snow-a13y3z11-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
@@ -21,10 +24,16 @@ spring:
     init:
       mode: never
 
+auth:
+  google:
+    # Token mock chỉ được bật tường minh trong môi trường test cô lập.
+    allow-mock: false
+
 tcp:
   control:
     host: 127.0.0.1
     port: 9090
+    secret: ${TCP_CONTROL_SECRET:}
 
 auction:
   step-tiers:

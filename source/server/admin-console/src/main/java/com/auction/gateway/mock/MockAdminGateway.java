@@ -28,11 +28,11 @@ public class MockAdminGateway implements AdminGateway {
 
     // 5 người đầu của AUC-1023, khớp thiết kế
     private static final List<ParticipantInfo> DEMO_PARTICIPANTS = List.of(
-            new ParticipantInfo("U-0842", "Trần Quốc Huy", ConnectionState.CHECK_NEEDED, 18, 240_000_000L, 112),
-            new ParticipantInfo("U-0317", "Lê Hoàng Nam", ConnectionState.CONNECTED, 2, 245_000_000L, 32),
-            new ParticipantInfo("U-0521", "Nguyễn Thu Hà", ConnectionState.CONNECTED, 1, 235_000_000L, 32),
-            new ParticipantInfo("U-0678", "Phạm Đức Long", ConnectionState.CONNECTED, 1, 225_000_000L, 32),
-            new ParticipantInfo("U-0903", "Vũ Minh Phúc", ConnectionState.CONNECTED, 0, 220_000_000L, 326));
+            new ParticipantInfo("U-0842", "Trần Quốc Huy", ConnectionState.CHECK_NEEDED, 18, 240_000_000L, 112, "BIDDER"),
+            new ParticipantInfo("U-0317", "Lê Hoàng Nam", ConnectionState.CONNECTED, 2, 245_000_000L, 32, "BIDDER"),
+            new ParticipantInfo("U-0521", "Nguyễn Thu Hà", ConnectionState.CONNECTED, 1, 235_000_000L, 32, "BIDDER"),
+            new ParticipantInfo("U-0678", "Phạm Đức Long", ConnectionState.CONNECTED, 1, 225_000_000L, 32, "BIDDER"),
+            new ParticipantInfo("U-0903", "Vũ Minh Phúc", ConnectionState.CONNECTED, 0, 220_000_000L, 326, "VIEWER"));
 
     private static final String[] SURNAMES = {
             "Nguyễn", "Trần", "Lê", "Phạm", "Hoàng", "Vũ", "Đặng", "Bùi"
@@ -84,7 +84,7 @@ public class MockAdminGateway implements AdminGateway {
             int bids = random.nextInt(10) == 0 ? 6 + random.nextInt(8) : random.nextInt(3);
             long price = AdminConfig.START_PRICE_VND + AdminConfig.BID_STEP_VND * random.nextInt(42);
             int rtt = random.nextInt(8) == 0 ? 112 + random.nextInt(200) : 32;
-            list.add(new ParticipantInfo(userId, fullName, connection, bids, price, rtt));
+            list.add(new ParticipantInfo(userId, fullName, connection, bids, price, rtt, "BIDDER"));
         }
         return List.copyOf(list);
     }

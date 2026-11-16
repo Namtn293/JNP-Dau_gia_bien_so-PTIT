@@ -42,6 +42,7 @@ public class AuctionDemoDataInitializer {
 
             // 1. Cập nhật SES-HN-30K88888 sang LIVE (Biển ngũ quý Hà Nội)
             auctionSessionRepository.findBySessionCode("SES-HN-30K88888").ifPresent(s -> {
+                if (s.getStatus() == AuctionStatusEnum.PAUSED) return;
                 s.setStatus(AuctionStatusEnum.LIVE);
                 s.setStartTime(now.minusMinutes(20));
                 s.setEndTime(now.plusHours(4));
@@ -57,6 +58,7 @@ public class AuctionDemoDataInitializer {
 
             // 2. Cập nhật SES-HN-30K56789 sang LIVE (Biển sảnh tiến < 100tr để test bậc bước giá 5tr)
             auctionSessionRepository.findBySessionCode("SES-HN-30K56789").ifPresent(s -> {
+                if (s.getStatus() == AuctionStatusEnum.PAUSED) return;
                 s.setStatus(AuctionStatusEnum.LIVE);
                 s.setStartTime(now.minusMinutes(10));
                 s.setEndTime(now.plusHours(2));
@@ -72,6 +74,7 @@ public class AuctionDemoDataInitializer {
 
             // 3. Cập nhật SES-HCM-51K99999 sang SOON (Sắp diễn ra sau 45 phút)
             auctionSessionRepository.findBySessionCode("SES-HCM-51K99999").ifPresent(s -> {
+                if (s.getStatus() == AuctionStatusEnum.PAUSED) return;
                 s.setStatus(AuctionStatusEnum.SOON);
                 s.setStartTime(now.plusMinutes(45));
                 s.setEndTime(now.plusHours(3));
@@ -81,6 +84,7 @@ public class AuctionDemoDataInitializer {
 
             // 4. Cập nhật SES-BN-99A99999 sang SOON (Ngày mai)
             auctionSessionRepository.findBySessionCode("SES-BN-99A99999").ifPresent(s -> {
+                if (s.getStatus() == AuctionStatusEnum.PAUSED) return;
                 s.setStatus(AuctionStatusEnum.SOON);
                 s.setStartTime(now.plusDays(1));
                 s.setEndTime(now.plusDays(2));
@@ -89,6 +93,7 @@ public class AuctionDemoDataInitializer {
 
             // 5. Cập nhật SES-QN-14A88888 sang SOON (Sau 2 ngày)
             auctionSessionRepository.findBySessionCode("SES-QN-14A88888").ifPresent(s -> {
+                if (s.getStatus() == AuctionStatusEnum.PAUSED) return;
                 s.setStatus(AuctionStatusEnum.SOON);
                 s.setStartTime(now.plusDays(2));
                 s.setEndTime(now.plusDays(3));

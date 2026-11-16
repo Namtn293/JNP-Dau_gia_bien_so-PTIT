@@ -33,7 +33,7 @@ import com.auction.model.ParticipantInfo;
  */
 public class ParticipantsPanel extends JPanel {
     private static final int PAGE_SIZE = 10;
-    private static final String FOOTNOTE = "¹ Số yêu cầu trong 5 giây trước HALT; hiện không nhận giá mới.";
+    private static final String FOOTNOTE = "¹ Số lượt đặt giá trong 5 giây gần nhất; RTT/kết nối hiển thị khi core có dữ liệu.";
 
     private final Consumer<String> userPickedListener;
 
@@ -259,6 +259,7 @@ public class ParticipantsPanel extends JPanel {
         return new Object[] {
                 p.userId(),
                 p.fullName(),
+                p.role(),
                 p.connection(),
                 p.bidsInLast5s(),
                 p.lastPrice(),

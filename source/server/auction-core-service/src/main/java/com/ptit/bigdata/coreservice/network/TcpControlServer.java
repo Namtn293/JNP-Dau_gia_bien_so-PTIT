@@ -16,6 +16,7 @@ import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -27,7 +28,7 @@ import java.util.concurrent.Executors;
  * - Admin Console gửi trực tiếp các lệnh dạng văn bản (Line-based text protocol):
  *     1. HALT <roomId>        : Đóng băng phiên đấu giá khẩn cấp
  *     2. RESUME <roomId>      : Mở lại phiên, cộng thêm 30 giây
- *     3. KICK <userId> [roomId]: Cưỡng chế ngắt kết nối tài khoản gian lận
+ *     3. KICK <userId> [roomId]: Chặn tài khoản đặt giá trong phiên
  *     4. CANCEL <roomId>      : Hủy phiên đấu giá và kích hoạt hoàn cọc
  *
  * Phản hồi:
@@ -48,12 +49,18 @@ public class TcpControlServer {
     @Value("${tcp.control.port:9090}")
     private int port;
 
+    @Value("${tcp.control.secret:${TCP_CONTROL_SECRET:}}")
+    private String controlSecret;
+
     private ServerSocket serverSocket;
     private volatile boolean running = false;
     private final ExecutorService threadPool = Executors.newCachedThreadPool();
 
     @PostConstruct
     public void start() {
+        if (controlSecret == null || controlSecret.isBlank()) {
+            log.warn("TCP_CONTROL_SECRET chưa được cấu hình; cổng TCP sẽ từ chối mọi lệnh.");
+        }
         new Thread(this::listen, "tcp-control-server-listener").start();
     }
 
@@ -83,6 +90,19 @@ public class TcpControlServer {
             BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
             BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
         ) {
+            socket.setSoTimeout(5000);
+            String authLine = reader.readLine();
+            if (!isAuthorized(authLine)) {
+                writer.write("FAIL Unauthorized");
+                writer.newLine();
+                writer.flush();
+                log.warn("[TCP :9090] Từ chối kết nối chưa xác thực từ {}", socket.getRemoteSocketAddress());
+                return;
+            }
+            writer.write("OK AUTHENTICATED");
+            writer.newLine();
+            writer.flush();
+
             String line;
             while ((line = reader.readLine()) != null) {
                 line = line.trim();
@@ -102,6 +122,15 @@ public class TcpControlServer {
                 socket.close();
             } catch (IOException ignored) {}
         }
+    }
+
+    private boolean isAuthorized(String line) {
+        if (controlSecret == null || controlSecret.isBlank() || line == null || !line.startsWith("AUTH ")) {
+            return false;
+        }
+        byte[] expected = controlSecret.getBytes(StandardCharsets.UTF_8);
+        byte[] supplied = line.substring(5).trim().getBytes(StandardCharsets.UTF_8);
+        return MessageDigest.isEqual(expected, supplied);
     }
 
     private String processCommand(String rawCommand) {

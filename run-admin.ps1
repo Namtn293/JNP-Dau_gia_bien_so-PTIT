@@ -1,7 +1,16 @@
 Set-Location "$PSScriptRoot\source\server\admin-console"
 $host.ui.RawUI.WindowTitle = "3. Admin Console (Swing GUI)"
-$env:JAVA_HOME = "C:\Users\trann\.jdks\ms-21.0.8"
-$env:Path = "$env:JAVA_HOME\bin;" + $env:Path
+. "$PSScriptRoot\env-java21.ps1"
 
 Write-Host "=== KHOI DONG GIAO DIEN ADMIN CONSOLE ===" -ForegroundColor Cyan
-java -jar target/admin-console-1.0.0-jar-with-dependencies.jar
+$jar = "target\admin-console-1.0.0-jar-with-dependencies.jar"
+if (-not (Test-Path $jar)) {
+    Write-Host "Chưa có jar, đang build Admin Console..." -ForegroundColor Yellow
+    mvn -q -DskipTests package
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Build Admin Console thất bại; xem lỗi Maven ở trên." -ForegroundColor Red
+        exit $LASTEXITCODE
+    }
+}
+
+java -jar $jar

@@ -7,5 +7,6 @@ public record ParticipantInfo(
         ConnectionState connection,
         int bidsInLast5s,
         long lastPrice,
-        int rttMs) {
+        int rttMs,
+        String role) {
 }

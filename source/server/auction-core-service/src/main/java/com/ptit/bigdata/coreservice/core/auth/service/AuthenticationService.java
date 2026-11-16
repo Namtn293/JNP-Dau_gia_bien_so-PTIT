@@ -19,6 +19,7 @@ import com.ptit.bigdata.coreservice.repository.UserInfoRepository;
 import io.jsonwebtoken.Claims;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -36,6 +37,12 @@ public class AuthenticationService {
     private final JwtService jwtService;
     private final TokenRepository tokenRepository;
     private final RestTemplate restTemplate;
+
+    @Value("${auth.google.allow-mock:false}")
+    private boolean allowMockGoogleToken;
+
+    @Value("${spring.google.client-id:}")
+    private String googleClientId;
 
     @Autowired
     public AuthenticationService(TokenRepository tokenRepository,
@@ -110,28 +117,47 @@ public class AuthenticationService {
 
     @Transactional
     public GoogleAuthResponse authenticateGoogle(GoogleLoginDTO dto) throws BusinessException {
+        if (dto == null || dto.getIdToken() == null || dto.getIdToken().isBlank()) {
+            throw new BusinessException(ErrorCode.GOOGLE_AUTH_FAILED);
+        }
+
         String email;
         String name;
 
-        // Hỗ trợ Mock token để test trên Postman (VD: mock:testuser@gmail.com:Nguyen Van A)
         if (dto.getIdToken().startsWith("mock:")) {
+            if (!allowMockGoogleToken) {
+                throw new BusinessException(ErrorCode.GOOGLE_AUTH_FAILED);
+            }
             String[] parts = dto.getIdToken().split(":");
             email = parts.length > 1 ? parts[1] : "testuser@gmail.com";
             name = parts.length > 2 ? parts[2] : "Google User";
         } else {
-            // Xác thực Google ID Token thực tế qua Google TokenInfo endpoint
+            Map<String, Object> payload;
             try {
                 String googleVerifyUrl = "https://oauth2.googleapis.com/tokeninfo?id_token=" + dto.getIdToken();
                 @SuppressWarnings("unchecked")
-                Map<String, Object> payload = restTemplate.getForObject(googleVerifyUrl, Map.class);
-                if (payload == null || !payload.containsKey("email")) {
-                    throw new BusinessException(ErrorCode.GOOGLE_AUTH_FAILED);
-                }
-                email = (String) payload.get("email");
-                name = (String) payload.get("name");
+                Map<String, Object> response = restTemplate.getForObject(googleVerifyUrl, Map.class);
+                payload = response;
             } catch (Exception e) {
                 throw new BusinessException(ErrorCode.GOOGLE_AUTH_FAILED);
             }
+
+            if (payload == null
+                    || googleClientId == null
+                    || googleClientId.isBlank()
+                    || !googleClientId.equals(String.valueOf(payload.get("aud")))
+                    || !Boolean.parseBoolean(String.valueOf(payload.get("email_verified")))) {
+                throw new BusinessException(ErrorCode.GOOGLE_AUTH_FAILED);
+            }
+
+            Object emailClaim = payload.get("email");
+            if (!(emailClaim instanceof String verifiedEmail) || verifiedEmail.isBlank()) {
+                throw new BusinessException(ErrorCode.GOOGLE_AUTH_FAILED);
+            }
+            email = verifiedEmail;
+            Object nameClaim = payload.get("name");
+            name = nameClaim instanceof String googleName && !googleName.isBlank()
+                    ? googleName : email.substring(0, email.indexOf('@'));
         }
 
         Optional<UserInfo> existingUserInfo = userInfoRepository.findByEmail(email);
