@@ -3,6 +3,13 @@ import { decryptDES, encryptDES } from "@utils/desEncryt";
 import { lcStorage } from "@utils/storage";
 import { isJwtExpired } from "./jwt";
 
+const isDevMode = (): boolean =>
+  Boolean(
+    import.meta.env.DEV ||
+    import.meta.env.MODE === "development" ||
+    import.meta.env.NODE_ENV === "development"
+  );
+
 const tokenManager = () => {
   let accessToken: string | undefined = lcStorage.get(
     LOCAL_STORAGE_KEYS.accessToken
@@ -16,10 +23,7 @@ const tokenManager = () => {
     if (!storedValue) return undefined;
 
     try {
-      const value =
-        import.meta.env.NODE_ENV === "development"
-          ? storedValue
-          : decryptDES(storedValue);
+      const value = isDevMode() ? storedValue : decryptDES(storedValue);
 
       return JSON.parse(value);
     } catch {
@@ -30,8 +34,7 @@ const tokenManager = () => {
   const setRoles = (roles: string[]): void => {
     const value = JSON.stringify(roles);
 
-    const storedValue =
-      import.meta.env.NODE_ENV === "development" ? value : encryptDES(value);
+    const storedValue = isDevMode() ? value : encryptDES(value);
 
     lcStorage.set(LOCAL_STORAGE_KEYS.roles, storedValue);
   };
@@ -61,7 +64,7 @@ const tokenManager = () => {
 
     let tokenToReturn: string | undefined;
     try {
-      if (import.meta.env.NODE_ENV === "development") {
+      if (isDevMode()) {
         tokenToReturn = accessToken;
       } else {
         tokenToReturn = decryptDES(accessToken);
@@ -82,7 +85,7 @@ const tokenManager = () => {
   };
 
   const setAccessToken = (token: string): void => {
-    if (import.meta.env.NODE_ENV === "development") {
+    if (isDevMode()) {
       accessToken = token;
     } else {
       accessToken = encryptDES(token);
@@ -102,7 +105,7 @@ const tokenManager = () => {
       refreshToken = lcStorage.get(LOCAL_STORAGE_KEYS.refreshToken);
     }
     if (!refreshToken) return undefined;
-    if (import.meta.env.NODE_ENV === "development") {
+    if (isDevMode()) {
       return refreshToken;
     } else {
       return decryptDES(refreshToken);
@@ -110,7 +113,7 @@ const tokenManager = () => {
   };
 
   const setRefreshToken = (token: string): void => {
-    if (import.meta.env.NODE_ENV === "development") {
+    if (isDevMode()) {
       refreshToken = token;
     } else {
       refreshToken = encryptDES(token);

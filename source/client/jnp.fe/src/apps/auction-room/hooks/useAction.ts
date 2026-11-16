@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useNotification } from "@/shared/hooks/useNotification";
+import tokenManager from "@/shared/utils/tokenManager";
 import { formatMoney, parseMoney, getCurrentTimeString } from "../util/format";
 import type { AuctionLot } from "../services/type";
 import { placeBidRestApi } from "../services/api";
@@ -293,6 +294,12 @@ export const useAction = ({
   const onSendChat = useCallback(() => {
     const trimmed = chatInput.trim();
     if (!trimmed) return;
+
+    const token = tokenManager.getAccessToken();
+    if (!token) {
+      showErrorNotify("Vui lòng đăng nhập để gửi tin nhắn trong phòng đấu giá!");
+      return;
+    }
 
     const senderName = currentUser?.fullName || currentUser?.name || "Bạn";
     const sent = sendSocketChat(trimmed, senderName);

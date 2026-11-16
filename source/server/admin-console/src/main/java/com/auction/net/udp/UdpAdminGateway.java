@@ -59,7 +59,7 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
     private final AdminGateway mock = new MockAdminGateway();
     private final TcpControlClient tcpClient = new TcpControlClient(AdminConfig.CORE_HOST, AdminConfig.RAW_TCP_PORT);
     private final HttpClient httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(3))
+            .connectTimeout(Duration.ofSeconds(6))
             .build();
     private final List<AlertListener> alertListeners = new CopyOnWriteArrayList<>();
     private final RttMonitor rttMonitor =
@@ -192,7 +192,7 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
                 + "/api/v1/auction/get?page=0&size=50&status=" + status;
         HttpRequest req = HttpRequest.newBuilder()
                 .uri(URI.create(url))
-                .timeout(Duration.ofSeconds(3))
+                .timeout(Duration.ofSeconds(6))
                 .GET()
                 .build();
         HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
@@ -293,7 +293,7 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
                     + "/api/v1/auction/room/" + encodedRoom;
             HttpRequest req = HttpRequest.newBuilder()
                     .uri(URI.create(url))
-                    .timeout(Duration.ofSeconds(3))
+                    .timeout(Duration.ofSeconds(6))
                     .GET()
                     .build();
             HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
