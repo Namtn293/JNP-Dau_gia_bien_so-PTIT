@@ -3,6 +3,7 @@ package com.auction.ui.panels.monitoring;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.util.List;
+import java.util.function.Consumer;
 
 import javax.swing.BorderFactory;
 import javax.swing.JPanel;
@@ -36,7 +37,8 @@ public class MonitoringPanel extends JPanel {
     private final QuickControlPanel quickControlPanel;
     private final Timer refreshTimer;
 
-    public MonitoringPanel(AdminGateway gateway, StyledDocument logDocument, RoomSelection selection) {
+    public MonitoringPanel(AdminGateway gateway, StyledDocument logDocument, RoomSelection selection,
+                           Consumer<RoomInfo> onRoomOpen) {
         this.gateway = gateway;
         this.selection = selection;
 
@@ -73,6 +75,11 @@ public class MonitoringPanel extends JPanel {
         roomTablePanel.addRoomSelectionListener(room -> {
             selection.select(room.id());
             quickControlPanel.showRoom(room);
+        });
+        roomTablePanel.addRoomOpenListener(room -> {
+            selection.select(room.id());
+            quickControlPanel.showRoom(room);
+            onRoomOpen.accept(room);
         });
         quickControlPanel.addRoomPickedListener(this::onRoomPickedFromCombo);
         quickControlPanel.setOnCommandCompleted(this::refreshRooms);

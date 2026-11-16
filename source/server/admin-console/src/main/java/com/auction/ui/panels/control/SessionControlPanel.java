@@ -71,6 +71,11 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
         new Timer(REFRESH_MS, e -> refresh()).start();
     }
 
+    /** Gọi sau khi người dùng chuyển từ danh sách sang một phiên cụ thể. */
+    public void refreshSelectedRoom() {
+        refresh();
+    }
+
     // ===== Bố cục =====
     private JPanel createBody() {
         JPanel left = new JPanel(new BorderLayout(0, 12));

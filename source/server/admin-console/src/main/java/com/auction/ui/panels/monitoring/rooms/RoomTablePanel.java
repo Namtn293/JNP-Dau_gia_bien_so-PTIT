@@ -8,6 +8,8 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -62,6 +64,7 @@ public class RoomTablePanel extends JPanel {
     private final JButton prevButton;
     private final JButton nextButton;
     private final List<Consumer<RoomInfo>> selectionListeners = new ArrayList<>();
+    private final List<Consumer<RoomInfo>> roomOpenListeners = new ArrayList<>();
 
     private List<RoomInfo> rooms = List.of();     // toàn bộ phòng
     private List<RoomInfo> filtered = List.of();  // sau khi lọc
@@ -124,6 +127,7 @@ public class RoomTablePanel extends JPanel {
         roomTable.setShowVerticalLines(false);
         roomTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         roomTable.setDefaultRenderer(Object.class, new RoomCellRenderer());
+        roomTable.setToolTipText("Nhấp đúp vào một phòng để mở trang điều khiển phiên");
         roomTable.getTableHeader().setFont(FONT_LABEL);
         roomTable.getTableHeader().setPreferredSize(new Dimension(0, 40));
         roomTable.getTableHeader().setReorderingAllowed(false);
@@ -164,6 +168,7 @@ public class RoomTablePanel extends JPanel {
 
         attachFilterListeners();
         attachSelectionListener();
+        attachRoomOpenListener();
         applyView();
     }
 
@@ -212,6 +217,11 @@ public class RoomTablePanel extends JPanel {
     /** Đăng ký nhận sự kiện khi người dùng chọn một phòng trên bảng. */
     public void addRoomSelectionListener(Consumer<RoomInfo> listener) {
         selectionListeners.add(listener);
+    }
+
+    /** Đăng ký nhận sự kiện mở trang điều khiển khi người dùng nhấp đúp một phòng. */
+    public void addRoomOpenListener(Consumer<RoomInfo> listener) {
+        roomOpenListeners.add(listener);
     }
 
     // ===== Lọc, phân trang, nạp bảng =====
@@ -351,6 +361,34 @@ public class RoomTablePanel extends JPanel {
             RoomInfo room = findRoom(selectedRoomId);
             if (room != null) {
                 for (Consumer<RoomInfo> listener : selectionListeners) {
+                    listener.accept(room);
+                }
+            }
+        });
+    }
+
+    private void attachRoomOpenListener() {
+        roomTable.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent event) {
+                if (event.getClickCount() != 2 || !javax.swing.SwingUtilities.isLeftMouseButton(event)) {
+                    return;
+                }
+
+                int viewRow = roomTable.rowAtPoint(event.getPoint());
+                if (viewRow < 0) return;
+
+                int modelRow = roomTable.convertRowIndexToModel(viewRow);
+                String roomId = (String) model.getValueAt(modelRow, COL_ID);
+                RoomInfo room = findRoom(roomId);
+                if (room == null) return;
+
+                if (roomTable.getSelectedRow() != viewRow) {
+                    roomTable.setRowSelectionInterval(viewRow, viewRow);
+                }
+                selectedRoomId = room.id();
+                updateFilterInfo();
+                for (Consumer<RoomInfo> listener : roomOpenListeners) {
                     listener.accept(room);
                 }
             }

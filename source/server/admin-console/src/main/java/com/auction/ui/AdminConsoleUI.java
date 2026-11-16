@@ -50,6 +50,7 @@ public class AdminConsoleUI extends JFrame {
     private MailService mailService;
     private AdminGateway gateway;
     private RoomSelection roomSelection;
+    private SessionControlPanel sessionControlPanel;
 
     public AdminConsoleUI() {
         initializeUI(); // Khởi tạo giao diện
@@ -74,8 +75,14 @@ public class AdminConsoleUI extends JFrame {
 
         // 2 tab
         tabbedPane = new JTabbedPane(JTabbedPane.TOP);
-        tabbedPane.addTab("Giám sát đấu giá", new MonitoringPanel(gateway, logDocument, roomSelection));
-        tabbedPane.addTab("Điều khiển phiên", new SessionControlPanel(gateway, logDocument, roomSelection));
+        sessionControlPanel = new SessionControlPanel(gateway, logDocument, roomSelection);
+        MonitoringPanel monitoringPanel = new MonitoringPanel(gateway, logDocument, roomSelection, room -> {
+            roomSelection.select(room.id());
+            sessionControlPanel.refreshSelectedRoom();
+            tabbedPane.setSelectedComponent(sessionControlPanel);
+        });
+        tabbedPane.addTab("Giám sát đấu giá", monitoringPanel);
+        tabbedPane.addTab("Điều khiển phiên", sessionControlPanel);
 
         add(createHeaderPanel(), BorderLayout.NORTH);
         add(tabbedPane, BorderLayout.CENTER);
