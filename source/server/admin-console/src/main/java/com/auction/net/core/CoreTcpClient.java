@@ -14,10 +14,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Kênh lệnh điều khiển TCP 9090 của auction-core-service (giao thức một dòng).
- * Gửi "HALT AUC-1023", nhận "OK ..." hoặc "FAIL ...".
- * Một kết nối dùng chung, các lệnh chạy tuần tự trên một luồng; mất kết nối thì
- * kết nối lại ở lệnh sau.
+ * Kênh lệnh điều khiển TCP 9090 của auction-core-service.
+ * Mỗi lệnh mở một kết nối mới, xác thực, gửi một dòng lệnh rồi đóng kết nối.
+ * Nhờ vậy client không tái sử dụng socket sau khi Core đã đóng kết nối nhàn rỗi.
  */
 public class CoreTcpClient implements AutoCloseable {
     private final String host;
@@ -28,11 +27,6 @@ public class CoreTcpClient implements AutoCloseable {
         t.setDaemon(true);
         return t;
     });
-
-    private Socket socket;
-    private BufferedReader in;
-    private BufferedWriter out;
-    private boolean authenticated;
 
     public CoreTcpClient(String host, int port) {
         this(host, port, "");
@@ -56,72 +50,42 @@ public class CoreTcpClient implements AutoCloseable {
     }
 
     private String exchange(String command) throws IOException {
-        ensureConnected();
+        if (secret == null || secret.isBlank()) {
+            throw new IOException("Chưa cấu hình TCP_CONTROL_SECRET");
+        }
 
-        try {
-            if (!authenticated) {
-                if (secret == null || secret.isBlank()) {
-                    throw new IOException("Chưa cấu hình TCP_CONTROL_SECRET");
-                }
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress(host, port), 3000);
+            socket.setSoTimeout(15000);
+
+            try (BufferedReader in = new BufferedReader(
+                    new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+                 BufferedWriter out = new BufferedWriter(
+                         new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))) {
                 out.write("AUTH " + secret);
                 out.newLine();
                 out.flush();
+
                 String authReply = in.readLine();
                 if (authReply == null || !authReply.startsWith("OK")) {
                     throw new IOException(authReply != null ? authReply : "Core đã đóng kết nối khi xác thực");
                 }
-                authenticated = true;
+
+                out.write(command);
+                out.newLine();
+                out.flush();
+
+                String reply = in.readLine();
+                if (reply == null) {
+                    throw new IOException("Core đã đóng kết nối TCP");
+                }
+                return reply;
             }
-            out.write(command);
-            out.write('\n');
-            out.flush();
-
-            String reply = in.readLine();
-            if (reply == null) {
-                throw new IOException("Core đã đóng kết nối TCP");
-            }
-
-            return reply;
-        } catch (IOException e) {
-            closeQuietly();
-            throw e;
         }
-    }
-
-    private void ensureConnected() throws IOException {
-        if (socket != null && socket.isConnected() && !socket.isClosed()) {
-            return;
-        }
-
-        closeQuietly();
-
-        Socket s = new Socket();
-        s.connect(new InetSocketAddress(host, port), 3000);
-        s.setSoTimeout(5000);
-
-        socket = s;
-
-        in = new BufferedReader(new InputStreamReader(s.getInputStream(), StandardCharsets.UTF_8));
-        out = new BufferedWriter(new OutputStreamWriter(s.getOutputStream(), StandardCharsets.UTF_8));
-    }
-
-    private void closeQuietly() {
-        try {
-            if (socket != null) {
-                socket.close();
-            }
-        } catch (Exception e) {
-            // Bỏ qua: đóng kết nối lỗi
-        }
-        socket = null;
-        in = null;
-        out = null;
-        authenticated = false;
     }
 
     @Override
     public void close() {
-        closeQuietly();
         executor.shutdownNow();
     }
 }

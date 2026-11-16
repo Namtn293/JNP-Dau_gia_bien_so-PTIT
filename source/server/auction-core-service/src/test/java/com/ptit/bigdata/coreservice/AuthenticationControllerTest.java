@@ -36,6 +36,7 @@ import org.springframework.test.context.TestPropertySource;
         "spring.datasource.url=jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=PostgreSQL",
         "spring.datasource.driver-class-name=org.h2.Driver",
         "spring.jpa.hibernate.ddl-auto=create-drop",
+        "tcp.control.port=0",
         "auth.google.allow-mock=true"
 })
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)

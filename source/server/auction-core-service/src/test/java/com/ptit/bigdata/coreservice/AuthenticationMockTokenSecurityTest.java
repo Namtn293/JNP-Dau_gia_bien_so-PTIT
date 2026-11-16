@@ -19,6 +19,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.datasource.url=jdbc:h2:mem:mockTokenSecurityTest;DB_CLOSE_DELAY=-1;MODE=PostgreSQL",
         "spring.datasource.driver-class-name=org.h2.Driver",
         "spring.jpa.hibernate.ddl-auto=create-drop",
+        "tcp.control.port=0",
         "auth.google.allow-mock=false"
 })
 class AuthenticationMockTokenSecurityTest {
