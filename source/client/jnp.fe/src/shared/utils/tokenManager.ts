@@ -10,6 +10,9 @@ const isDevMode = (): boolean =>
     import.meta.env.NODE_ENV === "development"
   );
 
+const isJwtFormat = (val?: string): boolean =>
+  Boolean(val && /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(val.trim()));
+
 const tokenManager = () => {
   let accessToken: string | undefined = lcStorage.get(
     LOCAL_STORAGE_KEYS.accessToken
@@ -23,11 +26,22 @@ const tokenManager = () => {
     if (!storedValue) return undefined;
 
     try {
-      const value = isDevMode() ? storedValue : decryptDES(storedValue);
-
-      return JSON.parse(value);
+      // Hỗ trợ cả JSON plain (dev mới) lẫn DES-encrypted (phiên đăng nhập cũ)
+      if (typeof storedValue === "string" && storedValue.trim().startsWith("[")) {
+        return JSON.parse(storedValue);
+      }
+      const decrypted = decryptDES(storedValue);
+      const parsed = JSON.parse(decrypted);
+      if (isDevMode()) {
+        lcStorage.set(LOCAL_STORAGE_KEYS.roles, decrypted);
+      }
+      return parsed;
     } catch {
-      return undefined;
+      try {
+        return JSON.parse(storedValue);
+      } catch {
+        return undefined;
+      }
     }
   };
 
@@ -64,10 +78,20 @@ const tokenManager = () => {
 
     let tokenToReturn: string | undefined;
     try {
-      if (isDevMode()) {
+      if (isJwtFormat(accessToken)) {
         tokenToReturn = accessToken;
       } else {
-        tokenToReturn = decryptDES(accessToken);
+        const decrypted = decryptDES(accessToken);
+        if (isJwtFormat(decrypted)) {
+          tokenToReturn = decrypted;
+          // Tự động chuyển đổi token cũ đã mã hóa DES sang plain khi chạy dev mode
+          if (isDevMode()) {
+            accessToken = decrypted;
+            lcStorage.set(LOCAL_STORAGE_KEYS.accessToken, decrypted);
+          }
+        } else if (isDevMode()) {
+          tokenToReturn = accessToken;
+        }
       }
     } catch {
       return undefined;
@@ -105,11 +129,22 @@ const tokenManager = () => {
       refreshToken = lcStorage.get(LOCAL_STORAGE_KEYS.refreshToken);
     }
     if (!refreshToken) return undefined;
-    if (isDevMode()) {
+    if (isJwtFormat(refreshToken) || refreshToken.startsWith("refresh-token-")) {
       return refreshToken;
-    } else {
-      return decryptDES(refreshToken);
     }
+    try {
+      const decrypted = decryptDES(refreshToken);
+      if (decrypted) {
+        if (isDevMode()) {
+          refreshToken = decrypted;
+          lcStorage.set(LOCAL_STORAGE_KEYS.refreshToken, decrypted);
+        }
+        return decrypted;
+      }
+    } catch {
+      // Fallback trả nguyên bản nếu không phải chuỗi mã hóa DES
+    }
+    return refreshToken;
   };
 
   const setRefreshToken = (token: string): void => {

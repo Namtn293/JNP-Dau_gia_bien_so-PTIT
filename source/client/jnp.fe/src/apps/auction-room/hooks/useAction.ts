@@ -154,7 +154,10 @@ export const useAction = ({
       refetchWallet?.();
     } catch (err: any) {
       showErrorNotify(
-        err?.response?.data?.message || err?.message || "Đặt cọc thất bại. Vui lòng kiểm tra lại số dư ví!"
+        err?.response?.data?.message ||
+          err?.data?.message ||
+          err?.message ||
+          "Đặt cọc thất bại. Vui lòng thử lại!"
       );
     }
   }, [
