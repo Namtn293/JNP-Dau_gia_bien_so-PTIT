@@ -49,6 +49,9 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
     @Autowired(required = false)
     private SimpMessagingTemplate messagingTemplate;
 
+    @Autowired(required = false)
+    private com.ptit.bigdata.coreservice.service.RoomPresenceService roomPresenceService;
+
     @Override
     public List<AdminRoomVO> getRooms() {
         List<AuctionSession> sessions = auctionSessionRepository.findAll();
@@ -111,6 +114,17 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
                     auctionRegistrationRepository.findBySessionId(sessionId);
 
             Set<Long> allUserIds = new LinkedHashSet<>();
+            Map<Long, String> onlineNames = new HashMap<>();
+            if (roomPresenceService != null) {
+                for (var onlineUser : roomPresenceService.getOnlineParticipants(sessionOpt.get().getSessionCode())) {
+                    if (onlineUser.getUserId() != null) {
+                        allUserIds.add(onlineUser.getUserId());
+                        if (onlineUser.getUserName() != null) {
+                            onlineNames.put(onlineUser.getUserId(), onlineUser.getUserName());
+                        }
+                    }
+                }
+            }
             for (com.ptit.bigdata.coreservice.entity.AuctionRegistration reg : registrations) {
                 allUserIds.add(reg.getUserId());
             }
@@ -124,17 +138,19 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
                     userBids.computeIfAbsent(b.getUserID(), k -> new ArrayList<>()).add(b);
                 }
 
+                String canonicalCode = sessionOpt.get().getSessionCode();
                 List<AdminParticipantVO> list = new ArrayList<>();
                 for (Long userId : allUserIds) {
                     List<BidHistory> hist = userBids.getOrDefault(userId, Collections.emptyList());
-                    String name = resolveDisplayName(userId);
+                    String name = onlineNames.getOrDefault(userId, resolveDisplayName(userId));
                     long maxBid = hist.stream().mapToLong(BidHistory::getBidAmount).max().orElse(0L);
                     String role = roomRoleResolver.resolve(userId, sessionId).name();
+                    boolean isOnline = roomPresenceService != null && roomPresenceService.isUserOnline(canonicalCode, userId);
 
                     list.add(AdminParticipantVO.builder()
                             .userId("U-" + String.format("%04d", userId))
                             .fullName(name)
-                            .connection("CONNECTED")
+                            .connection(isOnline ? "CONNECTED" : "OFFLINE")
                             .bidsInLast5s(hist.size())
                             .lastPrice(maxBid)
                             .rttMs(32)
@@ -171,12 +187,11 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
             log.debug("Unable to read OS metrics: {}", e.getMessage());
         }
 
-        // Count online users from active sessions
+        // Count online users from active sessions (đọc trực tiếp từ DB đã được RoomPresenceService đồng bộ)
         long online = auctionSessionRepository.findAll().stream()
                 .filter(s -> s.getStatus() == AuctionStatusEnum.LIVE)
                 .mapToLong(s -> s.getParticipantCount() != null ? s.getParticipantCount() : 0L)
                 .sum();
-        if (online == 0) online = 251;
 
         return AdminServerMetricsVO.builder()
                 .cpuPercent(cpuPercent)

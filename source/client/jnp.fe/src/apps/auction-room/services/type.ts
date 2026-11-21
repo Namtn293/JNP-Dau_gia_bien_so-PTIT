@@ -43,6 +43,13 @@ export interface RoomParticipant {
   isLeader?: boolean;
 }
 
+export interface OnlineParticipantVO {
+  userId?: number | string;
+  userName: string;
+  role?: string;
+  online?: boolean;
+}
+
 export interface AuctionRoomDetail {
   sessionCode: string;
   title: string;
@@ -74,6 +81,7 @@ export interface AuctionRoomDetail {
   nextMinBid?: number;
   lots: AuctionLot[];
   initialBids: BidHistoryItem[];
+  onlineParticipants?: OnlineParticipantVO[];
 }
 
 export interface PlaceBidPayload {
@@ -137,6 +145,10 @@ export interface WsRoomEvent {
     | string;
   message?: string;
   participantCount?: number;
+  userId?: number | string;
+  userName?: string;
+  role?: string;
+  participants?: OnlineParticipantVO[];
   timestamp?: string;
   pinned?: boolean;
   level?: "INFO" | "WARNING" | "IMPORTANT" | string;

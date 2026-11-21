@@ -267,6 +267,16 @@ export const useData = () => {
       let statusChanged = false;
       const mapped = prev.map((item) => {
         if (item.p === targetPlate || (msg.roomId && item.sessionCode === msg.roomId)) {
+          if (msg.type === "PARTICIPANT_UPDATE") {
+            return {
+              ...item,
+              participantCount:
+                typeof msg.participantCount === "number"
+                  ? msg.participantCount
+                  : item.participantCount ?? 0,
+            };
+          }
+
           const nextPrice =
             msg.currentPrice ||
             (msg.bidAmount ? msg.bidAmount : item.price);
@@ -279,6 +289,10 @@ export const useData = () => {
             : item.bids + 1;
           const nextStep =
             (msg as any).nextStep || msg.stepPrice || item.step;
+          const nextParticipantCount =
+            typeof msg.participantCount === "number"
+              ? msg.participantCount
+              : item.participantCount ?? 0;
 
           let nextStatus = item.st;
           if (msg.status) {
@@ -310,6 +324,7 @@ export const useData = () => {
             ...item,
             price: nextPrice,
             bids: nextBids,
+            participantCount: nextParticipantCount,
             step: nextStep,
             st: nextStatus,
             targetTimeMs: nextTargetMs,

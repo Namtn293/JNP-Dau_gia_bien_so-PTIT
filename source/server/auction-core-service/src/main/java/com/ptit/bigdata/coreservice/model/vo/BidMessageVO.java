@@ -19,6 +19,7 @@ public class BidMessageVO {
     private String plateNumber;
     private Long stepPrice;
     private Integer bidCount;
+    private Integer participantCount;
     private String status;
     private Long nextStep;
     private Long nextMinBid;

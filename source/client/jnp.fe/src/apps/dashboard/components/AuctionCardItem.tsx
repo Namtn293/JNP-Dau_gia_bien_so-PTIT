@@ -91,7 +91,10 @@ export const AuctionCardItem: React.FC<AuctionCardItemProps> = ({
 
       <RowBetween style={{ paddingTop: 8, borderTop: "1px dashed #dbe6ee" }}>
         <MuteLabel>
-          Bước: {formatMoney(item.step)} &bull; {item.bids} lượt
+          Bước: {formatMoney(item.step)} &bull; {item.bids} lượt &bull;{" "}
+          <span style={{ color: "#15803d", fontWeight: 700 }}>
+            {item.participantCount ?? 0} tham gia
+          </span>
         </MuteLabel>
         <ActionButton
           $ghost={item.st === "end"}

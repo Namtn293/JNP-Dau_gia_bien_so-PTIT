@@ -136,6 +136,7 @@ export const AuctionRoomPage: React.FC = () => {
           isWatched={data.isWatched}
           onToggleWatch={action.onToggleWatch}
           watchLoading={action.watchLoading}
+          participantCount={data.participantCount}
         />
 
         {/* Right: Interaction tabs (Chat, Hist, Chart, People) */}
@@ -154,6 +155,7 @@ export const AuctionRoomPage: React.FC = () => {
           isPriceSeriesLoading={data.isPriceSeriesLoading}
           currentPrice={data.currentPrice}
           participants={data.participants}
+          participantCount={data.participantCount}
           currentLeader={data.leader}
         />
       </MainGrid>

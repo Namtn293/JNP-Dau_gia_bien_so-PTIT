@@ -22,6 +22,7 @@ import com.ptit.bigdata.coreservice.repository.NumberPlateRepository;
 import com.ptit.bigdata.coreservice.repository.ProvinceRepository;
 import com.ptit.bigdata.coreservice.repository.UserInfoRepository;
 import com.ptit.bigdata.coreservice.service.AuctionSessionService;
+import com.ptit.bigdata.coreservice.service.RoomPresenceService;
 import com.ptit.bigdata.coreservice.service.RoomRoleResolver;
 import com.ptit.bigdata.coreservice.service.StepPriceCalculator;
 import lombok.RequiredArgsConstructor;
@@ -53,6 +54,7 @@ public class AuctionSessionServiceImplement implements AuctionSessionService {
     private final com.ptit.bigdata.coreservice.service.WatchService watchService;
     private final com.ptit.bigdata.coreservice.repository.AuctionWatchRepository auctionWatchRepository;
     private final com.ptit.bigdata.coreservice.service.RoomAnnouncementService roomAnnouncementService;
+    private final RoomPresenceService roomPresenceService;
 
     @Override
     public Page<AuctionSessionVO> getAuctionSessions(Pageable pageable, String auctionStatus) {
@@ -170,7 +172,7 @@ public class AuctionSessionServiceImplement implements AuctionSessionService {
                     .endTime(LocalDateTime.now().plusSeconds(1240))
                     .status(AuctionStatusEnum.LIVE)
                     .bidCount(0)
-                    .participantCount(1L)
+                    .participantCount(0L)
                     .build();
             sessionOpt = Optional.of(auctionSessionRepository.save(newSession));
         }
@@ -348,6 +350,11 @@ public class AuctionSessionServiceImplement implements AuctionSessionService {
             }
         }
 
+        var onlineParticipants = roomPresenceService.getOnlineParticipants(session.getSessionCode());
+        long liveParticipantCount = onlineParticipants != null
+                ? onlineParticipants.size()
+                : (session.getParticipantCount() != null ? session.getParticipantCount() : 0L);
+
         return AuctionRoomDetailVO.builder()
                 .sessionCode(session.getSessionCode())
                 .title(session.getTitle())
@@ -372,7 +379,7 @@ public class AuctionSessionServiceImplement implements AuctionSessionService {
                 .remainingSeconds(exactRemaining)
                 .status(session.getStatus() != null ? session.getStatus().name() : "LIVE")
                 .bidCount(session.getBidCount() != null ? session.getBidCount() : bidItems.size())
-                .participantCount(session.getParticipantCount() != null ? session.getParticipantCount() : 0L)
+                .participantCount(liveParticipantCount)
                 .leadingUser(leader)
                 .leadingUserId(leadingUserId)
                 .reserveMet(true)
@@ -380,6 +387,7 @@ public class AuctionSessionServiceImplement implements AuctionSessionService {
                 .announcements(announcements)
                 .lots(lots)
                 .initialBids(bidItems)
+                .onlineParticipants(onlineParticipants)
                 .build();
     }
 

@@ -15,6 +15,7 @@ import type {
   AuctionLot,
   BidHistoryItem,
   ChatMessage,
+  OnlineParticipantVO,
   RoomParticipant,
   WsAuctionMessage,
   WsChatMessage,
@@ -206,6 +207,7 @@ export const useData = (roomId: string) => {
       setRoomStatus("LIVE");
       setIsEnded(false);
       setRemainingSeconds(0);
+      setParticipantCount(selfName ? 1 : 0);
       setParticipants(
         selfName
           ? [
@@ -240,6 +242,7 @@ export const useData = (roomId: string) => {
   const [lots, setLots] = useState<AuctionLot[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [bidHistory, setBidHistory] = useState<BidHistoryItem[]>([]);
+  const [participantCount, setParticipantCount] = useState<number>(() => (selfName ? 1 : 0));
   const [participants, setParticipants] = useState<RoomParticipant[]>(() =>
     selfName
       ? [
@@ -272,17 +275,71 @@ export const useData = (roomId: string) => {
     [selfId, selfName]
   );
 
-  // Synchronize participants from bids + currentUser (deduplicate self by canonical key __SELF__)
-  const syncParticipants = useCallback(
-    (bids: BidHistoryItem[], currentLeadUser?: string, currentLeadUserId?: number | string | null) => {
+  const mapServerRoleLabel = useCallback((role?: string): string => {
+    const upper = (role || "").toUpperCase();
+    if (upper === "ADMIN") return "Ban tổ chức";
+    if (upper === "BIDDER") return "Đấu giá viên";
+    return "Khách theo dõi";
+  }, []);
+
+  // Synchronize live online participants from server presence snapshot (deduplicated by userId / __SELF__)
+  const syncOnlineParticipants = useCallback(
+    (
+      onlineList: OnlineParticipantVO[] | undefined,
+      currentLeadUser?: string,
+      currentLeadUserId?: number | string | null,
+      includeSelfFallback = true
+    ) => {
       const leadIdStr =
-        currentLeadUserId !== undefined && currentLeadUserId !== null ? String(currentLeadUserId) : "";
+        currentLeadUserId !== undefined && currentLeadUserId !== null
+          ? String(currentLeadUserId)
+          : "";
       const selfIsLeader = isSelfIdentity(currentLeadUser, leadIdStr, false);
 
-      setParticipants((prev) => {
+      setParticipants(() => {
         const map = new Map<string, RoomParticipant>();
 
-        if (selfName) {
+        (onlineList || []).forEach((u, idx) => {
+          const uIdStr = u.userId !== undefined && u.userId !== null ? String(u.userId) : "";
+          const isSelf = isSelfIdentity(u.userName, uIdStr, false);
+          const isLead = Boolean(
+            (leadIdStr && uIdStr && uIdStr === leadIdStr) ||
+              (!leadIdStr && currentLeadUser && u.userName === currentLeadUser)
+          );
+          const roleLabel = mapServerRoleLabel(u.role);
+          const statusText = isLead
+            ? "Dẫn đầu"
+            : (u.role || "").toUpperCase() === "BIDDER"
+            ? "Đã nộp cọc"
+            : (u.role || "").toUpperCase() === "ADMIN"
+            ? "Đang điều phối"
+            : "Đang trực tuyến";
+
+          if (isSelf) {
+            map.set("__SELF__", {
+              id: selfId || uIdStr || "SELF",
+              name: selfName || u.userName || "Bạn",
+              role: isRegistered ? "Đấu giá viên" : roleLabel,
+              statusText: isLead || selfIsLeader ? "Dẫn đầu" : isRegistered ? "Đã nộp cọc" : "Đang trực tuyến",
+              isSelf: true,
+              isLeader: Boolean(isLead || selfIsLeader),
+            });
+            return;
+          }
+
+          const key = uIdStr !== "" ? `UID:${uIdStr}` : `NAME:${u.userName}`;
+          map.set(key, {
+            id: uIdStr || `ONLINE-${idx}-${u.userName}`,
+            name: u.userName || "Người tham gia",
+            role: roleLabel,
+            statusText,
+            isSelf: false,
+            isLeader: isLead,
+          });
+        });
+
+        // Optimistic self entry trước khi STOMP JOIN echo quay về (~50ms đầu khi mới mở phòng)
+        if (includeSelfFallback && selfName && !map.has("__SELF__")) {
           map.set("__SELF__", {
             id: selfId || "SELF",
             name: selfName,
@@ -291,62 +348,16 @@ export const useData = (roomId: string) => {
               ? "Dẫn đầu"
               : isRegistered
               ? "Đã nộp cọc"
-              : "Đang theo dõi",
+              : "Đang trực tuyến",
             isSelf: true,
             isLeader: selfIsLeader,
           });
         }
 
-        // Keep any existing non-self participants (e.g. from real-time events)
-        prev.forEach((p) => {
-          if (p.isSelf || isSelfIdentity(p.name, p.id, p.isSelf)) return;
-          const key = p.id && !p.id.startsWith("BIDDER-") && !p.id.startsWith("CHAT-") && !p.id.startsWith("JOIN-")
-            ? `UID:${p.id}`
-            : `NAME:${p.name}`;
-          map.set(key, { ...p, isLeader: false });
-        });
-
-        // Add/merge real bidders from database / API
-        bids.forEach((b, idx) => {
-          const isSelf = isSelfIdentity(b.userName, b.userId, b.isMine);
-          const isLead = Boolean(
-            b.isWinning ||
-              (leadIdStr && b.userId !== undefined && String(b.userId) === leadIdStr) ||
-              (!leadIdStr && currentLeadUser && b.userName === currentLeadUser)
-          );
-
-          if (isSelf) {
-            const existingSelf = map.get("__SELF__");
-            map.set("__SELF__", {
-              id: selfId || (b.userId !== undefined ? String(b.userId) : "SELF"),
-              name: selfName || existingSelf?.name || b.userName || "Bạn",
-              role: isRegistered ? "Đấu giá viên" : existingSelf?.role || "Người tham gia",
-              statusText: isLead || existingSelf?.isLeader ? "Dẫn đầu" : "Đã đặt giá",
-              isSelf: true,
-              isLeader: Boolean(isLead || existingSelf?.isLeader),
-            });
-            return;
-          }
-
-          const key =
-            b.userId !== undefined && b.userId !== null && String(b.userId) !== ""
-              ? `UID:${b.userId}`
-              : `NAME:${b.userName}`;
-          const existing = map.get(key);
-          map.set(key, {
-            id: b.userId !== undefined ? String(b.userId) : existing?.id || `BIDDER-${idx}-${b.userName}`,
-            name: b.userName,
-            role: "Người tham gia",
-            statusText: isLead ? "Dẫn đầu" : existing?.isLeader ? "Dẫn đầu" : "Đã đặt giá",
-            isSelf: false,
-            isLeader: Boolean(isLead || existing?.isLeader),
-          });
-        });
-
         return Array.from(map.values());
       });
     },
-    [selfName, selfId, isRegistered, isSelfIdentity]
+    [selfName, selfId, isRegistered, isSelfIdentity, mapServerRoleLabel]
   );
 
   // Sync initial query detail (guarded with ref to run only once per payload)
@@ -435,13 +446,24 @@ export const useData = (roomId: string) => {
       setBidHistory(normalizedBids);
       const myLatest = normalizedBids.find((b) => b.isMine);
       setMyLastBid(myLatest ? myLatest.bidAmount : null);
-      syncParticipants(normalizedBids, initialDetail.leadingUser, initialDetail.leadingUserId);
     } else {
       setBidHistory([]);
       setMyLastBid(null);
-      syncParticipants([], initialDetail.leadingUser, initialDetail.leadingUserId);
     }
-  }, [initialDetail, roomId, selfId, syncParticipants, refetchRoomDetail]);
+
+    const serverOnline = initialDetail.onlineParticipants || [];
+    syncOnlineParticipants(
+      serverOnline,
+      initialDetail.leadingUser,
+      initialDetail.leadingUserId,
+      Boolean(selfName)
+    );
+    const serverCount =
+      typeof initialDetail.participantCount === "number"
+        ? initialDetail.participantCount
+        : serverOnline.length;
+    setParticipantCount(selfName ? Math.max(serverCount, 1) : serverCount);
+  }, [initialDetail, roomId, selfId, selfName, syncOnlineParticipants, refetchRoomDetail]);
 
   // Derived user lead state
   const isLeadingById = Boolean(selfId && leaderId && leaderId === selfId);
@@ -572,23 +594,16 @@ export const useData = (roomId: string) => {
           ...prev.map((b) => ({ ...b, isWinning: false })),
         ]);
 
-        // Dynamically add/update real bidder in participants without duplicating self under masked name
-        setParticipants((prev) => {
-          const map = new Map<string, RoomParticipant>();
-          prev.forEach((p) => {
+        // Cập nhật trạng thái dẫn đầu trên danh sách đang trực tuyến (không tự cộng thêm người offline)
+        setParticipants((prev) =>
+          prev.map((p) => {
             const matchesSelf = isSelfBid && (p.isSelf || isSelfIdentity(p.name, p.id, p.isSelf));
             const matchesById =
               !isSelfBid && newLeaderId !== "" && p.id !== "" && String(p.id) === newLeaderId;
             const matchesByName = !isSelfBid && newLeaderId === "" && p.name === newLeader;
             const isNewLeaderEntry = matchesSelf || matchesById || matchesByName;
 
-            const key = p.isSelf
-              ? "__SELF__"
-              : p.id && !p.id.startsWith("BIDDER-") && !p.id.startsWith("CHAT-") && !p.id.startsWith("JOIN-")
-              ? `UID:${p.id}`
-              : `NAME:${p.name}`;
-
-            map.set(key, {
+            return {
               ...p,
               isLeader: isNewLeaderEntry,
               statusText: isNewLeaderEntry
@@ -596,35 +611,9 @@ export const useData = (roomId: string) => {
                 : p.isLeader
                 ? "Đã đặt giá"
                 : p.statusText,
-            });
-          });
-
-          if (isSelfBid) {
-            if (!map.has("__SELF__")) {
-              map.set("__SELF__", {
-                id: selfId || newLeaderId || "SELF",
-                name: selfName || newLeader,
-                role: "Đấu giá viên",
-                statusText: "Dẫn đầu",
-                isSelf: true,
-                isLeader: true,
-              });
-            }
-          } else {
-            const targetKey = newLeaderId !== "" ? `UID:${newLeaderId}` : `NAME:${newLeader}`;
-            if (!map.has(targetKey)) {
-              map.set(targetKey, {
-                id: newLeaderId || `BIDDER-${Date.now()}`,
-                name: newLeader,
-                role: "Người tham gia",
-                statusText: "Dẫn đầu",
-                isSelf: false,
-                isLeader: true,
-              });
-            }
-          }
-          return Array.from(map.values());
-        });
+            };
+          })
+        );
 
         addSystemNotice(
           `${newLeader}${msg.source === "AUTO" ? " (Tự động)" : ""} vừa đặt giá ${formatMoney(msg.currentPrice)}`
@@ -652,42 +641,6 @@ export const useData = (roomId: string) => {
     [isSelfIdentity]
   );
 
-  const registerChatSenders = useCallback(
-    (items: WsChatMessage[]) => {
-      const valid = items.filter((m) => m.senderName && m.senderName !== "Hệ thống");
-      if (valid.length === 0) return;
-
-      setParticipants((prev) => {
-        const next = [...prev];
-        let changed = false;
-        for (const msg of valid) {
-          const isSelfSender = isSelfIdentity(msg.senderName, msg.senderId, false);
-          const alreadyExists = isSelfSender
-            ? next.some((p) => p.isSelf)
-            : next.some((p) =>
-                msg.senderId && !p.isSelf
-                  ? String(p.id) === String(msg.senderId)
-                  : p.name === msg.senderName && !p.isSelf
-              );
-          if (alreadyExists) continue;
-
-          const isHost = msg.senderName.includes("Host") || msg.senderName.includes("Ban tổ chức");
-          const isMonitor = msg.senderName.includes("GiamSat");
-          next.push({
-            id: isSelfSender ? selfId || "SELF" : msg.senderId || `CHAT-${Date.now()}-${msg.senderName}`,
-            name: isSelfSender && selfName ? selfName : msg.senderName,
-            role: isHost ? "Ban tổ chức" : isMonitor ? "Giám sát viên" : "Người tham gia",
-            statusText: isHost ? "Đang điều phối" : isMonitor ? "Đang giám sát" : "đang trực tuyến",
-            isSelf: isSelfSender,
-          });
-          changed = true;
-        }
-        return changed ? next : prev;
-      });
-    },
-    [selfId, selfName, isSelfIdentity]
-  );
-
   // Hydrate persistent chat history whenever entering or refreshing the auction room
   useEffect(() => {
     if (!chatHistoryData || !Array.isArray(chatHistoryData)) return;
@@ -701,8 +654,7 @@ export const useData = (roomId: string) => {
       const extras = prev.filter((m) => !m.id || !seen.has(m.id));
       return [...mappedHistory, ...extras];
     });
-    registerChatSenders(chatHistoryData);
-  }, [chatHistoryData, mapWsChatToMessage, registerChatSenders]);
+  }, [chatHistoryData, mapWsChatToMessage]);
 
   const handleChatMessage = useCallback(
     (msg: WsChatMessage) => {
@@ -713,9 +665,8 @@ export const useData = (roomId: string) => {
         }
         return [...prev, chatItem];
       });
-      registerChatSenders([msg]);
     },
-    [mapWsChatToMessage, registerChatSenders]
+    [mapWsChatToMessage]
   );
 
   const handleRoomEvent = useCallback(
@@ -806,40 +757,79 @@ export const useData = (roomId: string) => {
       } else if (event.event === "ROLE_CHANGED" || (event as any).type === "ROLE_CHANGED") {
         refetchRegistration();
         refetchWallet();
+      } else if (event.event === "JOIN" || event.event === "LEAVE") {
+        const uName = event.userName || "";
+        const uId = event.userId;
+        const isSelfEvent = isSelfIdentity(uName, uId, false);
+
+        if (typeof event.participantCount === "number") {
+          setParticipantCount(event.participantCount);
+        }
+
+        if (Array.isArray(event.participants)) {
+          syncOnlineParticipants(
+            event.participants,
+            leaderRef.current,
+            leaderIdRef.current,
+            false
+          );
+          if (typeof event.participantCount !== "number") {
+            setParticipantCount(event.participants.length);
+          }
+        } else if (uName) {
+          if (event.event === "JOIN") {
+            setParticipants((prev) => {
+              if (
+                (isSelfEvent && prev.some((p) => p.isSelf)) ||
+                prev.some((p) => (uId && String(p.id) === String(uId)) || p.name === uName)
+              ) {
+                return prev;
+              }
+              return [
+                ...prev,
+                {
+                  id: isSelfEvent ? selfId || "SELF" : uId ? String(uId) : `JOIN-${Date.now()}`,
+                  name: isSelfEvent && selfName ? selfName : uName,
+                  role: mapServerRoleLabel(event.role),
+                  statusText: "Đang trực tuyến",
+                  isSelf: isSelfEvent,
+                },
+              ];
+            });
+          } else {
+            setParticipants((prev) =>
+              prev.filter(
+                (p) => !((uId && String(p.id) === String(uId)) || p.name === uName) || p.isSelf
+              )
+            );
+          }
+        }
+
+        if (event.message) {
+          addSystemNotice(event.message);
+        } else if (uName) {
+          addSystemNotice(
+            event.event === "JOIN" ? `${uName} đã tham gia phòng` : `${uName} đã rời phòng`
+          );
+        }
       } else if (event.message) {
         addSystemNotice(event.message);
       }
-      if ((event as any).userName) {
-        const uName = (event as any).userName;
-        const uId = (event as any).userId;
-        const isSelfEvent = isSelfIdentity(uName, uId, false);
-        if (event.event === "JOIN") {
-          addSystemNotice(`${uName} đã vào phòng đấu giá`);
-          setParticipants((prev) => {
-            if (
-              (isSelfEvent && prev.some((p) => p.isSelf)) ||
-              prev.some((p) => p.name === uName || (uId && String(p.id) === String(uId)))
-            ) {
-              return prev;
-            }
-            return [
-              ...prev,
-              {
-                id: isSelfEvent ? selfId || "SELF" : uId ? String(uId) : `JOIN-${Date.now()}`,
-                name: isSelfEvent && selfName ? selfName : uName,
-                role: "Người tham gia",
-                statusText: "vừa vào phòng",
-                isSelf: isSelfEvent,
-              },
-            ];
-          });
-        } else if (event.event === "LEAVE") {
-          addSystemNotice(`${uName} đã rời khỏi phòng đấu giá`);
-          setParticipants((prev) => prev.filter((p) => !(p.name === uName || (uId && String(p.id) === String(uId))) || p.isSelf));
-        }
-      }
     },
-    [addSystemNotice, selfName, selfId, targetCode, isLoggedIn, refetchRegistration, refetchWallet, refetchRoomDetail, updateLotInList, isSelfIdentity]
+    [
+      addSystemNotice,
+      selfName,
+      selfId,
+      targetCode,
+      isLoggedIn,
+      refetchRegistration,
+      refetchWallet,
+      refetchRoomDetail,
+      updateLotInList,
+      isSelfIdentity,
+      syncOnlineParticipants,
+      mapServerRoleLabel,
+    ]
   );
 
   // Connect STOMP WebSocket (giữ kết nối kể cả khi PAUSED / SOON / END; chỉ báo JOIN khi sessionCode chuẩn đã tải xong)
@@ -855,6 +845,8 @@ export const useData = (roomId: string) => {
 
   const leaderRef = useRef(leader);
   leaderRef.current = leader;
+  const leaderIdRef = useRef(leaderId);
+  leaderIdRef.current = leaderId;
   const currentPriceRef = useRef(currentPrice);
   currentPriceRef.current = currentPrice;
   const soundEnabledRef = useRef(soundEnabled);
@@ -1021,6 +1013,7 @@ export const useData = (roomId: string) => {
     bidHistory,
     setBidHistory,
     participants,
+    participantCount,
     sendSocketBid,
     sendSocketChat,
     addSystemNotice,

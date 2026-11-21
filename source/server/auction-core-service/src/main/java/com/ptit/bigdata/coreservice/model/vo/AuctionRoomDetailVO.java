@@ -43,4 +43,5 @@ public class AuctionRoomDetailVO {
     private List<?> announcements;
     private List<AuctionLotVO> lots;
     private List<BidHistoryItemVO> initialBids;
+    private List<RoomParticipantVO> onlineParticipants;
 }
