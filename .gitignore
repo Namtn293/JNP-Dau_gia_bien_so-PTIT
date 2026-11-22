@@ -27,10 +27,14 @@ pnpm-debug.log*
 .vscode/
 .github/
 .ai/
+.agents/
 
 # OS metadata
 .DS_Store
 Thumbs.db
+
+# Scratch
+scratch/
 
 # Configuration files
 *.properties
