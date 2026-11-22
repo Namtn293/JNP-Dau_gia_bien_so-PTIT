@@ -9,7 +9,10 @@ import com.auction.mail.MailService;
 import com.auction.mail.MailTemplates;
 
 import java.awt.BorderLayout;
+import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.GraphicsEnvironment;
+import java.awt.Rectangle;
 
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -43,16 +46,21 @@ public class AdminConsoleUI extends JFrame {
 
     private StyledDocument logDocument;
     private MailService mailService;
+    private RoomSelection selection;
 
     public AdminConsoleUI() {
         initializeUI(); // Khởi tạo giao diện
     }
 
     private void initializeUI() {
-        // Cấu hình cửa sổ
+        // Cấu hình cửa sổ theo kích thước vùng làm việc khả dụng (trừ taskbar)
         setTitle("Đấu giá biển số • Quản trị viên");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(1300, 920);
+        Rectangle maxBounds = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+        int frameW = Math.min(1360, Math.max(1040, maxBounds.width - 24));
+        int frameH = Math.min(890, Math.max(660, maxBounds.height - 20));
+        setSize(frameW, frameH);
+        setMinimumSize(new Dimension(Math.min(1040, maxBounds.width - 16), Math.min(640, maxBounds.height - 16)));
         setLocationRelativeTo(null);
 
         // Dữ liệu dùng chung
@@ -62,7 +70,7 @@ public class AdminConsoleUI extends JFrame {
         UdpAdminGateway udpGateway = new UdpAdminGateway();
         udpGateway.addAlertListener(new AlertLogger(logDocument));
         AdminGateway gateway = udpGateway;
-        RoomSelection selection = new RoomSelection();
+        selection = new RoomSelection();
 
         // 2 tab
         tabbedPane = new JTabbedPane(JTabbedPane.TOP);
@@ -206,9 +214,11 @@ public class AdminConsoleUI extends JFrame {
             if (mailService == null) {
                 mailService = new MailService(MailConfig.fromEnv());
             }
-            // Dữ liệu mẫu theo phiên AUC-1023 trong thiết kế
+            String roomCode = selection != null && selection.roomId() != null
+                    ? selection.roomId()
+                    : AdminConfig.DEFAULT_ROOM_ID;
             MailMessage message = MailTemplates.winnerNotice(
-                    to, "AUC-1023", "30K - 999.99", 245_000_000L, 40_000_000L);
+                    to, roomCode, "30K-888.88", 245_000_000L, AdminConfig.DEPOSIT_VND);
 
             mailService.send(message).whenComplete((ignored, ex) -> SwingUtilities.invokeLater(() -> {
                 if (ex == null) {

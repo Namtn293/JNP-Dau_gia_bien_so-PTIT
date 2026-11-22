@@ -30,6 +30,7 @@ interface MainStagePanelProps {
   userLeadState: "none" | "leading" | "outbid";
   stepPrice: number;
   isEnded: boolean;
+  roomStatus?: "LIVE" | "SOON" | "PAUSED" | "END";
   quickSteps: number[];
   onQuickBid: (multiplier: number) => void;
   onMainBid: () => void;
@@ -38,14 +39,19 @@ interface MainStagePanelProps {
   onSubmitCustomBid: () => void;
   autoBidEnabled: boolean;
   autoBidMax: string;
+  autoBidLoading?: boolean;
   onToggleAutoBid: (checked: boolean) => void;
   onChangeAutoBidMax: (val: string) => void;
+  onUpdateAutoBidMax?: () => void;
   depositAmount: number;
   isRegistered?: boolean;
   onOpenDepositModal?: () => void;
+  onCancelDeposit?: () => void;
+  depositLoading?: boolean;
   isWatched?: boolean;
   onToggleWatch?: () => void;
   watchLoading?: boolean;
+  participantCount?: number;
 }
 
 export const MainStagePanel: React.FC<MainStagePanelProps> = ({
@@ -66,6 +72,7 @@ export const MainStagePanel: React.FC<MainStagePanelProps> = ({
   userLeadState,
   stepPrice,
   isEnded,
+  roomStatus,
   quickSteps,
   onQuickBid,
   onMainBid,
@@ -74,14 +81,19 @@ export const MainStagePanel: React.FC<MainStagePanelProps> = ({
   onSubmitCustomBid,
   autoBidEnabled,
   autoBidMax,
+  autoBidLoading,
   onToggleAutoBid,
   onChangeAutoBidMax,
+  onUpdateAutoBidMax,
   depositAmount,
   isRegistered,
   onOpenDepositModal,
+  onCancelDeposit,
+  depositLoading,
   isWatched,
   onToggleWatch,
   watchLoading,
+  participantCount,
 }) => {
   const tabs = [
     { key: "desc", label: "Mô tả" },
@@ -103,6 +115,7 @@ export const MainStagePanel: React.FC<MainStagePanelProps> = ({
           isWatched={isWatched}
           onToggleWatch={onToggleWatch}
           watchLoading={watchLoading}
+          participantCount={participantCount}
         />
 
         {/* Title and Meta Information */}
@@ -141,6 +154,7 @@ export const MainStagePanel: React.FC<MainStagePanelProps> = ({
           userLeadState={userLeadState}
           stepPrice={stepPrice}
           isEnded={isEnded}
+          roomStatus={roomStatus}
           quickSteps={quickSteps}
           onQuickBid={onQuickBid}
           onMainBid={onMainBid}
@@ -149,11 +163,15 @@ export const MainStagePanel: React.FC<MainStagePanelProps> = ({
           onSubmitCustomBid={onSubmitCustomBid}
           autoBidEnabled={autoBidEnabled}
           autoBidMax={autoBidMax}
+          autoBidLoading={autoBidLoading}
           onToggleAutoBid={onToggleAutoBid}
           onChangeAutoBidMax={onChangeAutoBidMax}
+          onUpdateAutoBidMax={onUpdateAutoBidMax}
           depositAmount={depositAmount}
           isRegistered={isRegistered}
           onOpenDepositModal={onOpenDepositModal}
+          onCancelDeposit={onCancelDeposit}
+          depositLoading={depositLoading}
         />
       </StageContainer>
     </Panel>

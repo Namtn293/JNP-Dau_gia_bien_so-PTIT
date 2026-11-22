@@ -89,6 +89,10 @@ public class RoomAnnouncementServiceImpl implements RoomAnnouncementService {
                 .event("ANNOUNCEMENT")
                 .message(rawContent)
                 .timestamp(timeStr)
+                .pinned(isPinned)
+                .level(announcement.getLevel().name())
+                .announcementId(announcement.getId())
+                .adminName(adminName)
                 .build();
         messagingTemplate.convertAndSend("/topic/room/" + sessionCode, event);
 
@@ -125,6 +129,8 @@ public class RoomAnnouncementServiceImpl implements RoomAnnouncementService {
                 .event("ANNOUNCEMENT_REMOVED")
                 .message("Thông báo đã được gỡ bỏ.")
                 .timestamp(timeStr)
+                .pinned(Boolean.TRUE.equals(announcement.getPinned()))
+                .announcementId(announcementId)
                 .build();
         messagingTemplate.convertAndSend("/topic/room/" + sessionCode, event);
     }

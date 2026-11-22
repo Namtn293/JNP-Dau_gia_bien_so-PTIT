@@ -40,8 +40,8 @@ public class MonitoringPanel extends JPanel {
         this.gateway = gateway;
         this.selection = selection;
 
-        setLayout(new BorderLayout(0, 16));
-        setBorder(BorderFactory.createEmptyBorder(16, 20, 16, 20));
+        setLayout(new BorderLayout(0, 12));
+        setBorder(BorderFactory.createEmptyBorder(14, 18, 12, 18));
 
         // North: thẻ chỉ số
         metricCardsPanel = new MetricCardsPanel(gateway);
@@ -52,13 +52,14 @@ public class MonitoringPanel extends JPanel {
         quickControlPanel = new QuickControlPanel(gateway, logDocument);
 
         JScrollPane quickScrollPane = new JScrollPane(quickControlPanel);
-        quickScrollPane.setPreferredSize(new Dimension(330, 0));
+        quickScrollPane.setPreferredSize(new Dimension(360, 0));
+        quickScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         quickScrollPane.setBorder(BorderFactory.createEmptyBorder());
         quickScrollPane.setOpaque(false);
         quickScrollPane.getViewport().setOpaque(false);
         quickScrollPane.getVerticalScrollBar().setUnitIncrement(16);
 
-        JPanel centerPanel = new JPanel(new BorderLayout(16, 0));
+        JPanel centerPanel = new JPanel(new BorderLayout(14, 0));
         centerPanel.setOpaque(false);
         centerPanel.add(roomTablePanel, BorderLayout.CENTER);
         centerPanel.add(quickScrollPane, BorderLayout.EAST);
@@ -66,7 +67,7 @@ public class MonitoringPanel extends JPanel {
 
         // South: nhật ký
         LogPanel logPanel = new LogPanel(logDocument);
-        logPanel.setPreferredSize(new Dimension(0, 190));
+        logPanel.setPreferredSize(new Dimension(0, 140));
         add(logPanel, BorderLayout.SOUTH);
 
         // Nối các thành phần
@@ -100,9 +101,18 @@ public class MonitoringPanel extends JPanel {
 
         RoomInfo selected = roomTablePanel.getSelectedRoom();
         if (selected == null) {
-            // Lần đầu hoặc phòng đang chọn đã biến mất: chọn phòng mặc định
+            // Lần đầu hoặc phòng đang chọn đã biến mất: ưu tiên phòng mặc định, sau đó chọn phòng đang đấu / đầu danh sách
             roomTablePanel.selectRoom(AdminConfig.DEFAULT_ROOM_ID);
             selected = roomTablePanel.getSelectedRoom();
+            if (selected == null && !rooms.isEmpty()) {
+                String fallbackId = rooms.stream()
+                        .filter(r -> r.status() == RoomStatus.ACTIVE || r.status() == RoomStatus.EXTENDING)
+                        .map(RoomInfo::id)
+                        .findFirst()
+                        .orElse(rooms.get(0).id());
+                roomTablePanel.selectRoom(fallbackId);
+                selected = roomTablePanel.getSelectedRoom();
+            }
         }
         if (selected != null) {
             selection.select(selected.id());

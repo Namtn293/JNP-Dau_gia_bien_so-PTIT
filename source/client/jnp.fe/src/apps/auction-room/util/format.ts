@@ -9,10 +9,13 @@ export const parseMoney = (s: string | undefined | null): number => {
 };
 
 export const formatCountdown = (seconds: number): string => {
-  if (seconds <= 0) return "00:00";
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m < 10 ? "0" : ""}${m}:${s < 10 ? "0" : ""}${s}`;
+  if (!seconds || seconds <= 0) return "00:00:00";
+  const safe = Math.floor(seconds);
+  const h = Math.floor(safe / 3600);
+  const m = Math.floor((safe % 3600) / 60);
+  const s = safe % 60;
+  const pad = (v: number) => String(v).padStart(2, "0");
+  return `${pad(h)}:${pad(m)}:${pad(s)}`;
 };
 
 export const maskUserName = (name: string | undefined | null): string => {

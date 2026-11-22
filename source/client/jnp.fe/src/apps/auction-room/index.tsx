@@ -31,6 +31,7 @@ export const AuctionRoomPage: React.FC = () => {
     currentPrice: data.currentPrice,
     stepPrice: data.stepPrice,
     isEnded: data.isEnded,
+    roomStatus: data.roomStatus,
     leader: data.leader,
     plateNumber: data.plateNumber,
     sessionCode: data.sessionCode,
@@ -114,6 +115,7 @@ export const AuctionRoomPage: React.FC = () => {
           userLeadState={data.userLeadState}
           stepPrice={data.stepPrice}
           isEnded={data.isEnded}
+          roomStatus={data.roomStatus}
           quickSteps={QUICK_BID_STEPS}
           onQuickBid={action.onQuickBid}
           onMainBid={action.onMainBid}
@@ -122,17 +124,22 @@ export const AuctionRoomPage: React.FC = () => {
           onSubmitCustomBid={action.onSubmitCustomBid}
           autoBidEnabled={data.autoBidEnabled}
           autoBidMax={data.autoBidMax}
+          autoBidLoading={action.autoBidLoading}
           onToggleAutoBid={action.onToggleAutoBid}
           onChangeAutoBidMax={action.onChangeAutoBidMax}
+          onUpdateAutoBidMax={action.onUpdateAutoBidMax}
           depositAmount={data.depositAmount}
           isRegistered={data.isRegistered}
           onOpenDepositModal={action.onOpenDepositModal}
+          onCancelDeposit={action.onCancelDeposit}
+          depositLoading={action.depositLoading}
           isWatched={data.isWatched}
           onToggleWatch={action.onToggleWatch}
           watchLoading={action.watchLoading}
+          participantCount={data.participantCount}
         />
 
-        {/* Right: Interaction tabs (Chat, Hist, People) */}
+        {/* Right: Interaction tabs (Chat, Hist, Chart, People) */}
         <InteractionTabsPanel
           activeTab={data.activeRightTab}
           onSelectTab={data.setActiveRightTab}
@@ -141,8 +148,14 @@ export const AuctionRoomPage: React.FC = () => {
           chatInput={data.chatInput}
           onChangeChatInput={data.setChatInput}
           onSendChat={action.onSendChat}
+          canChat={data.canChat}
+          isEnded={data.isEnded}
           history={data.bidHistory}
+          priceSeries={data.priceSeriesData}
+          isPriceSeriesLoading={data.isPriceSeriesLoading}
+          currentPrice={data.currentPrice}
           participants={data.participants}
+          participantCount={data.participantCount}
           currentLeader={data.leader}
         />
       </MainGrid>

@@ -22,15 +22,39 @@ public class AuctionSessionVO {
     private String sessionStatus;
     private String startTime;
     private String endTime;
+    private Long startTimeEpochMs;
+    private Long endTimeEpochMs;
+    private Long serverTimeMs;
     private Long stepPrice;
     private Long participantCount;
+    private Integer bidCount;
     private Long endPrice;
     private String statusCode; // mới: tên enum SOON | LIVE | END
     private Long currentPrice; // mới: giá hiện tại
     private String sessionCode;
     private Boolean isWatched;
+    private Boolean isRegistered;
     private Long nextStep;
     private Long nextMinBid;
+
+    public AuctionSessionVO(
+            String sessionCode,
+            String plateNumber,
+            String provinceName,
+            PlateTypeEnum plateType,
+            Long price,
+            AuctionStatusEnum sessionStatus,
+            LocalDateTime startTime,
+            LocalDateTime endTime,
+            Long stepPrice,
+            Long participantCount,
+            Long endPrice,
+            Long currentPrice,
+            Integer bidCount) {
+        this(sessionCode, plateNumber, provinceName, plateType, price, sessionStatus,
+                startTime, endTime, stepPrice, participantCount, endPrice, currentPrice);
+        this.bidCount = bidCount;
+    }
 
     public AuctionSessionVO(
             String sessionCode,

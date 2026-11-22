@@ -214,4 +214,34 @@ class BidServiceTest {
         verify(bidHistoryRepository).clearWinning(any());
         verify(eventPublisher).publishEvent(any(BidPlacedEvent.class));
     }
+
+    @Test
+    @DisplayName("Đặt giá trong 10 giây cuối -> Anti-sniping tự động gia hạn +30s")
+    void testPlaceBidAntiSnipingExtension() {
+        LocalDateTime originalEnd = LocalDateTime.now().plusSeconds(8);
+        AuctionSession session = AuctionSession.builder()
+                .sessionCode("SES_SNIPE")
+                .status(AuctionStatusEnum.LIVE)
+                .startPrice(40_000_000L)
+                .currentPrice(40_000_000L)
+                .bidCount(0)
+                .endTime(originalEnd)
+                .build();
+        when(auctionSessionRepository.findBySessionCodeForUpdate("SES_SNIPE")).thenReturn(Optional.of(session));
+        when(auctionRegistrationRepository.existsByUserIdAndSessionIdAndStatus(eq(2L), any(), eq(RegistrationStatusEnum.ACTIVE)))
+                .thenReturn(true);
+        when(bidHistoryRepository.save(any(BidHistory.class))).thenAnswer(inv -> {
+            BidHistory bh = inv.getArgument(0);
+            bh.setId(101L);
+            return bh;
+        });
+
+        User user = new User();
+        user.setUserName("bidder2");
+        when(userRepository.findById(2L)).thenReturn(Optional.of(user));
+
+        bidService.placeBid("SES_SNIPE", 2L, 45_000_000L, BidSourceEnum.MANUAL, "127.0.0.1");
+
+        assertEquals(originalEnd.plusSeconds(30), session.getEndTime());
+    }
 }

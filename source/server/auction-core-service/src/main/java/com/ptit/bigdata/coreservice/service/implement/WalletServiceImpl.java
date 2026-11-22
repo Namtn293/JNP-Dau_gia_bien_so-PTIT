@@ -55,6 +55,9 @@ public class WalletServiceImpl implements WalletService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.ptit.bigdata.coreservice.service.NotificationService notificationService;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.ptit.bigdata.coreservice.service.RoomPresenceService roomPresenceService;
+
     @Override
     @Transactional
     public WalletVO getWallet(Long userId) {
@@ -172,12 +175,11 @@ public class WalletServiceImpl implements WalletService {
         reg.setCreatedAt(LocalDateTime.now());
         auctionRegistrationRepository.save(reg);
 
-        // Tăng participant count của phiên
-        session.setParticipantCount((session.getParticipantCount() != null ? session.getParticipantCount() : 0L) + 1);
-        auctionSessionRepository.save(session);
-
-        // Xóa cache role và thông báo đổi role cho FE
+        // Xóa cache role, cập nhật role live presence (không đổi participantCount) và thông báo cho FE
         roomRoleResolver.evictCache(userId, session.getId());
+        if (roomPresenceService != null) {
+            roomPresenceService.refreshUserRole(userId, sessionCode, RoomRoleEnum.BIDDER.name());
+        }
         notifyRoleChanged(userId, sessionCode, RoomRoleEnum.BIDDER, RegistrationStatusEnum.ACTIVE);
 
         log.info("[AUCTION-REG] User {} đăng ký tham gia phiên {} thành công (Cọc: {})", userId, sessionCode, deposit);
@@ -232,11 +234,10 @@ public class WalletServiceImpl implements WalletService {
             });
         }
 
-        // Giảm participant count
-        session.setParticipantCount(Math.max(0L, (session.getParticipantCount() != null ? session.getParticipantCount() : 1L) - 1));
-        auctionSessionRepository.save(session);
-
         roomRoleResolver.evictCache(userId, session.getId());
+        if (roomPresenceService != null) {
+            roomPresenceService.refreshUserRole(userId, sessionCode, RoomRoleEnum.VIEWER.name());
+        }
         notifyRoleChanged(userId, sessionCode, RoomRoleEnum.VIEWER, RegistrationStatusEnum.CANCELLED);
 
         log.info("[AUCTION-CANCEL-REG] User {} hủy đăng ký phiên {}, hoàn cọc {}", userId, sessionCode, deposit);

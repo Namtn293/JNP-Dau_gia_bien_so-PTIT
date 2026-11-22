@@ -45,11 +45,13 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/admin/**", "/api/admin/**").hasRole("ADMIN")
                         .requestMatchers(org.springframework.http.HttpMethod.GET,
                                 "/api/v1/auction/get", "/v1/auction/get",
+                                "/api/v1/auction/time", "/v1/auction/time",
                                 "/api/v1/auction/room/**", "/v1/auction/room/**",
                                 "/api/v1/auction/detail/**", "/v1/auction/detail/**",
                                 "/api/v1/auction/*/price-series", "/v1/auction/*/price-series",
                                 "/api/v1/auction/*/bids", "/v1/auction/*/bids",
                                 "/api/v1/auction/*/announcements", "/v1/auction/*/announcements",
+                                "/api/v1/auction/*/chats", "/v1/auction/*/chats",
                                 "/api/v1/auction/*/registration", "/v1/auction/*/registration",
                                 "/api/v1/auction/*/auto-bid", "/v1/auction/*/auto-bid"
                         ).permitAll()

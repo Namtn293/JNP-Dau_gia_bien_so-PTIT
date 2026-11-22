@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "react-query";
+import { QK } from "@/shared/constants/queryKeys";
 import {
   placeBidRestApi,
   sendChatRestApi,
@@ -6,13 +7,11 @@ import {
   cancelRegistrationApi,
   watchAuctionSessionApi,
   unwatchAuctionSessionApi,
+  configureAutoBidApi,
+  disableAutoBidApi,
 } from "./api";
 import type { PlaceBidPayload, SendChatPayload } from "./type";
-import {
-  AUCTION_REGISTRATION_QUERY_KEY,
-  WALLET_BALANCE_QUERY_KEY,
-  AUCTION_WATCH_STATUS_QUERY_KEY,
-} from "./query";
+import { AUCTION_WATCH_STATUS_QUERY_KEY } from "./query";
 
 export const usePlaceBidMutation = () => {
   return useMutation((payload: PlaceBidPayload) =>
@@ -30,8 +29,10 @@ export const useRegisterAuctionMutation = () => {
     (sessionCode: string) => registerAuctionApi(sessionCode),
     {
       onSuccess: (_data, sessionCode) => {
-        queryClient.invalidateQueries([AUCTION_REGISTRATION_QUERY_KEY, sessionCode]);
-        queryClient.invalidateQueries([WALLET_BALANCE_QUERY_KEY]);
+        queryClient.invalidateQueries(QK.registration(sessionCode));
+        queryClient.invalidateQueries(QK.roomDetail(sessionCode));
+        queryClient.invalidateQueries(QK.wallet);
+        queryClient.invalidateQueries(["AUCTION_SESSIONS"]);
       },
     }
   );
@@ -43,8 +44,10 @@ export const useCancelRegistrationMutation = () => {
     (sessionCode: string) => cancelRegistrationApi(sessionCode),
     {
       onSuccess: (_data, sessionCode) => {
-        queryClient.invalidateQueries([AUCTION_REGISTRATION_QUERY_KEY, sessionCode]);
-        queryClient.invalidateQueries([WALLET_BALANCE_QUERY_KEY]);
+        queryClient.invalidateQueries(QK.registration(sessionCode));
+        queryClient.invalidateQueries(QK.roomDetail(sessionCode));
+        queryClient.invalidateQueries(QK.wallet);
+        queryClient.invalidateQueries(["AUCTION_SESSIONS"]);
       },
     }
   );
@@ -57,6 +60,8 @@ export const useWatchAuctionMutation = () => {
     {
       onSuccess: (_data, sessionCode) => {
         queryClient.invalidateQueries([AUCTION_WATCH_STATUS_QUERY_KEY, sessionCode]);
+        queryClient.invalidateQueries(["WATCHED_SESSIONS"]);
+        queryClient.invalidateQueries(["AUCTION_SESSIONS"]);
       },
     }
   );
@@ -69,6 +74,33 @@ export const useUnwatchAuctionMutation = () => {
     {
       onSuccess: (_data, sessionCode) => {
         queryClient.invalidateQueries([AUCTION_WATCH_STATUS_QUERY_KEY, sessionCode]);
+        queryClient.invalidateQueries(["WATCHED_SESSIONS"]);
+        queryClient.invalidateQueries(["AUCTION_SESSIONS"]);
+      },
+    }
+  );
+};
+
+export const useConfigureAutoBidMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation(
+    ({ sessionCode, maxAmount }: { sessionCode: string; maxAmount: number }) =>
+      configureAutoBidApi(sessionCode, maxAmount),
+    {
+      onSuccess: (_data, { sessionCode }) => {
+        queryClient.invalidateQueries(QK.autoBid(sessionCode));
+      },
+    }
+  );
+};
+
+export const useDisableAutoBidMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation(
+    (sessionCode: string) => disableAutoBidApi(sessionCode),
+    {
+      onSuccess: (_data, sessionCode) => {
+        queryClient.invalidateQueries(QK.autoBid(sessionCode));
       },
     }
   );

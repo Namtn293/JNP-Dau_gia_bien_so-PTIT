@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import dayjs from "dayjs";
 import tokenManager from "@/shared/utils/tokenManager";
+import { parseJwt } from "@/shared/utils/jwt";
 import useNotification from "@/shared/hooks/useNotification";
 import {
   loginApi,
@@ -260,14 +261,19 @@ export const useLogin = () => {
       const token = await loginApi(values);
       tokenManager.setAccessToken(token);
       tokenManager.setRefreshToken("refresh-token-" + Date.now());
-      tokenManager.setRoles(["USER"]);
+      const payload = parseJwt(token);
+      const roles = Array.isArray(payload?.roles) && payload.roles.length > 0
+        ? payload.roles
+        : ["ROLE_USER"];
+      tokenManager.setRoles(roles);
+      const isAdmin = roles.includes("ROLE_ADMIN") || payload?.sub === "admin";
       localStorage.setItem(
         "auction_user",
         JSON.stringify({
           email: values.email,
-          name: values.email.split("@")[0] || "User",
+          name: payload?.fullName || payload?.name || values.email.split("@")[0] || "User",
           provider: "email",
-          role: "Nhà đầu tư",
+          role: isAdmin ? "Quản trị viên" : "Nhà đầu tư",
         })
       );
 

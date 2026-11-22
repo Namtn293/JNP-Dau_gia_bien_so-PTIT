@@ -1,6 +1,6 @@
 import React from "react";
 import { Tag } from "antd";
-import { StarFilled, StarOutlined } from "@ant-design/icons";
+import { CheckCircleFilled, StarFilled, StarOutlined } from "@ant-design/icons";
 import type { AuctionItem, AuctionStatus } from "../services/type";
 import { formatMoney, getTimeLabel } from "../utils/format";
 import { STATUS_LABEL_MAP } from "../utils/constants";
@@ -34,7 +34,12 @@ export const AuctionBoardItem: React.FC<AuctionBoardItemProps> = ({
   return (
     <BoardGrid>
       {columns.map((st) => {
-        const colItems = data.filter((x) => x.st === st);
+        const colItems = data
+          .filter((x) => x.st === st)
+          .sort(
+            (a, b) =>
+              Number(Boolean(b.isRegistered)) - Number(Boolean(a.isRegistered))
+          );
         return (
           <BoardColumn key={st}>
             <h3>
@@ -57,9 +62,21 @@ export const AuctionBoardItem: React.FC<AuctionBoardItemProps> = ({
                       alignItems: "center",
                       justifyContent: "space-between",
                       margin: "4px 0 6px",
+                      gap: 6,
                     }}
                   >
-                    <PlateDisplay $small>{item.p}</PlateDisplay>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      <PlateDisplay $small>{item.p}</PlateDisplay>
+                      {item.isRegistered && (
+                        <Tag
+                          icon={<CheckCircleFilled />}
+                          color="success"
+                          style={{ borderRadius: 6, fontWeight: 700, margin: 0, fontSize: 11 }}
+                        >
+                          Đã nộp cọc
+                        </Tag>
+                      )}
+                    </div>
                     {onToggleWatch && (
                       <WatchIconButton
                         $watched={Boolean(isWatched)}

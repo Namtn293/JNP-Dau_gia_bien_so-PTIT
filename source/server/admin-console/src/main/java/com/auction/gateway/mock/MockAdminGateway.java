@@ -132,6 +132,11 @@ public class MockAdminGateway implements AdminGateway {
     }
 
     @Override
+    public CompletableFuture<CommandResult> unkick(String userId, String roomId) {
+        return delayed(() -> doUnkick(userId, roomId));
+    }
+
+    @Override
     public CompletableFuture<CommandResult> cancel(String roomId) {
         return delayed(() -> doCancel(roomId));
     }
@@ -172,6 +177,13 @@ public class MockAdminGateway implements AdminGateway {
             return CommandResult.fail("Không tìm thấy tài khoản " + userId + " trong " + roomId);
         }
         return CommandResult.ok("Đã ngắt kết nối WebSocket của " + userId + " khỏi " + roomId + ".");
+    }
+
+    private synchronized CommandResult doUnkick(String userId, String roomId) {
+        if (!rooms.containsKey(roomId)) {
+            return CommandResult.fail("Không tìm thấy phòng " + roomId);
+        }
+        return CommandResult.ok("Đã mở khóa (UNKICK) cho tài khoản " + userId + " được vào lại phòng " + roomId + ".");
     }
 
     private synchronized CommandResult doCancel(String roomId) {

@@ -303,9 +303,19 @@ public class ShillDetectionServiceImpl implements ShillDetectionService {
         log.warn("[ADMIN-BAN] Admin {} đã cấm tài khoản user {}: {}", adminId, userId, reason);
     }
 
+    private String resolveDisplayName(Long userId) {
+        if (userId == null) return "User #?";
+        return userRepository.findById(userId)
+                .flatMap(u -> userInfoRepository.findByUserName(u.getUsername())
+                        .map(ui -> (ui.getFullName() != null && !ui.getFullName().isBlank()) ? ui.getFullName() : u.getUsername()))
+                .orElseGet(() -> userInfoRepository.findById(userId)
+                        .map(UserInfo::getFullName)
+                        .orElse("User #" + userId));
+    }
+
     private ShillAlertVO mapToVO(ShillAlert a, List<BidHistory> bids) {
-        String nameA = userInfoRepository.findById(a.getUserAId()).map(UserInfo::getFullName).orElse("User #" + a.getUserAId());
-        String nameB = userInfoRepository.findById(a.getUserBId()).map(UserInfo::getFullName).orElse("User #" + a.getUserBId());
+        String nameA = resolveDisplayName(a.getUserAId());
+        String nameB = resolveDisplayName(a.getUserBId());
 
         List<BidHistoryItemVO> bidItems = null;
         if (bids != null) {
