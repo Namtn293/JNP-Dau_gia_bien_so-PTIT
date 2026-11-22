@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useQueryClient } from "react-query";
 import tokenManager from "@/shared/utils/tokenManager";
 import { useNotification } from "@/shared/hooks/useNotification";
@@ -13,7 +13,16 @@ import type {
 import { useStompSubscription } from "./useStompSubscription";
 
 export const UserChannels: React.FC = () => {
-  const token = tokenManager.getAccessToken();
+  const [token, setToken] = useState<string | undefined>(() => tokenManager.getAccessToken());
+  useEffect(() => {
+    const syncAuth = () => setToken(tokenManager.getAccessToken());
+    window.addEventListener("auth-changed", syncAuth);
+    window.addEventListener("storage", syncAuth);
+    return () => {
+      window.removeEventListener("auth-changed", syncAuth);
+      window.removeEventListener("storage", syncAuth);
+    };
+  }, []);
   const isLogin = Boolean(token);
   const queryClient = useQueryClient();
   const { showErrorNotify, showWarningNotify, showInfoNotify } = useNotification();

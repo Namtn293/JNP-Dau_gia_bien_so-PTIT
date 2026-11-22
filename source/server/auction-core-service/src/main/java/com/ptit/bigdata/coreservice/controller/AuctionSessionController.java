@@ -11,6 +11,7 @@ import com.ptit.bigdata.coreservice.model.vo.AuctionRoomDetailVO;
 import com.ptit.bigdata.coreservice.model.vo.AuctionSessionVO;
 import com.ptit.bigdata.coreservice.model.vo.BidHistoryItemVO;
 import com.ptit.bigdata.coreservice.model.vo.BidResultVO;
+import com.ptit.bigdata.coreservice.model.vo.ChatMessageVO;
 import com.ptit.bigdata.coreservice.model.vo.PriceSeriesVO;
 import com.ptit.bigdata.coreservice.model.vo.RegistrationDetailVO;
 import com.ptit.bigdata.coreservice.model.vo.RoomAnnouncementVO;
@@ -19,6 +20,7 @@ import com.ptit.bigdata.coreservice.service.AuctionSessionService;
 import com.ptit.bigdata.coreservice.service.BidService;
 import com.ptit.bigdata.coreservice.service.PriceSeriesService;
 import com.ptit.bigdata.coreservice.service.RoomAnnouncementService;
+import com.ptit.bigdata.coreservice.service.RoomChatService;
 import com.ptit.bigdata.coreservice.service.WalletService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -37,7 +39,13 @@ public class AuctionSessionController {
     private final PriceSeriesService priceSeriesService;
     private final AuctionHistoryService auctionHistoryService;
     private final RoomAnnouncementService roomAnnouncementService;
+    private final RoomChatService roomChatService;
     private final BidService bidService;
+
+    @GetMapping("/time")
+    public SuccessResponse<java.util.Map<String, Long>> getServerTime() {
+        return ResponseUtil.ok(java.util.Map.of("serverTimeMs", System.currentTimeMillis()));
+    }
 
     @GetMapping("/get")
     public SuccessResponse<Page<AuctionSessionVO>> get(
@@ -101,6 +109,28 @@ public class AuctionSessionController {
     ) {
         Pageable pageable = PageRequest.of(page, size);
         return ResponseUtil.ok(roomAnnouncementService.getAnnouncements(code, pageable));
+    }
+
+    @GetMapping("/{code}/chats")
+    public SuccessResponse<java.util.List<ChatMessageVO>> getChatHistory(
+            @PathVariable("code") String code,
+            @RequestParam(value = "limit", defaultValue = "100") int limit
+    ) {
+        return ResponseUtil.ok(roomChatService.getChatHistory(code, limit));
+    }
+
+    @PostMapping("/{code}/chats")
+    public SuccessResponse<ChatMessageVO> postChatMessage(
+            @PathVariable("code") String code,
+            @RequestBody(required = false) ChatMessageVO body
+    ) {
+        var user = ThreadContext.getCurrentUser();
+        if (user == null) {
+            throw new BusinessException(ErrorCode.BID_UNAUTHORIZED);
+        }
+        String content = body != null ? body.getContent() : null;
+        String fallback = body != null ? body.getSenderName() : user.getUsername();
+        return ResponseUtil.ok(roomChatService.postChatFromRest(code, user.getId(), fallback, content));
     }
 
     @PostMapping("/{code}/bid")

@@ -187,6 +187,7 @@ export const StompProvider: React.FC<{ children: React.ReactNode }> = ({
           "USER_BANNED",
           "FORBIDDEN_DESTINATION",
           "FORBIDDEN_ADMIN_ONLY",
+          "ADMIN_REQUIRED",
         ];
 
         if (errorCode && authErrors.includes(errorCode)) {

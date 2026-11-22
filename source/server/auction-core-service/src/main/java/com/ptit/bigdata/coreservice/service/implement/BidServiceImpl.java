@@ -46,6 +46,9 @@ public class BidServiceImpl implements BidService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.ptit.bigdata.coreservice.service.NotificationService notificationService;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.ptit.bigdata.coreservice.service.RoomPresenceService roomPresenceService;
+
     @Override
     @Transactional
     public BidResultVO placeBid(String sessionCode, Long userId, Long bidAmount, BidSourceEnum source, String clientIp) {
@@ -63,6 +66,11 @@ public class BidServiceImpl implements BidService {
         // 2. Khóa dòng phiên đấu giá để chống race condition
         AuctionSession session = auctionSessionRepository.findBySessionCodeForUpdate(sessionCode)
                 .orElseThrow(() -> new BusinessException(ErrorCode.AUCTION_NOT_FOUND));
+
+        // 2.5. Chặn người dùng đã bị Quản trị viên kick khỏi phòng đặt giá
+        if (roomPresenceService != null && roomPresenceService.isUserKicked(session.getSessionCode(), userId)) {
+            throw new BusinessException(ErrorCode.ROOM_KICKED);
+        }
 
         // 3. Trạng thái phiên phải là LIVE và chưa hết giờ
         LocalDateTime now = LocalDateTime.now();
@@ -116,7 +124,23 @@ public class BidServiceImpl implements BidService {
                 .build();
         history = bidHistoryRepository.save(history);
 
-        // 9. Cập nhật phiên đấu giá
+        // 9. Cập nhật phiên đấu giá + kiểm tra Anti-Sniping (còn <= 10s cuối thì gia hạn +30s)
+        boolean extended = false;
+        LocalDateTime updatedEndTime = session.getEndTime();
+        if (updatedEndTime != null) {
+            long secondsLeft = java.time.Duration.between(now, updatedEndTime).getSeconds();
+            if (secondsLeft >= 0 && secondsLeft <= 10) {
+                updatedEndTime = updatedEndTime.plusSeconds(30);
+                session.setEndTime(updatedEndTime);
+                extended = true;
+                log.info("[ANTI-SNIPING] Phiên {}: Đặt giá ở {}s cuối -> Tự động gia hạn +30s (EndTime mới: {})",
+                        sessionCode, secondsLeft, updatedEndTime);
+            }
+        }
+        long remainingSeconds = updatedEndTime != null
+                ? Math.max(0L, java.time.Duration.between(now, updatedEndTime).getSeconds())
+                : 0L;
+
         long nextStep = stepPriceCalculator.stepFor(bidAmount);
         long nextMinBid = bidAmount + nextStep;
         int newBidCount = (session.getBidCount() != null ? session.getBidCount() : 0) + 1;
@@ -169,7 +193,10 @@ public class BidServiceImpl implements BidService {
                 newBidCount,
                 history.getBidTime(),
                 source != null ? source : BidSourceEnum.MANUAL,
-                clientIp
+                clientIp,
+                updatedEndTime,
+                remainingSeconds,
+                extended
         );
         eventPublisher.publishEvent(event);
 

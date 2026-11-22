@@ -9,16 +9,27 @@ export type PlateTypeEnum =
   | "OTHER";
 
 export interface AuctionSessionVO {
+  sessionCode?: string;
   plateNumber: string;
   provinceName: string;
   plateType: PlateTypeEnum | string;
   price: number;
+  currentPrice?: number;
   sessionStatus: string;
+  statusCode?: string;
   startTime: string;
   endTime: string;
+  startTimeEpochMs?: number;
+  endTimeEpochMs?: number;
+  serverTimeMs?: number;
   stepPrice: number;
+  nextStep?: number;
+  nextMinBid?: number;
   participantCount: number;
+  bidCount?: number;
   endPrice: number;
+  isWatched?: boolean;
+  isRegistered?: boolean;
 }
 
 export interface PageResponse<T> {
@@ -57,9 +68,12 @@ export interface AuctionItem {
   price: number;
   step: number;
   bids: number;
+  participantCount?: number;
   t: number;
   startTime?: string;
   endTime?: string;
+  targetTimeMs?: number;
+  isRegistered?: boolean;
 }
 
 export interface PlaceBidPayload {
@@ -99,9 +113,10 @@ export interface WsBidMessage {
   currentPrice?: number;
   stepPrice?: number;
   bidCount?: number;
+  participantCount?: number;
   timestamp?: string;
   status?: string;
-  type?: "BID" | "EXTEND" | "NEW_HIGHEST" | "STATUS_CHANGE" | string;
+  type?: "BID" | "EXTEND" | "NEW_HIGHEST" | "STATUS_CHANGE" | "PARTICIPANT_UPDATE" | string;
 }
 
 export type WsConnectionStatus = "connecting" | "connected" | "disconnected" | "error";

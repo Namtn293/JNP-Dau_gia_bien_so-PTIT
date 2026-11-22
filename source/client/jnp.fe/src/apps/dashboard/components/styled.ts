@@ -145,6 +145,16 @@ export const WatchFilterButton = styled.button<{ $active?: boolean }>`
   }
 `;
 
+export const DepositFilterButton = styled(WatchFilterButton)<{ $active?: boolean }>`
+  background: ${(props) => (props.$active ? "#059669" : "#ffffff")};
+  border-color: ${(props) => (props.$active ? "#059669" : "#cbd5e1")};
+
+  &:hover {
+    border-color: #059669;
+    color: ${(props) => (props.$active ? "#ffffff" : "#059669")};
+  }
+`;
+
 export const MainContent = styled.main`
   max-width: 1240px;
   margin: 0 auto;
@@ -299,22 +309,25 @@ export const CardsGrid = styled.div`
   gap: 16px;
 `;
 
-export const AuctionCard = styled.article`
+export const AuctionCard = styled.article<{ $registered?: boolean }>`
   background: #ffffff;
-  border: 1px solid #dbe6ee;
+  border: ${(props) => (props.$registered ? "1.5px solid #34d399" : "1px solid #dbe6ee")};
   border-radius: 16px;
   padding: 18px;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.03);
+  box-shadow: ${(props) =>
+    props.$registered
+      ? "0 4px 16px rgba(16, 185, 129, 0.09)"
+      : "0 3px 12px rgba(0, 0, 0, 0.03)"};
   transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
 
   &:hover {
     transform: translateY(-3px);
     box-shadow: 0 12px 28px rgba(37, 107, 140, 0.1);
-    border-color: #b8dbeb;
+    border-color: ${(props) => (props.$registered ? "#10b981" : "#b8dbeb")};
 
     ${PlateDisplay} {
       border-color: #256b8c;

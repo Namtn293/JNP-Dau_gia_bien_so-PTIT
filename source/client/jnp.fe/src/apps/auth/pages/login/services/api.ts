@@ -9,7 +9,7 @@ import type {
  * Đăng nhập bằng tài khoản thông thường qua API server (/api/auth/login)
  */
 export const loginApi = async (credentials: LoginCredentials): Promise<string> => {
-  const res = await axiosClient.post<any>(
+  const res: any = await axiosClient.post(
     "/api/auth/login",
     {
       userName: credentials.email,
@@ -20,11 +20,16 @@ export const loginApi = async (credentials: LoginCredentials): Promise<string> =
     }
   );
 
-  const responseData = (res as any)?.data || res;
-  if (responseData?.code === 200 || responseData?.success) {
-    return responseData.data;
+  if (typeof res === "string" && res.length > 0) {
+    return res;
   }
-  throw new Error(responseData?.message || "Tài khoản hoặc mật khẩu không chính xác!");
+  if (res?.code === 200 || res?.success) {
+    return res.data;
+  }
+  if (res?.data && typeof res.data === "string") {
+    return res.data;
+  }
+  throw new Error(res?.message || "Tài khoản hoặc mật khẩu không chính xác!");
 };
 
 /**

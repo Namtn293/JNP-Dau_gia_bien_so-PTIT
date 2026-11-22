@@ -25,5 +25,13 @@ public interface AdminGateway {
 
     CompletableFuture<CommandResult> kick(String userId, String roomId);
 
+    default CompletableFuture<CommandResult> unkick(String userId, String roomId) {
+        return CompletableFuture.completedFuture(CommandResult.fail("Chưa hỗ trợ mở khóa tài khoản (UNKICK)"));
+    }
+
     CompletableFuture<CommandResult> cancel(String roomId);
+
+    default CompletableFuture<CommandResult> announce(String roomId, String message) {
+        return CompletableFuture.completedFuture(CommandResult.fail("Chưa hỗ trợ gửi thông báo"));
+    }
 }

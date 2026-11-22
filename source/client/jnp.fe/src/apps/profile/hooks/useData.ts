@@ -1,13 +1,16 @@
 import { useState, useMemo } from "react";
 import tokenManager from "@/shared/utils/tokenManager";
 import { parseJwt } from "@/shared/utils/jwt";
-import { useWalletQuery, useWalletTransactionsQuery } from "../services/query";
+import { useWalletQuery, useWalletTransactionsQuery, useMyBidHistoryQuery } from "../services/query";
 import type { UserProfile } from "../services/type";
 
 export const useData = () => {
   const [page, setPage] = useState(0);
   const [size, setSize] = useState(10);
   const [txType, setTxType] = useState<string | undefined>(undefined);
+  const [bidPage, setBidPage] = useState(0);
+  const [bidSize, setBidSize] = useState(10);
+  const [bidResult, setBidResult] = useState<string | undefined>(undefined);
 
   const token = tokenManager.getAccessToken();
   const isLogin = Boolean(token);
@@ -62,6 +65,17 @@ export const useData = () => {
     { enabled: isLogin }
   );
 
+  // 4. Query lịch sử đấu giá của tôi
+  const {
+    data: bidData,
+    isLoading: isBidsLoading,
+    isFetching: isBidsFetching,
+    refetch: refetchBids,
+  } = useMyBidHistoryQuery(
+    { page: bidPage, size: bidSize, result: bidResult },
+    { enabled: isLogin }
+  );
+
   return {
     isLogin,
     userProfile,
@@ -79,6 +93,17 @@ export const useData = () => {
     isTxLoading,
     isTxFetching,
     refetchTx,
+    bidHistory: bidData?.content ?? [],
+    totalBids: bidData?.totalElements ?? 0,
+    bidPage,
+    setBidPage,
+    bidSize,
+    setBidSize,
+    bidResult,
+    setBidResult,
+    isBidsLoading,
+    isBidsFetching,
+    refetchBids,
   };
 };
 

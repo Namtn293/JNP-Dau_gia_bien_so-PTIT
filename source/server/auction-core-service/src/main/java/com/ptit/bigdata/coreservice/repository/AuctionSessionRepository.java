@@ -8,9 +8,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -37,7 +39,7 @@ public interface AuctionSessionRepository extends JpaRepository<AuctionSession, 
 
     List<AuctionSession> findByStatusAndStartTimeBeforeAndEndTimeAfter(AuctionStatusEnum status, LocalDateTime startTime, LocalDateTime endTime);
 
-    @Query(value = "select new com.ptit.bigdata.coreservice.model.vo.AuctionSessionVO(a.sessionCode, n.plateNumber, p.name, n.plateType, a.startPrice, a.status, a.startTime, a.endTime, a.stepPrice, a.participantCount, a.endPrice, a.currentPrice) "
+    @Query(value = "select new com.ptit.bigdata.coreservice.model.vo.AuctionSessionVO(a.sessionCode, n.plateNumber, p.name, n.plateType, a.startPrice, a.status, a.startTime, a.endTime, a.stepPrice, a.participantCount, a.endPrice, a.currentPrice, a.bidCount) "
             + "from AuctionSession a "
             + "join NumberPlate n on a.numberPlateId = n.id "
             + "join Province p on n.provinceId = p.id "
@@ -45,6 +47,26 @@ public interface AuctionSessionRepository extends JpaRepository<AuctionSession, 
             countQuery = "select count(a) from AuctionSession a where a.status = :sessionStatus")
     Page<AuctionSessionVO> getAuctionSession(Pageable pageable,
             @Param("sessionStatus") AuctionStatusEnum sessionStatus);
+
+    /**
+     * Cập nhật trực tiếp số người tham gia duy nhất đang ở trong phòng vào DB.
+     */
+    @Modifying
+    @Transactional
+    @Query("update AuctionSession a set a.participantCount = :count, a.updatedAt = :updatedAt where a.sessionCode = :sessionCode")
+    int updateParticipantCountBySessionCode(
+            @Param("sessionCode") String sessionCode,
+            @Param("count") Long count,
+            @Param("updatedAt") LocalDateTime updatedAt
+    );
+
+    /**
+     * Đồng bộ reset participant_count về 0 khi server khởi động lại (không còn kết nối WebSocket cũ).
+     */
+    @Modifying
+    @Transactional
+    @Query("update AuctionSession a set a.participantCount = 0L")
+    int resetAllParticipantCounts();
 
     /**
      * Tổng số người tham gia của các phiên đang ở trạng thái cho trước (dùng cho

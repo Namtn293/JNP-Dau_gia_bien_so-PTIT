@@ -19,11 +19,17 @@ public class BidMessageVO {
     private String plateNumber;
     private Long stepPrice;
     private Integer bidCount;
+    private Integer participantCount;
     private String status;
     private Long nextStep;
     private Long nextMinBid;
     private String source;
     private String bidTime;
+    private Long remainingSeconds;
+    private String endTime;
+    private Long endTimeEpochMs;
+    private Long serverTimeMs;
+    private Boolean extended;
     @Builder.Default
     private String type = "BID"; // BID, EXTEND, NEW_HIGHEST
 }

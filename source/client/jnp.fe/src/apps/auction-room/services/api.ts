@@ -1,18 +1,26 @@
 import axiosClient from "@/configs/axios";
 import type {
   AuctionRoomDetail,
-  PlaceBidPayload,
   SendChatPayload,
   RegistrationDetailVO,
   WalletBalanceVO,
+  WsChatMessage,
 } from "./type";
+import type { AutoBidConfig, PriceSeries } from "@/shared/types/auction";
 
 export const getAuctionRoomDetailApi = async (
   roomId: string
 ): Promise<AuctionRoomDetail> => {
   try {
-    const response = await axiosClient.get<any>(`/api/v1/auction/room/${roomId}`);
-    const resData = (response as any)?.data ?? response;
+    const response: any = await axiosClient.get<any>(`/api/v1/auction/room/${roomId}`);
+    if (response && response.success === false) {
+      const err: any = new Error(response.message || "Không thể truy cập phòng đấu giá");
+      err.code = response.code;
+      err.status = response.code;
+      err.data = response;
+      throw err;
+    }
+    const resData = response?.data ?? response;
     return resData;
   } catch (error) {
     console.error("[AuctionRoomApi] Failed to fetch room detail from BE:", error);
@@ -30,10 +38,28 @@ export const placeBidRestApi = async (
   return (response as any)?.data ?? response;
 };
 
+export const getRoomChatsApi = async (
+  code: string,
+  limit = 100
+): Promise<WsChatMessage[]> => {
+  const response = await axiosClient.get<any>(`/api/v1/auction/${code}/chats`, {
+    params: { limit },
+  });
+  const resData = (response as any)?.data ?? response;
+  return Array.isArray(resData) ? resData : [];
+};
+
 export const sendChatRestApi = async (
   payload: SendChatPayload
-): Promise<{ success: boolean; data: SendChatPayload }> => {
-  return Promise.resolve({ success: true, data: payload });
+): Promise<WsChatMessage> => {
+  const response = await axiosClient.post<any>(
+    `/api/v1/auction/${payload.roomId}/chats`,
+    {
+      content: payload.content,
+      senderName: payload.senderName,
+    }
+  );
+  return (response as any)?.data ?? response;
 };
 
 export const getAuctionRegistrationApi = async (
@@ -58,7 +84,32 @@ export const cancelRegistrationApi = async (
 };
 
 export const getWalletBalanceApi = async (): Promise<WalletBalanceVO> => {
-  const response = await axiosClient.get<any>("/api/v1/wallet/balance");
+  const response = await axiosClient.get<any>("/api/v1/wallet");
+  return (response as any)?.data ?? response;
+};
+
+export const getAutoBidConfigApi = async (code: string): Promise<AutoBidConfig> => {
+  const response = await axiosClient.get<any>(`/api/v1/auction/${code}/auto-bid`);
+  return (response as any)?.data ?? response;
+};
+
+export const configureAutoBidApi = async (
+  code: string,
+  maxAmount: number
+): Promise<AutoBidConfig> => {
+  const response = await axiosClient.put<any>(`/api/v1/auction/${code}/auto-bid`, {
+    maxAmount,
+  });
+  return (response as any)?.data ?? response;
+};
+
+export const disableAutoBidApi = async (code: string): Promise<string> => {
+  const response = await axiosClient.delete<any>(`/api/v1/auction/${code}/auto-bid`);
+  return (response as any)?.data ?? response;
+};
+
+export const getPriceSeriesApi = async (code: string): Promise<PriceSeries> => {
+  const response = await axiosClient.get<any>(`/api/v1/auction/${code}/price-series`);
   return (response as any)?.data ?? response;
 };
 
