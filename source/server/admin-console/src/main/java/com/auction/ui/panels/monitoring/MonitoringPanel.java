@@ -21,6 +21,10 @@ import com.auction.ui.panels.monitoring.metrics.MetricCardsPanel;
 import com.auction.ui.panels.monitoring.rooms.RoomTablePanel;
 import com.auction.ui.panels.monitoring.quick_control.QuickControlPanel;
 
+import javax.swing.JOptionPane;
+import com.auction.model.CreateSessionRequest;
+import com.auction.ui.panels.monitoring.rooms.CreateSessionDialog;
+
 /**
  * Điều phối các thành phần trên tab Giám sát:
  * lấy dữ liệu phòng từ gateway, đưa vào bảng, đồng bộ khung điều khiển
@@ -35,6 +39,8 @@ public class MonitoringPanel extends JPanel {
     private final RoomTablePanel roomTablePanel;
     private final QuickControlPanel quickControlPanel;
     private final Timer refreshTimer;
+
+    private final StyledDocument logDocument;
 
     public MonitoringPanel(AdminGateway gateway, StyledDocument logDocument, RoomSelection selection) {
         this.gateway = gateway;
@@ -77,16 +83,19 @@ public class MonitoringPanel extends JPanel {
         });
         quickControlPanel.addRoomPickedListener(this::onRoomPickedFromCombo);
         quickControlPanel.setOnCommandCompleted(this::refreshRooms);
+        roomTablePanel.addCreateSessionListener(
+                this::createNewSession);
 
         // Tải lần đầu, sau đó làm mới mỗi giây
         refreshRooms();
         refreshTimer = new Timer(REFRESH_MS, e -> refreshRooms());
         refreshTimer.start();
+
+        this.logDocument = logDocument;
     }
 
     private void refreshRooms() {
-        gateway.fetchRooms().thenAccept(rooms ->
-                SwingUtilities.invokeLater(() -> applyRooms(rooms)));
+        gateway.fetchRooms().thenAccept(rooms -> SwingUtilities.invokeLater(() -> applyRooms(rooms)));
     }
 
     private void applyRooms(List<RoomInfo> rooms) {
@@ -101,7 +110,8 @@ public class MonitoringPanel extends JPanel {
 
         RoomInfo selected = roomTablePanel.getSelectedRoom();
         if (selected == null) {
-            // Lần đầu hoặc phòng đang chọn đã biến mất: ưu tiên phòng mặc định, sau đó chọn phòng đang đấu / đầu danh sách
+            // Lần đầu hoặc phòng đang chọn đã biến mất: ưu tiên phòng mặc định, sau đó chọn
+            // phòng đang đấu / đầu danh sách
             roomTablePanel.selectRoom(AdminConfig.DEFAULT_ROOM_ID);
             selected = roomTablePanel.getSelectedRoom();
             if (selected == null && !rooms.isEmpty()) {
@@ -128,4 +138,135 @@ public class MonitoringPanel extends JPanel {
             quickControlPanel.showRoom(room);
         }
     }
+
+    private void createNewSession() {
+
+        // 1. Khóa nút trong lúc tải danh sách biển số hợp lệ
+        roomTablePanel.setCreateSessionEnabled(false);
+
+        LogPanel.appendTo(
+                logDocument,
+                LogPanel.Level.INFO,
+                "Đang tải danh sách biển số xe hợp lệ...");
+
+        gateway.fetchAvailablePlates().whenComplete((plates, loadError) -> SwingUtilities.invokeLater(() -> {
+            if (loadError != null) {
+                roomTablePanel.setCreateSessionEnabled(true);
+                Throwable cause = loadError;
+                if (loadError instanceof java.util.concurrent.CompletionException
+                        && loadError.getCause() != null) {
+                    cause = loadError.getCause();
+                }
+                LogPanel.appendTo(
+                        logDocument,
+                        LogPanel.Level.ERROR,
+                        "Tải danh sách biển số thất bại: " + cause.getMessage());
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Không thể tải danh sách biển số hợp lệ: " + cause.getMessage(),
+                        "Lỗi",
+                        JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            // 2. Mở form chọn biển số hợp lệ và nhập thông số phiên
+            CreateSessionRequest data = CreateSessionDialog.show(this, plates);
+
+            // Nhấn Hủy hoặc không có biển số khả dụng thì mở lại nút và dừng
+            if (data == null) {
+                roomTablePanel.setCreateSessionEnabled(true);
+                return;
+            }
+
+            submitCreateSession(data);
+        }));
+    }
+
+    private void submitCreateSession(CreateSessionRequest data) {
+        LogPanel.appendTo(
+                logDocument,
+                LogPanel.Level.INFO,
+                "Đang tạo phiên cho biển số " + data.plateNumber());
+
+        // 3. Gửi request bất đồng bộ
+        gateway.createSession(data).whenComplete(
+                (sessionCode, error) -> {
+
+                    SwingUtilities.invokeLater(() -> {
+
+                        // 4. Mở lại nút
+                        roomTablePanel.setCreateSessionEnabled(true);
+
+                        // 5. Xử lý lỗi
+                        if (error != null) {
+
+                            Throwable cause = error;
+
+                            if (error instanceof java.util.concurrent.CompletionException
+                                    && error.getCause() != null) {
+
+                                cause = error.getCause();
+                            }
+
+                            LogPanel.appendTo(
+                                    logDocument,
+                                    LogPanel.Level.ERROR,
+                                    "Tạo phiên thất bại: " + cause.getMessage());
+
+                            JOptionPane.showMessageDialog(
+                                    this,
+                                    "Không thể tạo phiên: " + cause.getMessage(),
+                                    "Lỗi",
+                                    JOptionPane.ERROR_MESSAGE);
+
+                            return;
+                        }
+
+                        // 6. Server đã xác nhận tạo thành công
+                        LogPanel.appendTo(
+                                logDocument,
+                                LogPanel.Level.SUCCESS,
+                                "Đã tạo phiên: " + sessionCode);
+
+                        // 7. Tải lại danh sách thực từ Core
+                        gateway.fetchRooms().whenComplete(
+                                (rooms, refreshError) -> {
+
+                                    SwingUtilities.invokeLater(() -> {
+
+                                        if (refreshError != null) {
+                                            JOptionPane.showMessageDialog(
+                                                    this,
+                                                    "Đã tạo phiên " + sessionCode
+                                                            + " nhưng chưa tải lại được danh sách.",
+                                                    "Lưu thành công",
+                                                    JOptionPane.WARNING_MESSAGE);
+                                            return;
+                                        }
+
+                                        roomTablePanel.showAllRooms();
+                                        applyRooms(rooms);
+
+                                        // 8. Chọn phiên vừa tạo
+                                        roomTablePanel.selectRoom(sessionCode);
+                                        selection.select(sessionCode);
+
+                                        RoomInfo selected = roomTablePanel.findRoom(sessionCode);
+
+                                        if (selected != null) {
+                                            quickControlPanel.showRoom(selected);
+                                        }
+
+                                        JOptionPane.showMessageDialog(
+                                                this,
+                                                "Đã tạo thành công phiên "
+                                                        + sessionCode,
+                                                "Thành công",
+                                                JOptionPane.INFORMATION_MESSAGE);
+                                    });
+                                });
+                    });
+                });
+    }
+
 }

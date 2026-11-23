@@ -96,7 +96,9 @@ public class AuthenticationService {
             throw new BusinessException(ErrorCode.ACCOUNT_BANNED);
         }
         String token = jwtService.buildAccessToken(user);
-        revokedToken(user.getId());
+        if (user.getRoleEnum() != RoleEnum.ADMIN) {
+            revokedToken(user.getId());
+        }
 
         Token token1 = Token.builder()
                 .token(token)
@@ -147,7 +149,9 @@ public class AuthenticationService {
                     .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
             String token = jwtService.buildAccessToken(user);
-            revokedToken(user.getId());
+            if (user.getRoleEnum() != RoleEnum.ADMIN) {
+                revokedToken(user.getId());
+            }
 
             Token tokenEntity = Token.builder()
                     .token(token)
@@ -256,14 +260,9 @@ public class AuthenticationService {
         return token;
     }
 
+    @Transactional
     public void revokedToken(Long userId) {
-        List<Token> tokens = tokenRepository.findByUserId(userId);
-        if (tokens.isEmpty()) return;
-        tokens.forEach(c -> {
-            c.setRevoked(true);
-            c.setExpired(true);
-            tokenRepository.save(c);
-        });
+        tokenRepository.revokeActiveTokensByUserId(userId);
     }
 
     public void logout(String token) throws BusinessException {

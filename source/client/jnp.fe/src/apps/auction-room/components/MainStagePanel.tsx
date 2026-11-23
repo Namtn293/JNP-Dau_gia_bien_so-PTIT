@@ -51,6 +51,7 @@ interface MainStagePanelProps {
   isWatched?: boolean;
   onToggleWatch?: () => void;
   watchLoading?: boolean;
+  participantCount?: number;
 }
 
 export const MainStagePanel: React.FC<MainStagePanelProps> = ({
@@ -92,6 +93,7 @@ export const MainStagePanel: React.FC<MainStagePanelProps> = ({
   isWatched,
   onToggleWatch,
   watchLoading,
+  participantCount,
 }) => {
   const tabs = [
     { key: "desc", label: "Mô tả" },
@@ -113,6 +115,7 @@ export const MainStagePanel: React.FC<MainStagePanelProps> = ({
           isWatched={isWatched}
           onToggleWatch={onToggleWatch}
           watchLoading={watchLoading}
+          participantCount={participantCount}
         />
 
         {/* Title and Meta Information */}

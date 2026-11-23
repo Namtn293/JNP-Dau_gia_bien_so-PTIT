@@ -23,33 +23,24 @@ import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 
 /**
- * SMTP client tự viết trên TCP Socket chuẩn RFC 3207 / 2047.
+ * SMTP client tự viết trên TCP socket thuần.
  * Luồng: EHLO -> STARTTLS -> nâng lên TLS -> EHLO -> AUTH -> MAIL FROM -> RCPT TO -> DATA -> QUIT.
+ * Hỗ trợ AUTH PLAIN và AUTH LOGIN, tương thích Mailtrap (587) và Gmail (587, App Password).
  */
 public final class SmtpMailClient {
     private static final int TIMEOUT_MS = 10_000;
     private static final String EHLO_NAME = "auction-core.local";
 
-    private final String host;
-    private final int port;
-    private final String username;
-    private final String password;
-    private final String from;
-    private final String fromName;
+    private final MailConfig config;
 
-    public SmtpMailClient(String host, int port, String username, String password, String from, String fromName) {
-        this.host = host;
-        this.port = port;
-        this.username = username;
-        this.password = password;
-        this.from = from;
-        this.fromName = fromName;
+    public SmtpMailClient(MailConfig config) {
+        this.config = config;
     }
 
     /** Gửi một email. Ném IOException nếu lỗi mạng hoặc server từ chối. */
     public void send(MailMessage message) throws IOException {
         try (Socket plain = new Socket()) {
-            plain.connect(new InetSocketAddress(host, port), TIMEOUT_MS);
+            plain.connect(new InetSocketAddress(config.getHost(), config.getPort()), TIMEOUT_MS);
             plain.setSoTimeout(TIMEOUT_MS);
 
             Conn conn = new Conn(plain);
@@ -57,9 +48,9 @@ public final class SmtpMailClient {
             conn.exchange("EHLO " + EHLO_NAME, 250);
             conn.exchange("STARTTLS", 220);
 
-            // Nâng kết nối lên TLS, sau đó chào lại server
+            // Nâng kết nối lên TLS, sau đó chào lại server (RFC 3207)
             SSLSocketFactory sslFactory = (SSLSocketFactory) SSLSocketFactory.getDefault();
-            try (SSLSocket tls = (SSLSocket) sslFactory.createSocket(plain, host, port, true)) {
+            try (SSLSocket tls = (SSLSocket) sslFactory.createSocket(plain, config.getHost(), config.getPort(), true)) {
                 tls.startHandshake();
                 tls.setSoTimeout(TIMEOUT_MS);
 
@@ -67,7 +58,7 @@ public final class SmtpMailClient {
                 Reply ehlo = conn.exchange("EHLO " + EHLO_NAME, 250);
                 authenticate(conn, ehlo);
 
-                conn.exchange("MAIL FROM:<" + from + ">", 250);
+                conn.exchange("MAIL FROM:<" + config.getFrom() + ">", 250);
                 conn.exchange("RCPT TO:<" + message.to() + ">", 250, 251);
                 conn.exchange("DATA", 354);
                 conn.sendData(buildMessage(message));
@@ -87,12 +78,12 @@ public final class SmtpMailClient {
         }
 
         if (mechanisms.contains("PLAIN")) {
-            String token = "\0" + username + "\0" + password;
+            String token = "\0" + config.getUsername() + "\0" + config.getPassword();
             conn.exchange("AUTH PLAIN " + base64(token), 235);
         } else if (mechanisms.contains("LOGIN")) {
             conn.exchange("AUTH LOGIN", 334);
-            conn.exchange(base64(username), 334);
-            conn.exchange(base64(password), 235);
+            conn.exchange(base64(config.getUsername()), 334);
+            conn.exchange(base64(config.getPassword()), 235);
         } else {
             throw new IOException("Server không hỗ trợ AUTH PLAIN hoặc AUTH LOGIN");
         }
@@ -100,8 +91,8 @@ public final class SmtpMailClient {
 
     private String buildMessage(MailMessage m) {
         StringBuilder sb = new StringBuilder();
-        sb.append("From: ").append(encodeHeader(fromName))
-                .append(" <").append(from).append(">\r\n");
+        sb.append("From: ").append(encodeHeader(config.getFromName()))
+                .append(" <").append(config.getFrom()).append(">\r\n");
         sb.append("To: ").append(m.to()).append("\r\n");
         sb.append("Subject: ").append(encodeHeader(m.subject())).append("\r\n");
         sb.append("Date: ").append(DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now())).append("\r\n");

@@ -128,6 +128,13 @@ public class TcpControlServer {
                 AdminCommandResultVO kickRes = adminAuctionService.kick(userId, roomId);
                 return (kickRes.isSuccess() ? "OK " : "FAIL ") + kickRes.getMessage();
 
+            case "UNKICK":
+                if (parts.length < 2) return "FAIL Cú pháp: UNKICK <userId> [roomId]";
+                String unkickUserId = parts[1];
+                String unkickRoomId = parts.length >= 3 ? parts[2] : "ALL";
+                AdminCommandResultVO unkickRes = adminAuctionService.unkick(unkickUserId, unkickRoomId);
+                return (unkickRes.isSuccess() ? "OK " : "FAIL ") + unkickRes.getMessage();
+
             case "CANCEL":
                 if (parts.length < 2) return "FAIL Cú pháp: CANCEL <roomId>";
                 AdminCommandResultVO cancelRes = adminAuctionService.cancel(parts[1]);
@@ -155,7 +162,7 @@ public class TcpControlServer {
                 return "OK PONG 9090";
 
             default:
-                return "FAIL Lệnh không được hỗ trợ: " + command + ". Hỗ trợ: HALT, RESUME, KICK, CANCEL, ANNOUNCE, PING";
+                return "FAIL Lệnh không được hỗ trợ: " + command + ". Hỗ trợ: HALT, RESUME, KICK, UNKICK, CANCEL, ANNOUNCE, PING";
         }
     }
 

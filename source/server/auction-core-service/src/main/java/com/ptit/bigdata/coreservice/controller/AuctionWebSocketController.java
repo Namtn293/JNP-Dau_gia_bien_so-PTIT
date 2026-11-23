@@ -21,6 +21,7 @@ import com.ptit.bigdata.coreservice.repository.AuctionSessionRepository;
 import com.ptit.bigdata.coreservice.repository.NumberPlateRepository;
 import com.ptit.bigdata.coreservice.service.BidService;
 import com.ptit.bigdata.coreservice.service.RoomChatService;
+import com.ptit.bigdata.coreservice.service.RoomPresenceService;
 import com.ptit.bigdata.coreservice.service.RoomRoleResolver;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -55,6 +56,7 @@ public class AuctionWebSocketController {
     private final BidService bidService;
     private final RoomRoleResolver roomRoleResolver;
     private final RoomChatService roomChatService;
+    private final RoomPresenceService roomPresenceService;
     private final AuctionProperties auctionProperties;
 
     /**
@@ -74,6 +76,10 @@ public class AuctionWebSocketController {
         }
 
         Long userId = userPrincipal.getUserId();
+        if (roomPresenceService.isUserKicked(roomId, userId)) {
+            sendError(principal, ErrorCode.ROOM_KICKED);
+            return;
+        }
         RoomRoleEnum role = roomRoleResolver.resolveBySessionCode(userId, roomId);
 
         if (role == RoomRoleEnum.VIEWER && !auctionProperties.getRoom().isViewerCanChat()) {
@@ -102,52 +108,46 @@ public class AuctionWebSocketController {
 
     /**
      * Nhận sự kiện vào phòng từ Client gửi lên /app/room/{roomId}/join
-     * Broadcast tới /topic/room/{roomId}
+     * Ghi nhận live presence theo userId duy nhất (1 người mở nhiều tab chỉ tính 1 lần),
+     * đồng bộ trực tiếp vào AUCTION_SESSION.PARTICIPANT_COUNT trong DB và broadcast tới /topic/room/{roomId}.
      */
     @MessageMapping("/room/{roomId}/join")
-    @SendTo("/topic/room/{roomId}")
-    public RoomEventVO handleJoin(
+    public void handleJoin(
             @DestinationVariable("roomId") String roomId,
             RoomEventVO event,
-            Principal principal) {
+            Principal principal,
+            SimpMessageHeaderAccessor headerAccessor) {
         AuctionUserPrincipal userPrincipal = WebSocketAuthChannelInterceptor.extractPrincipal(principal);
-        String participantName = (userPrincipal != null && !userPrincipal.isAnonymous())
-                ? userPrincipal.getFullName()
-                : "Người tham gia";
-
-        event.setRoomId(roomId);
-        event.setEvent("JOIN");
-        event.setMessage(participantName + " đã tham gia phòng");
-        if (event.getTimestamp() == null || event.getTimestamp().isBlank()) {
-            event.setTimestamp(DateTimeFormatter.ofPattern("HH:mm:ss").format(LocalTime.now()));
+        if (userPrincipal == null || userPrincipal.isAnonymous()) {
+            return;
         }
-        log.info("[PHÒNG] {} tham gia phòng: {}", participantName, roomId);
-        return event;
+        if (roomPresenceService.isUserKicked(roomId, userPrincipal.getUserId())) {
+            sendError(principal, ErrorCode.ROOM_KICKED);
+            return;
+        }
+        String participantName = (userPrincipal.getFullName() != null && !userPrincipal.getFullName().isBlank())
+                ? userPrincipal.getFullName()
+                : userPrincipal.getUsername();
+        String wsSessionId = headerAccessor != null ? headerAccessor.getSessionId() : null;
+
+        roomPresenceService.joinRoom(roomId, userPrincipal.getUserId(), participantName, wsSessionId);
     }
 
     /**
      * Nhận sự kiện rời phòng từ Client gửi lên /app/room/{roomId}/leave
-     * Broadcast tới /topic/room/{roomId}
+     * Chỉ giảm số người tham gia trên DB và broadcast LEAVE khi tất cả tab của người đó đã rời phòng.
      */
     @MessageMapping("/room/{roomId}/leave")
-    @SendTo("/topic/room/{roomId}")
-    public RoomEventVO handleLeave(
+    public void handleLeave(
             @DestinationVariable("roomId") String roomId,
             RoomEventVO event,
-            Principal principal) {
+            Principal principal,
+            SimpMessageHeaderAccessor headerAccessor) {
         AuctionUserPrincipal userPrincipal = WebSocketAuthChannelInterceptor.extractPrincipal(principal);
-        String participantName = (userPrincipal != null && !userPrincipal.isAnonymous())
-                ? userPrincipal.getFullName()
-                : "Người tham gia";
+        Long userId = (userPrincipal != null && !userPrincipal.isAnonymous()) ? userPrincipal.getUserId() : null;
+        String wsSessionId = headerAccessor != null ? headerAccessor.getSessionId() : null;
 
-        event.setRoomId(roomId);
-        event.setEvent("LEAVE");
-        event.setMessage(participantName + " đã rời phòng");
-        if (event.getTimestamp() == null || event.getTimestamp().isBlank()) {
-            event.setTimestamp(DateTimeFormatter.ofPattern("HH:mm:ss").format(LocalTime.now()));
-        }
-        log.info("[PHÒNG] {} rời khỏi phòng: {}", participantName, roomId);
-        return event;
+        roomPresenceService.leaveRoom(roomId, userId, wsSessionId);
     }
 
     /**

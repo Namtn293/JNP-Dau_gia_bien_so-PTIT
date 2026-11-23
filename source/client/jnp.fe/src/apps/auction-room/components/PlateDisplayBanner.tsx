@@ -18,6 +18,7 @@ interface PlateDisplayBannerProps {
   isWatched?: boolean;
   onToggleWatch?: () => void;
   watchLoading?: boolean;
+  participantCount?: number;
 }
 
 export const PlateDisplayBanner: React.FC<PlateDisplayBannerProps> = ({
@@ -29,11 +30,17 @@ export const PlateDisplayBanner: React.FC<PlateDisplayBannerProps> = ({
   isWatched = false,
   onToggleWatch,
   watchLoading = false,
+  participantCount,
 }) => {
   return (
     <PlateMockupStage aria-label="Biển số đang đấu giá">
       <LotIndexTag>
         Lô {lotIndex > 0 ? lotIndex : 1} / {totalLots > 0 ? totalLots : 1}
+        {typeof participantCount === "number" && (
+          <span style={{ marginLeft: 8, color: "#15803d", fontWeight: 700 }}>
+            &bull; {participantCount} người tham gia
+          </span>
+        )}
       </LotIndexTag>
 
       {onToggleWatch && (

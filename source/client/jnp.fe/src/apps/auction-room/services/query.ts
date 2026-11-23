@@ -32,6 +32,12 @@ export const useAuctionRoomDetailQuery = (
     {
       staleTime: 0,
       refetchOnWindowFocus: false,
+      retry: (failureCount, err: any) => {
+        if (err?.code === 403 || err?.status === 403 || err?.data?.code === 403) {
+          return false;
+        }
+        return failureCount < 1;
+      },
       enabled: !!roomId && (options?.enabled ?? true),
     }
   );

@@ -3,7 +3,10 @@ package com.auction;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 
+import com.auction.model.AdminSession;
+import com.auction.net.udp.UdpAdminGateway;
 import com.auction.ui.AdminConsoleUI;
+import com.auction.ui.common.AdminLoginDialog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,11 +45,24 @@ public class AdminConsoleApp {
         }
 
         SwingUtilities.invokeLater(() -> { // to EDT
+            UdpAdminGateway gateway = null;
             try {
-                AdminConsoleUI adminUI = new AdminConsoleUI();
+                gateway = new UdpAdminGateway();
+                AdminSession session = AdminLoginDialog.showLogin(gateway);
+                if (session == null) {
+                    logger.info("Người dùng đã hủy đăng nhập, đóng Admin Console");
+                    gateway.close();
+                    System.exit(0);
+                    return;
+                }
+
+                AdminConsoleUI adminUI = new AdminConsoleUI(gateway, session);
                 adminUI.setVisible(true);
-                logger.info("Giao diện Admin Console đã được khởi chạy");
+                logger.info("Giao diện Admin Console đã được khởi chạy cho {}", session.username());
             } catch (Exception e) {
+                if (gateway != null) {
+                    gateway.close();
+                }
                 logger.error("Lỗi khi khởi tạo giao diện Admin Console", e);
                 System.exit(1);
             }

@@ -26,6 +26,7 @@ export interface AuctionSessionVO {
   nextStep?: number;
   nextMinBid?: number;
   participantCount: number;
+  bidCount?: number;
   endPrice: number;
   isWatched?: boolean;
   isRegistered?: boolean;
@@ -67,6 +68,7 @@ export interface AuctionItem {
   price: number;
   step: number;
   bids: number;
+  participantCount?: number;
   t: number;
   startTime?: string;
   endTime?: string;
@@ -111,9 +113,10 @@ export interface WsBidMessage {
   currentPrice?: number;
   stepPrice?: number;
   bidCount?: number;
+  participantCount?: number;
   timestamp?: string;
   status?: string;
-  type?: "BID" | "EXTEND" | "NEW_HIGHEST" | "STATUS_CHANGE" | string;
+  type?: "BID" | "EXTEND" | "NEW_HIGHEST" | "STATUS_CHANGE" | "PARTICIPANT_UPDATE" | string;
 }
 
 export type WsConnectionStatus = "connecting" | "connected" | "disconnected" | "error";

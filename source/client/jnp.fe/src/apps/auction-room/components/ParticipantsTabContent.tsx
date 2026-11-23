@@ -63,7 +63,7 @@ export const ParticipantsTabContent: React.FC<ParticipantsTabContentProps> = ({
       {bidders.length > 0 && (
         <>
           <PresenceGroupHeader>
-            NGƯỜI THAM GIA ({bidders.length})
+            ĐANG TRỰC TUYẾN ({bidders.length})
           </PresenceGroupHeader>
           {bidders.map((p) => {
             const hasExplicitLeader = bidders.some((x) => x.isLeader);

@@ -53,6 +53,9 @@ export const AuctionTableItem: React.FC<AuctionTableItemProps> = ({
             <th style={{ padding: "14px 16px", textAlign: "center", color: "#586979", fontWeight: 700 }}>
               Lượt đặt
             </th>
+            <th style={{ padding: "14px 16px", textAlign: "center", color: "#586979", fontWeight: 700 }}>
+              Tham gia
+            </th>
             <th style={{ padding: "14px 16px", textAlign: "right", color: "#586979", fontWeight: 700 }}>
               Hành động
             </th>
@@ -105,6 +108,9 @@ export const AuctionTableItem: React.FC<AuctionTableItemProps> = ({
                 </td>
                 <td style={{ padding: "12px 16px", textAlign: "center", fontWeight: 600 }}>
                   {item.bids}
+                </td>
+                <td style={{ padding: "12px 16px", textAlign: "center", fontWeight: 700, color: "#15803d" }}>
+                  {item.participantCount ?? 0}
                 </td>
                 <td style={{ padding: "12px 16px", textAlign: "right" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>

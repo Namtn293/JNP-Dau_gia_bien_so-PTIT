@@ -50,20 +50,26 @@ export const useAuctionRoomSocket = ({
     shouldSubscribe
   );
 
-  // Chỉ gửi JOIN 1 lần khi thực sự bước vào phiên mới, tránh gửi trùng JOIN/LEAVE khi socket reconnect hoặc chuyển tab
+  // Chỉ gửi JOIN 1 lần cho mỗi kết nối vào phiên mới; reset khi mất kết nối để reconnect tự báo danh lại
   const activePresenceRoomRef = useRef<string | null>(null);
   const publishRef = useRef(publish);
   publishRef.current = publish;
 
   useEffect(() => {
-    if (!shouldSubscribe || !isConnected || !presenceReady || !roomId) return;
-    if (activePresenceRoomRef.current === roomId) return;
+    if (!isConnected) {
+      activePresenceRoomRef.current = null;
+    }
+  }, [isConnected]);
 
+  useEffect(() => {
     const previousRoom = activePresenceRoomRef.current;
-    if (previousRoom && previousRoom !== roomId) {
+    if (previousRoom && previousRoom !== roomId && isConnected) {
       publishRef.current(`/app/room/${previousRoom}/leave`, { roomId: previousRoom, event: "LEAVE" });
       activePresenceRoomRef.current = null;
     }
+
+    if (!shouldSubscribe || !isConnected || !presenceReady || !roomId) return;
+    if (activePresenceRoomRef.current === roomId) return;
 
     if (publishRef.current(`/app/room/${roomId}/join`, { roomId, event: "JOIN" })) {
       activePresenceRoomRef.current = roomId;

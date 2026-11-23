@@ -2,12 +2,15 @@ package com.ptit.bigdata.coreservice.repository;
 
 import com.ptit.bigdata.coreservice.entity.NumberPlate;
 import com.ptit.bigdata.coreservice.entity.Province;
+import com.ptit.bigdata.coreservice.enumration.AuctionStatusEnum;
 import com.ptit.bigdata.coreservice.enumration.PlateTypeEnum;
+import com.ptit.bigdata.coreservice.model.vo.AvailablePlateVO;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -35,4 +38,15 @@ public interface NumberPlateRepository extends JpaRepository<NumberPlate, Long> 
     }
 
     List<NumberPlate> findByPlateType(PlateTypeEnum plateType);
+
+    @Query("SELECT new com.ptit.bigdata.coreservice.model.vo.AvailablePlateVO("
+            + "n.plateNumber, p.name, n.plateType, n.vehicleType) "
+            + "FROM NumberPlate n "
+            + "JOIN Province p ON n.provinceId = p.id "
+            + "WHERE NOT EXISTS ("
+            + "SELECT s.id FROM AuctionSession s "
+            + "WHERE s.numberPlateId = n.id AND s.status IN :openStatuses"
+            + ") "
+            + "ORDER BY n.plateNumber ASC")
+    List<AvailablePlateVO> findAvailableForAuction(@Param("openStatuses") Collection<AuctionStatusEnum> openStatuses);
 }

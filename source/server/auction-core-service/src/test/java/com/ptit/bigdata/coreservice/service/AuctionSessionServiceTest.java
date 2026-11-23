@@ -52,6 +52,7 @@ class AuctionSessionServiceTest {
     @Mock private WatchService watchService;
     @Mock private AuctionWatchRepository auctionWatchRepository;
     @Mock private RoomAnnouncementService roomAnnouncementService;
+    @Mock private RoomPresenceService roomPresenceService;
 
     private AuctionSessionServiceImplement service;
 
@@ -70,7 +71,8 @@ class AuctionSessionServiceTest {
                 auctionRegistrationRepository,
                 watchService,
                 auctionWatchRepository,
-                roomAnnouncementService
+                roomAnnouncementService,
+                roomPresenceService
         );
     }
 

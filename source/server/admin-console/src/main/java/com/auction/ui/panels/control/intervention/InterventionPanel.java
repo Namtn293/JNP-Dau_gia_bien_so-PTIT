@@ -40,6 +40,8 @@ public class InterventionPanel extends UiKit.ScrollablePanel {
 
         void onKick(String userId, String roomId);
 
+        void onUnkick(String userId, String roomId);
+
         void onCancel(String roomId);
     }
 
@@ -51,6 +53,7 @@ public class InterventionPanel extends UiKit.ScrollablePanel {
     private final JButton haltButton = ButtonStyles.filled("HALT", COLOR_DANGER);
     private final JButton resumeButton = ButtonStyles.filled("RESUME", COLOR_PRIMARY);
     private final JButton kickButton = ButtonStyles.filled("KICK", COLOR_DANGER);
+    private final JButton unkickButton = ButtonStyles.filled("UNKICK", COLOR_SUCCESS);
     private final JButton cancelButton = ButtonStyles.outline("CANCEL");
 
     public InterventionPanel(Listener listener) {
@@ -111,7 +114,7 @@ public class InterventionPanel extends UiKit.ScrollablePanel {
         column.add(controls);
         column.add(Box.createVerticalStrut(12));
 
-        column.add(UiKit.fieldLabel("ID tài khoản cho KICK"));
+        column.add(UiKit.fieldLabel("ID tài khoản cho KICK / UNKICK"));
         column.add(Box.createVerticalStrut(4));
         kickField.setFont(FONT_NORMAL);
         kickField.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -119,8 +122,14 @@ public class InterventionPanel extends UiKit.ScrollablePanel {
         column.add(kickField);
         column.add(Box.createVerticalStrut(8));
 
-        column.add(actionGroup(kickButton,
-                "<html><body style='width: 230px'>KICK gửi cảnh báo ngắt kết nối WebSocket của tài khoản.</body></html>"));
+        JPanel kickControls = new JPanel(new GridLayout(1, 2, 10, 0));
+        kickControls.setOpaque(false);
+        kickControls.setAlignmentX(Component.LEFT_ALIGNMENT);
+        kickControls.add(actionGroup(kickButton,
+                "<html><body style='width: 105px'>KICK mời ra khỏi phòng và chặn vào lại.</body></html>"));
+        kickControls.add(actionGroup(unkickButton,
+                "<html><body style='width: 105px'>UNKICK mở khóa cho vào lại phòng.</body></html>"));
+        column.add(kickControls);
         column.add(Box.createVerticalStrut(12));
 
         column.add(actionGroup(cancelButton,
@@ -176,6 +185,11 @@ public class InterventionPanel extends UiKit.ScrollablePanel {
                 listener.onKick(kickField.getText().trim(), room.id());
             }
         });
+        unkickButton.addActionListener(e -> {
+            if (room != null) {
+                listener.onUnkick(kickField.getText().trim(), room.id());
+            }
+        });
         cancelButton.addActionListener(e -> confirmCancel());
 
         kickField.getDocument().addDocumentListener(new DocumentListener() {
@@ -220,6 +234,7 @@ public class InterventionPanel extends UiKit.ScrollablePanel {
         ButtonStyles.setFilled(haltButton, hasRoom && status.canHalt(), COLOR_DANGER);
         ButtonStyles.setFilled(resumeButton, hasRoom && status.canResume(), COLOR_PRIMARY);
         ButtonStyles.setFilled(kickButton, hasKickTarget, COLOR_DANGER);
+        ButtonStyles.setFilled(unkickButton, hasKickTarget, COLOR_SUCCESS);
         ButtonStyles.setOutline(cancelButton, hasRoom && !status.isFinished());
     }
 }

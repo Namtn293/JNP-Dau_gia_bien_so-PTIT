@@ -1,18 +1,13 @@
 package com.ptit.bigdata.coreservice.service;
 
 import com.ptit.bigdata.coreservice.configuration.AuctionProperties;
+import com.ptit.bigdata.coreservice.mail.AuctionMailService;
 import com.ptit.bigdata.coreservice.entity.AuctionRegistration;
 import com.ptit.bigdata.coreservice.entity.AuctionSession;
 import com.ptit.bigdata.coreservice.entity.AuctionWatch;
 import com.ptit.bigdata.coreservice.entity.BidHistory;
 import com.ptit.bigdata.coreservice.entity.NotificationLog;
 import com.ptit.bigdata.coreservice.entity.NumberPlate;
-import com.ptit.bigdata.coreservice.entity.Wallet;
-import com.ptit.bigdata.coreservice.mail.MailMessage;
-import com.ptit.bigdata.coreservice.mail.MailService;
-import com.ptit.bigdata.coreservice.mail.MailTemplates;
-import com.ptit.bigdata.coreservice.repository.UserInfoRepository;
-import com.ptit.bigdata.coreservice.repository.WalletRepository;
 import com.ptit.bigdata.coreservice.enumration.AuctionStatusEnum;
 import com.ptit.bigdata.coreservice.enumration.NotificationTypeEnum;
 import com.ptit.bigdata.coreservice.enumration.RegistrationStatusEnum;
@@ -60,9 +55,7 @@ public class AuctionBackgroundService {
     private final AutoBidScheduler autoBidScheduler;
     private final StepPriceCalculator stepPriceCalculator;
     private final TransactionTemplate transactionTemplate;
-    private final UserInfoRepository userInfoRepository;
-    private final WalletRepository walletRepository;
-    private final MailService mailService;
+    private final AuctionMailService auctionMailService;
 
     /**
      * Chạy định kỳ mỗi 2 giây một lần để quét và xử lý trạng thái các phiên đấu giá
@@ -130,6 +123,8 @@ public class AuctionBackgroundService {
             String plateNumber,
             long finalPrice,
             int bidCount,
+            Long winnerUserId,
+            long depositAmount,
             String time
     ) {}
 
@@ -178,6 +173,11 @@ public class AuctionBackgroundService {
                     log.info("[BACKGROUND-SERVICE] Người trúng đấu giá phiên {}: User ID {}",
                             session.getSessionCode(), winningBid.getUserID());
                 }
+            } else {
+                session.setUserInfoId(null);
+                session.setWinningPrice(null);
+                log.info("[BACKGROUND-SERVICE] Phiên {} kết thúc nhưng không có lượt đặt giá nào. Không có người trúng.",
+                        session.getSessionCode());
             }
 
             auctionSessionRepository.save(session);
@@ -208,8 +208,6 @@ public class AuctionBackgroundService {
                         "Chúc mừng! Bạn đã trúng đấu giá",
                         String.format("Bạn đã trúng đấu giá biển số %s trong phiên %s với giá %,d VNĐ.", plateNumber, session.getSessionCode(), finalPrice),
                         session.getSessionCode());
-
-                sendWinnerEmailAsync(winnerUserId, session.getSessionCode(), plateNumber, finalPrice);
             }
 
             for (Long bId : bidderUserIds) {
@@ -232,9 +230,10 @@ public class AuctionBackgroundService {
             }
 
             int bidCount = session.getBidCount() != null ? session.getBidCount() : bids.size();
+            long depositAmount = session.getDepositAmount() != null ? session.getDepositAmount() : 40_000_000L;
             log.info("[BACKGROUND-SERVICE] Đã hoàn tất chốt phiên {} với giá: {} VNĐ",
                     session.getSessionCode(), finalPrice);
-            return new EndSessionPayload(session.getId(), session.getSessionCode(), plateNumber, finalPrice, bidCount, time);
+            return new EndSessionPayload(session.getId(), session.getSessionCode(), plateNumber, finalPrice, bidCount, winnerUserId, depositAmount, time);
         });
 
         if (payload == null) {
@@ -270,6 +269,21 @@ public class AuctionBackgroundService {
                 .timestamp(payload.time())
                 .build();
         messagingTemplate.convertAndSend("/topic/room/" + payload.sessionCode(), endEvent);
+
+        // Tự động gửi email chúc mừng và biên bản trúng đấu giá cho người thắng cuộc qua SMTP
+        if (payload.winnerUserId() != null) {
+            try {
+                auctionMailService.sendWinnerNoticeAsync(
+                        payload.sessionCode(),
+                        payload.plateNumber(),
+                        payload.finalPrice(),
+                        payload.depositAmount(),
+                        payload.winnerUserId()
+                );
+            } catch (Exception e) {
+                log.error("[BACKGROUND-SERVICE] Lỗi kích hoạt gửi email trúng đấu giá phiên {}: ", payload.sessionCode(), e);
+            }
+        }
     }
 
     /**
@@ -441,38 +455,6 @@ public class AuctionBackgroundService {
                     }
                 }
             }
-        }
-    }
-
-    private void sendWinnerEmailAsync(Long winnerUserId, String sessionCode, String plateNumber, long finalPrice) {
-        try {
-            userInfoRepository.findById(winnerUserId).ifPresent(user -> {
-                String email = user.getEmail();
-                if (email != null && !email.isBlank()) {
-                    long deposit = 40_000_000L;
-                    long remainingPaid = Math.max(0L, finalPrice - deposit);
-                    long balanceAfter = walletRepository.findByUserId(winnerUserId)
-                            .map(Wallet::getBalance)
-                            .orElse(0L);
-
-                    MailMessage mailMessage = MailTemplates.winnerNotice(
-                            email.trim(),
-                            user.getFullName(),
-                            sessionCode,
-                            plateNumber,
-                            finalPrice,
-                            deposit,
-                            remainingPaid,
-                            balanceAfter
-                    );
-                    mailService.send(mailMessage);
-                    log.info("[BACKGROUND-SERVICE] Đã kích hoạt gửi email biên bản trúng đấu giá phiên {} tới {}", sessionCode, email);
-                } else {
-                    log.warn("[BACKGROUND-SERVICE] Người thắng (User ID {}) chưa có email để gửi biên bản", winnerUserId);
-                }
-            });
-        } catch (Exception e) {
-            log.error("[BACKGROUND-SERVICE] Lỗi chuẩn bị gửi email biên bản cho user {}: ", winnerUserId, e);
         }
     }
 }

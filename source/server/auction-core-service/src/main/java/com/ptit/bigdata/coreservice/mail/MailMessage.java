@@ -4,7 +4,7 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 
 /**
- * Đối tượng dữ liệu một email cần gửi.
+ * Một email cần gửi. Kiểm tra địa chỉ người nhận ngay khi tạo.
  */
 public record MailMessage(String to, String subject, String body) {
 

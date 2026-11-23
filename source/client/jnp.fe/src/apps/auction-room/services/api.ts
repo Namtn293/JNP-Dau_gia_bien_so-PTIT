@@ -12,8 +12,15 @@ export const getAuctionRoomDetailApi = async (
   roomId: string
 ): Promise<AuctionRoomDetail> => {
   try {
-    const response = await axiosClient.get<any>(`/api/v1/auction/room/${roomId}`);
-    const resData = (response as any)?.data ?? response;
+    const response: any = await axiosClient.get<any>(`/api/v1/auction/room/${roomId}`);
+    if (response && response.success === false) {
+      const err: any = new Error(response.message || "Không thể truy cập phòng đấu giá");
+      err.code = response.code;
+      err.status = response.code;
+      err.data = response;
+      throw err;
+    }
+    const resData = response?.data ?? response;
     return resData;
   } catch (error) {
     console.error("[AuctionRoomApi] Failed to fetch room detail from BE:", error);

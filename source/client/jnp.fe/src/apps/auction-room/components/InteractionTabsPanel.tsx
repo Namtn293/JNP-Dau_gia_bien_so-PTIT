@@ -35,6 +35,7 @@ interface InteractionTabsPanelProps {
   currentPrice: number;
   // People props
   participants: RoomParticipant[];
+  participantCount?: number;
   currentLeader: string;
 }
 
@@ -53,8 +54,11 @@ export const InteractionTabsPanel: React.FC<InteractionTabsPanelProps> = ({
   isPriceSeriesLoading,
   currentPrice,
   participants,
+  participantCount,
   currentLeader,
 }) => {
+  const displayParticipantCount =
+    typeof participantCount === "number" ? participantCount : participants.length;
   return (
     <Panel id="interactionPanel">
       <InteractionTabBar role="tablist">
@@ -80,7 +84,7 @@ export const InteractionTabsPanel: React.FC<InteractionTabsPanelProps> = ({
           $active={activeTab === "ppl"}
           onClick={() => onSelectTab("ppl")}
         >
-          Tham gia ({participants.length})
+          Tham gia ({displayParticipantCount})
         </InteractionTabBtn>
       </InteractionTabBar>
 

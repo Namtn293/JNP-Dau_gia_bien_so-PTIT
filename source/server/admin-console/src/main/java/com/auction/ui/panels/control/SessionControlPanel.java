@@ -26,8 +26,10 @@ import com.auction.ui.panels.control.session.SessionHeader;
 import com.auction.ui.panels.control.session.SessionInfoCard;
 
 /**
- * Tab "Điều khiển phiên": điều phối các thành phần con và làm mới dữ liệu mỗi giây.
- * Chỉ lớp này biết gateway và RoomSelection; các thành phần con nhận dữ liệu và báo sự kiện qua callback.
+ * Tab "Điều khiển phiên": điều phối các thành phần con và làm mới dữ liệu mỗi
+ * giây.
+ * Chỉ lớp này biết gateway và RoomSelection; các thành phần con nhận dữ liệu và
+ * báo sự kiện qua callback.
  */
 public class SessionControlPanel extends JPanel implements InterventionPanel.Listener {
     private static final int REFRESH_MS = 1000;
@@ -40,11 +42,14 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
     private final SessionHeader header = new SessionHeader();
     private final SessionInfoCard sessionCard = new SessionInfoCard();
     private final InterventionPanel intervention = new InterventionPanel(this);
-    private final ParticipantsPanel participantsPanel =
-            new ParticipantsPanel(userId -> intervention.setKickAccount(userId));
+    private final ParticipantsPanel participantsPanel = new ParticipantsPanel(
+            userId -> intervention.setKickAccount(userId));
 
     private boolean busy;
     private String loadedRoomId;
+
+    private volatile boolean metricsFetchFailed;
+    private boolean refreshErrorLogged;
 
     /** Dữ liệu của một lần làm mới, lấy đồng thời từ gateway. */
     private record Snapshot(String roomId, List<RoomInfo> rooms, ServerMetrics metrics, List<ParticipantInfo> people) {
@@ -94,34 +99,67 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
 
     // ===== Làm mới dữ liệu =====
     /** Bỏ qua nếu lần làm mới trước chưa xong, tránh gửi chồng yêu cầu. */
+
     private void refresh() {
         if (busy) {
             return;
         }
+
         busy = true;
 
         fetchSnapshot()
                 .thenAccept(snapshot -> SwingUtilities.invokeLater(() -> {
                     busy = false;
+                    refreshErrorLogged = false;
                     apply(snapshot);
                 }))
                 .exceptionally(ex -> {
+
+                    Throwable cause = ex.getCause() != null
+                            ? ex.getCause()
+                            : ex;
+
+                    String message = cause.getMessage();
+
                     SwingUtilities.invokeLater(() -> {
                         busy = false;
-                        header.showOffline();
+
+                        // Chỉ báo offline nếu telemetry lỗi
+                        if (metricsFetchFailed) {
+                            header.showOffline();
+                        }
+
+                        // Không ghi lặp lỗi mỗi giây
+                        if (!refreshErrorLogged) {
+                            LogPanel.appendTo(
+                                    logDocument,
+                                    LogPanel.Level.ERROR,
+                                    "Lỗi làm mới dữ liệu: " + message);
+
+                            refreshErrorLogged = true;
+                        }
                     });
+
                     return null;
                 });
     }
 
-    /** Lấy phòng, chỉ số và người tham gia cùng lúc. Người tham gia chỉ lấy khi đã chọn phòng. */
+    /**
+     * Lấy phòng, chỉ số và người tham gia cùng lúc. Người tham gia chỉ lấy khi đã
+     * chọn phòng.
+     */
     private CompletableFuture<Snapshot> fetchSnapshot() {
         String roomId = selection.roomId();
 
         CompletableFuture<List<RoomInfo>> rooms = gateway.fetchRooms();
-        CompletableFuture<ServerMetrics> metrics = gateway.fetchMetrics();
+
+        CompletableFuture<ServerMetrics> metrics = gateway.fetchMetrics()
+                .whenComplete((value, error) -> {
+                    metricsFetchFailed = error != null;
+                });
+
         CompletableFuture<List<ParticipantInfo>> people = roomId == null
-                ? CompletableFuture.<List<ParticipantInfo>>completedFuture(List.of())
+                ? CompletableFuture.completedFuture(List.of())
                 : gateway.fetchParticipants(roomId);
 
         return CompletableFuture.allOf(rooms, metrics, people)
@@ -192,6 +230,13 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
         CommandLogger.dispatch(logDocument,
                 "> KICK " + userId + " (từ phòng " + roomId + ")",
                 gateway.kick(userId, roomId), this::refresh);
+    }
+
+    @Override
+    public void onUnkick(String userId, String roomId) {
+        CommandLogger.dispatch(logDocument,
+                "> UNKICK " + userId + " (cho phép vào lại phòng " + roomId + ")",
+                gateway.unkick(userId, roomId), this::refresh);
     }
 
     @Override

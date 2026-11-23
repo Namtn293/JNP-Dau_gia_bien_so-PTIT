@@ -1,62 +1,49 @@
 package com.ptit.bigdata.coreservice.mail;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
 /**
- * Các mẫu email của hệ thống đấu giá.
+ * Các mẫu email thông báo hệ thống.
  */
 public final class MailTemplates {
     private MailTemplates() { }
 
-    private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm:ss dd/MM/yyyy");
-
     /**
-     * Mẫu thông báo & biên bản xác nhận trúng đấu giá + quyết toán ví.
+     * Mẫu thông báo trúng đấu giá.
+     * Số tiền cần thanh toán = giá trúng - tiền cọc.
      */
-    public static MailMessage winnerNotice(String to, String recipientName, String sessionCode,
-                                           String plateNumber, long finalPrice, long deposit,
-                                           long remainingPaid, long walletBalanceAfter) {
-        String name = (recipientName != null && !recipientName.isBlank()) ? recipientName : "Quý khách";
-        String subject = String.format("[Đấu giá PTIT] Chúc mừng trúng đấu giá biển số %s - Phiên %s", plateNumber, sessionCode);
+    public static MailMessage winnerNotice(String to, String winnerName, String roomCode, String plate,
+                                           long finalPrice, long deposit) {
+        long due = Math.max(0L, finalPrice - deposit);
+        String name = (winnerName != null && !winnerName.isBlank()) ? winnerName : "Quý khách";
+        String subject = "[Đấu giá] Thông báo trúng đấu giá biển số " + plate;
+        String paymentNotice = due > 0
+                ? "Quý khách vui lòng hoàn tất nghĩa vụ tài chính nộp số tiền trúng đấu giá còn lại (" + vnd(due) + " VNĐ) trong thời hạn 15 ngày kể từ ngày kết thúc phiên đấu giá theo đúng quy định."
+                : "Số tiền đặt trước đã chi trả đủ toàn bộ giá trị trúng đấu giá. Quý khách vui lòng theo dõi thông báo và nhận biên bản kết quả đấu giá.";
 
         String body = """
-                Kính gửi %s,
+                Chào %s,
 
-                Chúc mừng Quý khách đã trúng đấu giá biển số xe: %s
-                Mã phiên đấu giá: %s
-                Thời gian kết thúc: %s
+                Chúc mừng bạn đã trúng đấu giá biển số %s trong phiên đấu giá %s.
 
-                ============================================================
-                THÔNG TIN QUYẾT TOÁN TÀI CHÍNH
-                ============================================================
-                • Giá trúng đấu giá:          %s VNĐ
-                • Tiền cọc đã nộp:            %s VNĐ (đã khấu trừ CAPTURE)
-                • Số tiền quyết toán từ ví:   %s VNĐ (đã khấu trừ từ số dư)
-                • Trạng thái thanh toán:      ĐÃ THANH TOÁN TOÀN BỘ (HOÀN TẤT)
-                • Số dư ví còn lại:           %s VNĐ
+                THÔNG TIN CHI TIẾT KẾT QUẢ ĐẤU GIÁ:
+                - Biển số trúng đấu giá: %s
+                - Mã phiên đấu giá: %s
+                - Giá trúng đấu giá: %s VNĐ
+                - Tiền đặt trước đã nộp: %s VNĐ (được trừ trực tiếp vào tiền thanh toán)
+                - Số tiền cần thanh toán còn lại: %s VNĐ
 
-                Biển số %s đã được gán quyền sở hữu thành công cho Quý khách.
-                Hồ sơ và giấy chứng nhận đăng ký biển số sẽ được gửi về địa chỉ theo quy định.
+                %s
 
                 Trân trọng,
-                Ban Quản Trị Sàn Đấu Giá Biển Số Xe Trực Tuyến PTIT
-                """.formatted(
-                name,
-                plateNumber,
-                sessionCode,
-                LocalDateTime.now().format(TIME_FMT),
-                vnd(finalPrice),
-                vnd(deposit),
-                vnd(remainingPaid),
-                vnd(walletBalanceAfter),
-                plateNumber
-        );
-
+                Hệ thống Đấu giá Biển số xe PTIT
+                """.formatted(name, plate, roomCode, plate, roomCode, vnd(finalPrice), vnd(deposit), vnd(due), paymentNotice);
         return new MailMessage(to, subject, body);
     }
 
+    /**
+     * Định dạng tiền kiểu 110.000.000.
+     */
     public static String vnd(long amount) {
         return String.format(Locale.US, "%,d", amount).replace(',', '.');
     }

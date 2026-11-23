@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -14,6 +16,10 @@ public class RoomEventVO {
     private String event; // JOIN, LEAVE, HALT, RESUME, CANCEL, END, ANNOUNCEMENT, ANNOUNCEMENT_REMOVED
     private String message;
     private Integer participantCount;
+    private Long userId;
+    private String userName;
+    private String role;
+    private List<RoomParticipantVO> participants;
     private String timestamp;
     private Boolean pinned;
     private String level;

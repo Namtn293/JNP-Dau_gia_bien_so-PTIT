@@ -57,6 +57,7 @@ public class QuickControlPanel extends UiKit.ScrollablePanel {
     private JButton haltButton;
     private JButton resumeButton;
     private JButton kickButton;
+    private JButton unkickButton;
     private JButton cancelButton;
     private JButton announceButton;
 
@@ -176,7 +177,7 @@ public class QuickControlPanel extends UiKit.ScrollablePanel {
         panel.add(roomComboBox);
         panel.add(Box.createVerticalStrut(12));
 
-        panel.add(createLeftLabel("ID tài khoản cần ngắt kết nối", FONT_NORMAL, COLOR_TEXT));
+        panel.add(createLeftLabel("ID tài khoản cho KICK / UNKICK", FONT_NORMAL, COLOR_TEXT));
         panel.add(Box.createVerticalStrut(4));
 
         kickAccountField = new JTextField(AdminConfig.DEFAULT_KICK_ACCOUNT);
@@ -184,10 +185,10 @@ public class QuickControlPanel extends UiKit.ScrollablePanel {
         kickAccountField.setAlignmentX(Component.LEFT_ALIGNMENT);
         kickAccountField.setMaximumSize(new Dimension(Short.MAX_VALUE, 32));
         panel.add(kickAccountField);
-        panel.add(Box.createVerticalStrut(16));
+        panel.add(Box.createVerticalStrut(12));
 
         panel.add(createButtonPanel());
-        panel.add(Box.createVerticalStrut(12));
+        panel.add(Box.createVerticalStrut(10));
         panel.add(createAnnouncePanel());
 
         return panel;
@@ -218,29 +219,43 @@ public class QuickControlPanel extends UiKit.ScrollablePanel {
     }
 
     private JPanel createButtonPanel() {
-        JPanel gridPanel = new JPanel(new GridLayout(2, 2, 10, 12));
+        JPanel container = new JPanel();
+        container.setLayout(new BoxLayout(container, BoxLayout.Y_AXIS));
+        container.setOpaque(false);
+        container.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JPanel gridPanel = new JPanel(new GridLayout(2, 2, 10, 10));
         gridPanel.setOpaque(false);
         gridPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        gridPanel.setMinimumSize(new Dimension(220, 220));
-        gridPanel.setPreferredSize(new Dimension(280, 235));
-        gridPanel.setMaximumSize(new Dimension(Short.MAX_VALUE, 260));
+        gridPanel.setMinimumSize(new Dimension(220, 195));
+        gridPanel.setPreferredSize(new Dimension(280, 210));
+        gridPanel.setMaximumSize(new Dimension(Short.MAX_VALUE, 230));
 
         haltButton = createButton("HALT", COLOR_DANGER);
         resumeButton = createButton("RESUME", COLOR_PRIMARY);
         kickButton = createButton("KICK", COLOR_DANGER);
-        cancelButton = createCancelButton("CANCEL");
+        unkickButton = createButton("UNKICK", COLOR_SUCCESS);
+        cancelButton = createCancelButton("CANCEL PHIÊN");
 
         gridPanel.add(createActionGroup(haltButton,
-                "<html><body style='width: 112px'>HALT tạm dừng phiên, khóa đặt giá. Đếm ngược bị đóng băng.</body></html>"));
+                "<html><body style='width: 112px'>Tạm dừng phiên, khóa đặt giá.</body></html>"));
         gridPanel.add(createActionGroup(resumeButton,
-                "<html><body style='width: 112px'>RESUME mở lại đặt giá, cộng " + AdminConfig.EXTENSION_SECONDS
+                "<html><body style='width: 112px'>Mở lại phiên, cộng " + AdminConfig.EXTENSION_SECONDS
                         + " giây.</body></html>"));
         gridPanel.add(createActionGroup(kickButton,
-                "<html><body style='width: 112px'>KICK gửi cảnh báo ngắt kết nối của tài khoản.</body></html>"));
-        gridPanel.add(createActionGroup(cancelButton,
-                "<html><body style='width: 112px'>CANCEL hủy phiên, hoàn 100% tiền cọc (cần xác nhận).</body></html>"));
+                "<html><body style='width: 112px'>Mời tài khoản ra khỏi phòng và chặn vào lại.</body></html>"));
+        gridPanel.add(createActionGroup(unkickButton,
+                "<html><body style='width: 112px'>Mở khóa cho tài khoản vào lại phòng.</body></html>"));
 
-        return gridPanel;
+        container.add(gridPanel);
+        container.add(Box.createVerticalStrut(8));
+
+        JPanel cancelGroup = createActionGroup(cancelButton,
+                "<html><body style='width: 245px'>CANCEL hủy phiên, hoàn 100% tiền cọc (cần xác nhận).</body></html>");
+        cancelGroup.setAlignmentX(Component.LEFT_ALIGNMENT);
+        container.add(cancelGroup);
+
+        return container;
     }
 
     private JPanel createActionGroup(JButton button, String descHtml) {
@@ -287,6 +302,7 @@ public class QuickControlPanel extends UiKit.ScrollablePanel {
     private void refreshKickButton() {
         boolean hasAccount = !kickAccountField.getText().trim().isEmpty();
         setButtonEnabled(kickButton, hasAccount, COLOR_DANGER);
+        setButtonEnabled(unkickButton, hasAccount, COLOR_SUCCESS);
     }
 
     private String selectedRoomId() {
@@ -322,6 +338,13 @@ public class QuickControlPanel extends UiKit.ScrollablePanel {
             String account = kickAccountField.getText().trim();
             sendCommand("> KICK " + account + " (từ phòng " + roomId + ")",
                     gateway.kick(account, roomId));
+        });
+
+        unkickButton.addActionListener(e -> {
+            String roomId = selectedRoomId();
+            String account = kickAccountField.getText().trim();
+            sendCommand("> UNKICK " + account + " (cho phép vào lại phòng " + roomId + ")",
+                    gateway.unkick(account, roomId));
         });
 
         cancelButton.addActionListener(e -> confirmAndCancel());

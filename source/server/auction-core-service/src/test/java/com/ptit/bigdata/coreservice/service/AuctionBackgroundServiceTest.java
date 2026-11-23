@@ -2,8 +2,10 @@ package com.ptit.bigdata.coreservice.service;
 
 import com.ptit.bigdata.coreservice.configuration.AuctionProperties;
 import com.ptit.bigdata.coreservice.entity.AuctionSession;
+import com.ptit.bigdata.coreservice.entity.BidHistory;
 import com.ptit.bigdata.coreservice.entity.NumberPlate;
 import com.ptit.bigdata.coreservice.enumration.AuctionStatusEnum;
+import com.ptit.bigdata.coreservice.mail.AuctionMailService;
 import com.ptit.bigdata.coreservice.model.vo.BidMessageVO;
 import com.ptit.bigdata.coreservice.model.vo.RoomEventVO;
 import com.ptit.bigdata.coreservice.repository.AuctionRegistrationRepository;
@@ -50,6 +52,7 @@ class AuctionBackgroundServiceTest {
     @Mock private AutoBidScheduler autoBidScheduler;
     @Mock private TransactionTemplate transactionTemplate;
     @Mock private TransactionStatus txStatus;
+    @Mock private AuctionMailService auctionMailService;
 
     private AuctionBackgroundService backgroundService;
 
@@ -69,7 +72,8 @@ class AuctionBackgroundServiceTest {
                 new AuctionProperties(),
                 autoBidScheduler,
                 stepPriceCalculator,
-                transactionTemplate
+                transactionTemplate,
+                auctionMailService
         );
     }
 
@@ -148,5 +152,79 @@ class AuctionBackgroundServiceTest {
         assertEquals("START", sentEvent.getEvent());
         assertNotNull(sentEvent.getRemainingSeconds());
         assertTrue(sentEvent.getRemainingSeconds() > 7000);
+    }
+
+    @Test
+    @DisplayName("Chốt phiên LIVE quá hạn phải chuyển sang END và gửi email thông báo trúng đấu giá cho người thắng")
+    void testEndSessionSendsWinnerEmail() {
+        AuctionSession session = AuctionSession.builder()
+                .sessionCode("SES-HN-30K56789")
+                .title("Đấu giá biển số xe ô tô 30K-567.89")
+                .numberPlateId(10L)
+                .startPrice(40_000_000L)
+                .currentPrice(110_000_000L)
+                .depositAmount(40_000_000L)
+                .bidCount(5)
+                .userInfoId(1L)
+                .startTime(LocalDateTime.now().minusHours(2))
+                .endTime(LocalDateTime.now().minusSeconds(10))
+                .status(AuctionStatusEnum.LIVE)
+                .build();
+        session.setId(20L);
+
+        NumberPlate plate = NumberPlate.builder()
+                .plateNumber("30K-567.89")
+                .build();
+        plate.setId(10L);
+
+        BidHistory winningBid = BidHistory.builder()
+                .auctionSessionId(20L)
+                .userID(1L)
+                .bidAmount(110_000_000L)
+                .build();
+
+        when(auctionSessionRepository.findByStatusAndEndTimeBefore(eq(AuctionStatusEnum.LIVE), any()))
+                .thenReturn(List.of(session));
+        when(auctionSessionRepository.findByStatusAndEndTimeBefore(eq(AuctionStatusEnum.SOON), any()))
+                .thenReturn(Collections.emptyList());
+        when(auctionSessionRepository.findByStatusAndStartTimeBeforeAndEndTimeAfter(eq(AuctionStatusEnum.SOON), any(), any()))
+                .thenReturn(Collections.emptyList());
+        when(auctionSessionRepository.findByStatus(AuctionStatusEnum.SOON)).thenReturn(Collections.emptyList());
+        when(auctionSessionRepository.findByStatus(AuctionStatusEnum.LIVE)).thenReturn(Collections.emptyList());
+
+        when(auctionSessionRepository.findById(20L)).thenReturn(Optional.of(session));
+        when(numberPlateRepository.findById(10L)).thenReturn(Optional.of(plate));
+        when(bidHistoryRepository.findByAuctionSessionIdOrderByBidTimeDesc(20L)).thenReturn(List.of(winningBid));
+        when(auctionWatchRepository.findBySessionId(20L)).thenReturn(Collections.emptyList());
+
+        doAnswer(inv -> {
+            TransactionCallback<?> cb = inv.getArgument(0);
+            return cb.doInTransaction(txStatus);
+        }).when(transactionTemplate).execute(any());
+
+        doAnswer(inv -> {
+            Consumer<TransactionStatus> c = inv.getArgument(0);
+            c.accept(txStatus);
+            return null;
+        }).when(transactionTemplate).executeWithoutResult(any());
+
+        backgroundService.checkAndProcessAuctionStatus();
+
+        assertEquals(AuctionStatusEnum.END, session.getStatus());
+        assertEquals(110_000_000L, session.getEndPrice());
+        assertEquals(110_000_000L, session.getWinningPrice());
+
+        // Kiểm tra gọi walletService và autoBidScheduler
+        verify(walletService).handleSessionEnded(20L);
+        verify(autoBidScheduler).cancelSessionTasks(20L);
+
+        // Kiểm tra gửi email chúc mừng người thắng cuộc
+        verify(auctionMailService).sendWinnerNoticeAsync(
+                eq("SES-HN-30K56789"),
+                eq("30K-567.89"),
+                eq(110_000_000L),
+                eq(40_000_000L),
+                eq(1L)
+        );
     }
 }

@@ -42,6 +42,9 @@ public class RoomChatServiceImpl implements RoomChatService {
     private final AuctionProperties auctionProperties;
     private final SimpMessagingTemplate messagingTemplate;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.ptit.bigdata.coreservice.service.RoomPresenceService roomPresenceService;
+
     @Override
     @Transactional
     public ChatMessageVO saveChatMessage(
@@ -87,6 +90,9 @@ public class RoomChatServiceImpl implements RoomChatService {
     public ChatMessageVO postChatFromRest(String roomCode, Long userId, String fallbackName, String content) {
         if (userId == null) {
             throw new BusinessException(ErrorCode.BID_UNAUTHORIZED);
+        }
+        if (roomPresenceService != null && roomPresenceService.isUserKicked(roomCode, userId)) {
+            throw new BusinessException(ErrorCode.ROOM_KICKED);
         }
         RoomRoleEnum role = roomRoleResolver.resolveBySessionCode(userId, roomCode);
         if (role == RoomRoleEnum.VIEWER && !auctionProperties.getRoom().isViewerCanChat()) {

@@ -25,6 +25,7 @@ public enum ErrorCode {
     BID_INVALID_STEP("400", "Bước giá đặt không đúng quy định"),
     BID_UNAUTHORIZED("401", "Yêu cầu đăng nhập để đặt giá"),
     CHAT_BIDDER_ONLY("403", "Chỉ người tham gia đấu giá mới có quyền gửi tin nhắn"),
+    ROOM_KICKED("403", "Bạn đã bị Quản trị viên mời ra khỏi phòng đấu giá này"),
 
     // Wallet & Registration Errors
     WALLET_INSUFFICIENT("400", "Số dư khả dụng trong ví không đủ"),

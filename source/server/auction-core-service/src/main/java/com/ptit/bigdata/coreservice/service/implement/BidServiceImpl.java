@@ -46,6 +46,9 @@ public class BidServiceImpl implements BidService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.ptit.bigdata.coreservice.service.NotificationService notificationService;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.ptit.bigdata.coreservice.service.RoomPresenceService roomPresenceService;
+
     @Override
     @Transactional
     public BidResultVO placeBid(String sessionCode, Long userId, Long bidAmount, BidSourceEnum source, String clientIp) {
@@ -63,6 +66,11 @@ public class BidServiceImpl implements BidService {
         // 2. Khóa dòng phiên đấu giá để chống race condition
         AuctionSession session = auctionSessionRepository.findBySessionCodeForUpdate(sessionCode)
                 .orElseThrow(() -> new BusinessException(ErrorCode.AUCTION_NOT_FOUND));
+
+        // 2.5. Chặn người dùng đã bị Quản trị viên kick khỏi phòng đặt giá
+        if (roomPresenceService != null && roomPresenceService.isUserKicked(session.getSessionCode(), userId)) {
+            throw new BusinessException(ErrorCode.ROOM_KICKED);
+        }
 
         // 3. Trạng thái phiên phải là LIVE và chưa hết giờ
         LocalDateTime now = LocalDateTime.now();

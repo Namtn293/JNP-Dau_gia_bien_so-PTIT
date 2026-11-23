@@ -1,0 +1,40 @@
+﻿flowchart TB
+    subgraph CLIENTS ["1. TẦNG CLIENTS (GIAO DIỆN VÀ QUẢN TRỊ)"]
+        WEB["Web Client (ReactJS - Port 5173)\nTra cứu và Sảnh chờ - Đấu giá Realtime - Ví tiền"]
+        ADMIN["Admin Console (Java Swing Desktop)\nGiám sát Telemetry - Đo Ping RTT - Lệnh HALT/RESUME"]
+    end
+
+    subgraph CORE ["2. TẦNG MÁY CHỦ TRUNG TÂM (AUCTION CORE SERVICE)"]
+        SPRING["Auction Core Service (Spring Boot 3 - Java 21)\nREST API :8080 - WebSocket :8080/ws - TCP :9090 - Scheduler 2s"]
+        DB[("Neon Cloud PostgreSQL\nLưu trữ Biển số, Phiên đấu giá, Lịch sử Bid, User")]
+    end
+
+    subgraph TELEMETRY ["3. TẦNG TELEMETRY VÀ GIÁM SÁT HẠ TẦNG"]
+        UDP_SRV["UDP Telemetry Server (Java DatagramSocket)\nPort 9001: Metrics - Port 9002: Ping RTT - Port 8888: Forward"]
+    end
+
+    subgraph EXTERNAL ["4. TẦNG DỊCH VỤ NGOÀI"]
+        MAIL["Mail Server (SMTP Port 587)\nMailtrap / Gmail (Bắt tay STARTTLS, AUTH LOGIN)"]
+    end
+
+    WEB --> |"1. HTTP REST (Auth JWT, Tra cứu, Nộp cọc)"| SPRING
+    WEB --- |"2. WebSocket STOMP (Nhảy giá tức thì, Chat, Đếm ngược)"| SPRING
+    SPRING --- |"3. JDBC over TLS (HikariCP Pool)"| DB
+
+    SPRING --> |"4. UDP Datagram :9001 (CPU, RAM, Online Users)"| UDP_SRV
+
+    UDP_SRV --> |"5. UDP Datagram :8888 (Forward Telemetry)"| ADMIN
+    ADMIN --- |"6. UDP Datagram :9002 (Ping Probe đo RTT)"| UDP_SRV
+
+    ADMIN -.-> |"7. Raw TCP Socket :9090 (HALT, RESUME, KICK, CANCEL)"| SPRING
+    SPRING --> |"8. SMTP STARTTLS :587 (Email xác nhận trúng đấu giá)"| MAIL
+
+    classDef clientStyle fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
+    classDef serverStyle fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20
+    classDef telemetryStyle fill:#fff3e0,stroke:#e65100,stroke-width:2px,color:#bf360c
+    classDef extStyle fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px,color:#4a148c
+
+    class WEB,ADMIN clientStyle
+    class SPRING,DB serverStyle
+    class UDP_SRV telemetryStyle
+    class MAIL extStyle
