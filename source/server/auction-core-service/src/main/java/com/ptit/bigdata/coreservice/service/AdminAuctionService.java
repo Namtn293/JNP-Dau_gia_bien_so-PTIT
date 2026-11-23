@@ -23,4 +23,6 @@ public interface AdminAuctionService {
     AdminCommandResultVO unkick(String userId, String roomId);
 
     AdminCommandResultVO cancel(String roomId);
+
+    AdminCommandResultVO deleteRoom(String roomId);
 }

@@ -11,5 +11,7 @@ import java.util.List;
 public interface RoomChatMessageRepository extends JpaRepository<RoomChatMessage, Long> {
 
     List<RoomChatMessage> findByRoomCodeOrderByCreatedAtDescIdDesc(String roomCode, Pageable pageable);
+
+    void deleteByRoomCode(String roomCode);
 }
 

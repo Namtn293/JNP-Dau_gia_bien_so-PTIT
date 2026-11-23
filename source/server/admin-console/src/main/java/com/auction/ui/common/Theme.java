@@ -20,6 +20,10 @@ public final class Theme {
     public static final Color COLOR_SUCCESS = new Color(22, 128, 61);
     public static final Color COLOR_WARNING = new Color(180, 83, 9);
     public static final Color COLOR_DANGER = new Color(185, 28, 28);
+    public static final Color COLOR_CRIMSON = new Color(220, 20, 60);
+    public static final Color COLOR_AMBER = new Color(245, 158, 11);
+    public static final Color COLOR_SLATE = new Color(100, 116, 139);
+    public static final Color COLOR_EMERALD = new Color(16, 185, 129);
 
     public static final Font FONT_TITLE = new Font(Font.SANS_SERIF, Font.BOLD, 18);
     public static final Font FONT_VALUE = new Font(Font.SANS_SERIF, Font.BOLD, 28);
@@ -60,10 +64,11 @@ public final class Theme {
     /** Màu chữ trạng thái phòng, dùng chung cho bảng và tab Điều khiển phiên. */
     public static Color statusColor(RoomStatus status) {
         return switch (status) {
-            case ACTIVE -> COLOR_SUCCESS;
-            case EXTENDING, WAITING -> COLOR_PRIMARY;
-            case PAUSED -> COLOR_WARNING;
-            default -> COLOR_MUTED;
+            case ACTIVE, EXTENDING -> COLOR_CRIMSON;
+            case WAITING, SCHEDULED -> COLOR_PRIMARY;
+            case PAUSED -> COLOR_AMBER;
+            case COMPLETED -> COLOR_EMERALD;
+            case CLOSED, SETTLED -> COLOR_SLATE;
         };
     }
 }

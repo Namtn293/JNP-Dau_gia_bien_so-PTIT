@@ -15,7 +15,6 @@ export interface AdminRoomVO {
   participantCount: number;
   currentPrice: number;
   remainingLabel: string;
-  rttMs: number;
 }
 
 export interface PageResponse<T> {

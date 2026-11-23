@@ -14,6 +14,8 @@ import java.util.List;
 
 @Repository
 public interface BidHistoryRepository extends JpaRepository<BidHistory, Long> {
+    long countByAuctionSessionId(Long auctionSessionId);
+
     List<BidHistory> findByAuctionSessionIdOrderByBidTimeDesc(Long auctionSessionId);
 
     List<BidHistory> findByAuctionSessionIdOrderByBidTimeAsc(Long auctionSessionId);

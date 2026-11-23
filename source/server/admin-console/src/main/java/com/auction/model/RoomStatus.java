@@ -8,6 +8,7 @@ public enum RoomStatus {
     EXTENDING("Đang gia hạn"),
     PAUSED("Tạm dừng"),
     CLOSED("Đã đóng"),
+    COMPLETED("Đã hoàn thành"),
     SETTLED("Đã quyết toán");
 
     private final String label;
@@ -32,7 +33,7 @@ public enum RoomStatus {
 
     /** Phiên đã kết thúc thì không thể hủy nữa. */
     public boolean isFinished() {
-        return this == CLOSED || this == SETTLED;
+        return this == CLOSED || this == COMPLETED || this == SETTLED;
     }
 
     /** Hiển thị nhãn tiếng Việt trong bảng và bộ lọc. */
