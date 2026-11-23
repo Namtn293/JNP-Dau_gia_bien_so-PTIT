@@ -86,4 +86,6 @@ public interface AuctionSessionRepository extends JpaRepository<AuctionSession, 
         boolean existsByNumberPlateIdAndStatusIn(
                         Long numberPlateId,
                         Collection<AuctionStatusEnum> statues);
+
+        boolean existsBySessionCode(String sessionCode);
 }
