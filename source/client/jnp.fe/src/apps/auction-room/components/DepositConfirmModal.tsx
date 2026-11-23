@@ -19,6 +19,8 @@ interface DepositConfirmModalProps {
   plateNumber: string;
   depositAmount: number;
   walletAvailable: number;
+  roomStatus?: "LIVE" | "SOON" | "PAUSED" | "END";
+  isEnded?: boolean;
 }
 
 export const DepositConfirmModal: React.FC<DepositConfirmModalProps> = ({
@@ -30,11 +32,16 @@ export const DepositConfirmModal: React.FC<DepositConfirmModalProps> = ({
   plateNumber,
   depositAmount = 40_000_000,
   walletAvailable = 0,
+  roomStatus = "LIVE",
+  isEnded = false,
 }) => {
   const navigate = useNavigate();
   const formItems: IFormItem[] = [];
 
+  const isPaused = roomStatus === "PAUSED";
+  const isRoomBlocked = isEnded || isPaused;
   const isSufficient = walletAvailable >= depositAmount;
+  const canConfirm = isSufficient && !isRoomBlocked;
 
   return (
     <ModalForm
@@ -46,10 +53,14 @@ export const DepositConfirmModal: React.FC<DepositConfirmModalProps> = ({
         </div>
       }
       onCancel={onClose}
-      onOk={onConfirm}
+      onOk={canConfirm ? onConfirm : undefined}
       loading={loading}
       okText={
-        isSufficient
+        isEnded
+          ? "Phiên đã kết thúc (Đóng cọc)"
+          : isPaused
+          ? "Phiên đang tạm dừng (Đóng cọc)"
+          : isSufficient
           ? `Xác nhận nộp cọc ${formatMoney(depositAmount)}`
           : "Số dư không đủ"
       }
@@ -59,15 +70,39 @@ export const DepositConfirmModal: React.FC<DepositConfirmModalProps> = ({
       requiredMark={false}
       centered
       okButtonProps={{
-        disabled: !isSufficient,
+        disabled: !canConfirm,
         style: {
-          backgroundColor: isSufficient ? "#059669" : "#94a3b8",
-          borderColor: isSufficient ? "#059669" : "#94a3b8",
+          backgroundColor: canConfirm ? "#059669" : "#94a3b8",
+          borderColor: canConfirm ? "#059669" : "#94a3b8",
           fontWeight: 600,
         },
       }}
     >
       <DepositModalBody>
+        {isRoomBlocked && (
+          <div
+            style={{
+              padding: "10px 14px",
+              marginBottom: 12,
+              borderRadius: 8,
+              background: "#fef2f2",
+              border: "1px solid #fecaca",
+              color: "#b91c1c",
+              fontSize: 13,
+              fontWeight: 600,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <WarningOutlined style={{ fontSize: 16 }} />
+            <span>
+              {isEnded
+                ? "Phiên đấu giá đã kết thúc. Cổng nộp tiền đặt trước đã chính thức đóng."
+                : "Phiên đấu giá đang tạm dừng khẩn cấp. Tạm thời không thể nộp tiền đặt trước."}
+            </span>
+          </div>
+        )}
         <div className="notice-box">
           <CheckCircleOutlined />
           <span>

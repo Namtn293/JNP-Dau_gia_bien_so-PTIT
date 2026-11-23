@@ -19,6 +19,7 @@ public class AuctionProperties {
     private AutoBidConfigProps autoBid = new AutoBidConfigProps();
     private ChartConfig chart = new ChartConfig();
     private ShillConfig shill = new ShillConfig();
+    private MailConfigProps mail = new MailConfigProps();
 
     @Data
     public static class StepTier {
@@ -59,6 +60,17 @@ public class AuctionProperties {
     public static class ShillConfig {
         private int minAlternatingBids = 6;
         private int maxGapSeconds = 15;
+    }
+
+    @Data
+    public static class MailConfigProps {
+        private boolean enabled = true;
+        private String host = "sandbox.smtp.mailtrap.io";
+        private int port = 587;
+        private String username = "";
+        private String password = "";
+        private String from = "no-reply@auction.local";
+        private String fromName = "Sàn đấu giá biển số PTIT";
     }
 }
 

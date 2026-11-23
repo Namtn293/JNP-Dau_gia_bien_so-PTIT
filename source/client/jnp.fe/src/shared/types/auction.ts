@@ -7,7 +7,7 @@ export type AuctionStatus = "SOON" | "LIVE" | "PAUSED" | "END";
 export type RoomRole = "ADMIN" | "BIDDER" | "VIEWER";
 export type BidSource = "MANUAL" | "AUTO";
 export type RegistrationStatus = "ACTIVE" | "RELEASED" | "CAPTURED" | "CANCELLED";
-export type WalletTxType = "INIT_BONUS" | "TOPUP" | "HOLD" | "RELEASE" | "CAPTURE";
+export type WalletTxType = "INIT_BONUS" | "TOPUP" | "HOLD" | "RELEASE" | "CAPTURE" | "AUCTION_PAYMENT";
 export type AutoBidStopReason = "USER_DISABLED" | "MAX_REACHED" | "SESSION_ENDED" | "NOT_REGISTERED";
 export type NotificationType =
   | "STARTING_SOON"

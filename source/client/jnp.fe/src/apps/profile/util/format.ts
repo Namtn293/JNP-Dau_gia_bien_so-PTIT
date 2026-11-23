@@ -61,6 +61,14 @@ export const getTxTypeBadge = (type?: WalletTxType): TxBadgeConfig => {
         border: "#ffa39e",
         sign: "−",
       };
+    case "AUCTION_PAYMENT":
+      return {
+        label: "Quyết toán trúng thầu",
+        color: "#d4380d",
+        bg: "#fff2e8",
+        border: "#ffbb96",
+        sign: "−",
+      };
     default:
       return {
         label: type || "Giao dịch",

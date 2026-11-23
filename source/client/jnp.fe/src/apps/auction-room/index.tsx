@@ -177,6 +177,8 @@ export const AuctionRoomPage: React.FC = () => {
         plateNumber={data.plateNumber}
         depositAmount={data.depositAmount || 40_000_000}
         walletAvailable={data.walletAvailable}
+        roomStatus={data.roomStatus}
+        isEnded={data.isEnded}
       />
     </PageWrapper>
   );

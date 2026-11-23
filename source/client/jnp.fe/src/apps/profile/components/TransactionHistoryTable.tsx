@@ -59,6 +59,7 @@ export const TransactionHistoryTable: React.FC<TransactionHistoryTableProps> = (
               { label: "Giữ tiền cọc", value: "HOLD" },
               { label: "Hoàn cọc", value: "RELEASE" },
               { label: "Trừ cọc trúng đấu", value: "CAPTURE" },
+              { label: "Quyết toán trúng thầu", value: "AUCTION_PAYMENT" },
             ]}
           />
 

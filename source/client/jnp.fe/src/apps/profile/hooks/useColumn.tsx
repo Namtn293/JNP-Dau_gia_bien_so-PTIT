@@ -49,7 +49,7 @@ export const useColumn = () => {
         align: "right",
         render: (amount: number, record) => {
           const cfg = getTxTypeBadge(record.type);
-          const isNegative = record.type === "HOLD" || record.type === "CAPTURE";
+          const isNegative = record.type === "HOLD" || record.type === "CAPTURE" || record.type === "AUCTION_PAYMENT";
           const color = isNegative ? "#cf1322" : "#389e0d";
           const prefix = isNegative ? "− " : "+ ";
 

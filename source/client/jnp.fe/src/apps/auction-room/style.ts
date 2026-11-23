@@ -1111,8 +1111,14 @@ export const ViewerAlertBanner = styled.div`
     white-space: nowrap;
     transition: background 0.2s;
 
-    &:hover {
+    &:hover:not(:disabled) {
       background: #b45309;
+    }
+
+    &:disabled {
+      background: #94a3b8;
+      opacity: 0.65;
+      cursor: not-allowed;
     }
   }
 `;
@@ -1141,8 +1147,11 @@ export const DepositActionBtn = styled.button`
   }
 
   &:disabled {
-    opacity: 0.6;
+    background: #94a3b8;
+    box-shadow: none;
+    opacity: 0.65;
     cursor: not-allowed;
+    transform: none;
   }
 `;
 

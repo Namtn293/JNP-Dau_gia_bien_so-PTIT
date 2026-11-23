@@ -135,14 +135,31 @@ export const useAction = ({
   ]);
 
   const onOpenDepositModal = useCallback(() => {
+    if (isEnded || roomStatus === "PAUSED") {
+      showErrorNotify(
+        isEnded
+          ? "Phiên đấu giá đã kết thúc, không thể nộp tiền đặt trước!"
+          : "Phiên đấu giá đang tạm dừng khẩn cấp, tạm thời không thể nộp cọc!"
+      );
+      return;
+    }
     setDepositModalOpen(true);
-  }, [setDepositModalOpen]);
+  }, [isEnded, roomStatus, setDepositModalOpen, showErrorNotify]);
 
   const onCloseDepositModal = useCallback(() => {
     setDepositModalOpen(false);
   }, [setDepositModalOpen]);
 
   const onConfirmDeposit = useCallback(async () => {
+    if (isEnded || roomStatus === "PAUSED") {
+      showErrorNotify(
+        isEnded
+          ? "Phiên đấu giá đã kết thúc, không thể nộp tiền đặt trước!"
+          : "Phiên đấu giá đang tạm dừng khẩn cấp, tạm thời không thể nộp cọc!"
+      );
+      setDepositModalOpen(false);
+      return;
+    }
     try {
       const targetCode = sessionCode || plateNumber;
       await registerMutation.mutateAsync(targetCode);
@@ -158,6 +175,8 @@ export const useAction = ({
       );
     }
   }, [
+    isEnded,
+    roomStatus,
     sessionCode,
     plateNumber,
     registerMutation,

@@ -1,4 +1,4 @@
-export type WalletTxType = "INIT_BONUS" | "TOPUP" | "HOLD" | "RELEASE" | "CAPTURE";
+export type WalletTxType = "INIT_BONUS" | "TOPUP" | "HOLD" | "RELEASE" | "CAPTURE" | "AUCTION_PAYMENT";
 
 export interface WalletVO {
   balance: number;

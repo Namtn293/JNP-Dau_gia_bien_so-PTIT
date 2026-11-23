@@ -5,6 +5,7 @@ public enum WalletTxTypeEnum {
     TOPUP,
     HOLD,
     RELEASE,
-    CAPTURE
+    CAPTURE,
+    AUCTION_PAYMENT
 }
 

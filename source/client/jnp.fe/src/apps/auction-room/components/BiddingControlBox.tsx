@@ -84,6 +84,7 @@ export const BiddingControlBox: React.FC<BiddingControlBoxProps> = ({
   const isPaused = roomStatus === "PAUSED";
   const isSoon = roomStatus === "SOON";
   const canPlaceBidNow = !isEnded && roomStatus === "LIVE" && isRegistered && userLeadState !== "leading";
+  const isDepositDisabled = isEnded || isPaused;
   const urgency =
     isPaused || (roomStatus === "LIVE" && remainingSeconds <= 10)
       ? "danger"
@@ -146,21 +147,28 @@ export const BiddingControlBox: React.FC<BiddingControlBoxProps> = ({
       )}
 
       {/* Viewer alert banner when not registered */}
-      {!isEnded && !isRegistered && (
+      {!isRegistered && (
         <ViewerAlertBanner>
           <div className="banner-text">
             <SafetyCertificateOutlined />
             <span>
-              <b>Chế độ Khách theo dõi:</b> Bạn chưa nộp tiền đặt trước cho phiên này. Hãy nộp cọc để tham gia trả giá.
+              {isEnded ? (
+                <><b>Phiên đấu giá đã kết thúc:</b> Đã đóng cổng nộp tiền đặt trước.</>
+              ) : isPaused ? (
+                <><b>Phiên đang tạm dừng:</b> Cổng nộp tiền đặt trước tạm thời bị khóa.</>
+              ) : (
+                <><b>Chế độ Khách theo dõi:</b> Bạn chưa nộp tiền đặt trước cho phiên này. Hãy nộp cọc để tham gia trả giá.</>
+              )}
             </span>
           </div>
           {onOpenDepositModal && (
             <button
               type="button"
               className="btn-quick-deposit"
-              onClick={onOpenDepositModal}
+              disabled={isDepositDisabled || depositLoading}
+              onClick={!isDepositDisabled ? onOpenDepositModal : undefined}
             >
-              Nộp cọc ngay
+              {isEnded ? "Đã đóng cọc" : isPaused ? "Tạm dừng cọc" : "Nộp cọc ngay"}
             </button>
           )}
         </ViewerAlertBanner>
@@ -239,13 +247,20 @@ export const BiddingControlBox: React.FC<BiddingControlBoxProps> = ({
       </QuickIncrementRow>
 
       {/* Big Action Button: Deposit if not registered, otherwise Bid */}
-      {!isEnded && !isRegistered ? (
+      {!isRegistered ? (
         <DepositActionBtn
           type="button"
-          onClick={onOpenDepositModal}
+          disabled={isDepositDisabled || depositLoading}
+          onClick={!isDepositDisabled ? onOpenDepositModal : undefined}
         >
           <SafetyCertificateOutlined style={{ fontSize: 18 }} />
-          <span>Nộp tiền đặt trước ({formatMoney(depositAmount)}) để tham gia</span>
+          <span>
+            {isEnded
+              ? "Phiên đấu giá đã kết thúc (Đóng nộp cọc)"
+              : isPaused
+              ? "Phiên đang tạm dừng (Đóng nộp cọc)"
+              : `Nộp tiền đặt trước (${formatMoney(depositAmount)}) để tham gia`}
+          </span>
         </DepositActionBtn>
       ) : (
         <MainActionBidBtn

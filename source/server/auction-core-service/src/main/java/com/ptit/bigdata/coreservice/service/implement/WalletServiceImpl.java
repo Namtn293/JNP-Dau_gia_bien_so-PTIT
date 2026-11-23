@@ -290,12 +290,14 @@ public class WalletServiceImpl implements WalletService {
         log.info("[SESSION-END-WALLET] Xử lý cọc cho phiên {} (Người thắng: {}, Số người cọc: {})",
                 session.getSessionCode(), winnerUserId, activeRegs.size());
 
+        boolean winnerHandled = false;
         for (AuctionRegistration reg : activeRegs) {
             try {
                 Wallet w = getOrCreateWallet(reg.getUserId());
                 long dep = reg.getDepositAmount() != null ? reg.getDepositAmount() : 40_000_000L;
 
                 if (winnerUserId != null && winnerUserId.equals(reg.getUserId())) {
+                    winnerHandled = true;
                     // CAPTURE cọc người thắng
                     long newBal = Math.max(0L, w.getBalance() - dep);
                     long newHeld = Math.max(0L, w.getHeldAmount() - dep);
@@ -308,6 +310,23 @@ public class WalletServiceImpl implements WalletService {
                     reg.setStatus(RegistrationStatusEnum.CAPTURED);
                     auctionRegistrationRepository.save(reg);
                     log.info("[CAPTURE-DEPOSIT] Đã khấu trừ {} cọc của người thắng {}", dep, reg.getUserId());
+
+                    // Trừ tiếp số tiền trúng đấu giá còn lại (finalPrice - dep)
+                    long finalPrice = session.getWinningPrice() != null ? session.getWinningPrice()
+                            : (session.getCurrentPrice() != null ? session.getCurrentPrice()
+                            : (session.getEndPrice() != null ? session.getEndPrice() : session.getStartPrice()));
+                    long remainingAmount = Math.max(0L, finalPrice - dep);
+                    if (remainingAmount > 0) {
+                        long balanceAfterPay = Math.max(0L, w.getBalance() - remainingAmount);
+                        w.setBalance(balanceAfterPay);
+                        walletRepository.save(w);
+
+                        recordTx(w.getId(), WalletTxTypeEnum.AUCTION_PAYMENT, remainingAmount, balanceAfterPay, w.getHeldAmount(),
+                                session.getSessionCode(),
+                                String.format("Quyết toán tiền trúng đấu giá phiên %s (Tổng: %,d VNĐ, đã trừ %,d VNĐ cọc)",
+                                        session.getSessionCode(), finalPrice, dep));
+                        log.info("[AUCTION-PAYMENT] Đã trừ tiếp số tiền trúng đấu giá {} cho người thắng {}", remainingAmount, reg.getUserId());
+                    }
                 } else {
                     // RELEASE cọc người không thắng
                     long newHeld = Math.max(0L, w.getHeldAmount() - dep);
@@ -322,6 +341,28 @@ public class WalletServiceImpl implements WalletService {
                 }
             } catch (Exception e) {
                 log.error("[SESSION-END-WALLET-ERR] Lỗi khi xử lý cọc cho user {}: ", reg.getUserId(), e);
+            }
+        }
+
+        if (!winnerHandled && winnerUserId != null) {
+            try {
+                Wallet w = getOrCreateWallet(winnerUserId);
+                long finalPrice = session.getWinningPrice() != null ? session.getWinningPrice()
+                        : (session.getCurrentPrice() != null ? session.getCurrentPrice()
+                        : (session.getEndPrice() != null ? session.getEndPrice() : session.getStartPrice()));
+                long dep = 40_000_000L;
+                long remainingAmount = Math.max(0L, finalPrice - dep);
+                long balanceAfterPay = Math.max(0L, w.getBalance() - remainingAmount);
+                w.setBalance(balanceAfterPay);
+                walletRepository.save(w);
+
+                recordTx(w.getId(), WalletTxTypeEnum.AUCTION_PAYMENT, remainingAmount, balanceAfterPay, w.getHeldAmount(),
+                        session.getSessionCode(),
+                        String.format("Quyết toán tiền trúng đấu giá phiên %s (Tổng: %,d VNĐ, đã trừ %,d VNĐ cọc)",
+                                session.getSessionCode(), finalPrice, dep));
+                log.info("[AUCTION-PAYMENT-FALLBACK] Đã quyết toán tiền trúng đấu giá cho người thắng {}", winnerUserId);
+            } catch (Exception e) {
+                log.error("[AUCTION-PAYMENT-FALLBACK-ERR] Lỗi quyết toán cho người thắng {}: ", winnerUserId, e);
             }
         }
     }
