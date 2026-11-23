@@ -18,6 +18,8 @@ public interface ShillAlertRepository extends JpaRepository<ShillAlert, Long> {
 
     List<ShillAlert> findBySessionIdAndUserAIdAndUserBId(Long sessionId, Long userAId, Long userBId);
 
+    void deleteBySessionId(Long sessionId);
+
     Page<ShillAlert> findByStatusOrderByCreatedAtDesc(ShillAlertStatusEnum status, Pageable pageable);
 
     Page<ShillAlert> findBySessionCodeOrderByCreatedAtDesc(String sessionCode, Pageable pageable);

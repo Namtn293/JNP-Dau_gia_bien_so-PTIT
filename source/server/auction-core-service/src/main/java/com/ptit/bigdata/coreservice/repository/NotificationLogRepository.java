@@ -8,5 +8,7 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface NotificationLogRepository extends JpaRepository<NotificationLog, Long> {
     boolean existsByUserIdAndSessionIdAndType(Long userId, Long sessionId, NotificationTypeEnum type);
+
+    void deleteBySessionId(Long sessionId);
 }
 

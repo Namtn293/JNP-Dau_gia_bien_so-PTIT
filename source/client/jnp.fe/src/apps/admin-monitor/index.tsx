@@ -59,14 +59,26 @@ import {
 
 const formatVnd = (n: number) => `${(n || 0).toLocaleString("vi-VN")} ₫`;
 
+const ROOM_STATUS_COLOR: Record<string, string> = {
+  ACTIVE: "#DC143C",
+  EXTENDING: "#DC143C",
+  WAITING: "#2563EB",
+  SCHEDULED: "#2563EB",
+  PAUSED: "#F59E0B",
+  CLOSED: "#64748B",
+  COMPLETED: "#10B981",
+  SETTLED: "#64748B",
+};
+
 const ROOM_STATUS_TAG: Record<string, { label: string; color: string }> = {
-  ACTIVE: { label: "Đang diễn ra", color: "green" },
-  EXTENDING: { label: "Gia hạn", color: "cyan" },
-  PAUSED: { label: "Tạm dừng", color: "red" },
-  WAITING: { label: "Phòng chờ", color: "gold" },
-  SCHEDULED: { label: "Sắp diễn ra", color: "blue" },
-  CLOSED: { label: "Đã đóng", color: "default" },
-  SETTLED: { label: "Đã quyết toán", color: "purple" },
+  ACTIVE: { label: "Đang diễn ra", color: ROOM_STATUS_COLOR.ACTIVE },
+  EXTENDING: { label: "Gia hạn", color: ROOM_STATUS_COLOR.EXTENDING },
+  PAUSED: { label: "Tạm dừng", color: ROOM_STATUS_COLOR.PAUSED },
+  WAITING: { label: "Phòng chờ", color: ROOM_STATUS_COLOR.WAITING },
+  SCHEDULED: { label: "Sắp diễn ra", color: ROOM_STATUS_COLOR.SCHEDULED },
+  CLOSED: { label: "Đã đóng", color: ROOM_STATUS_COLOR.CLOSED },
+  COMPLETED: { label: "Đã hoàn thành", color: ROOM_STATUS_COLOR.COMPLETED },
+  SETTLED: { label: "Đã quyết toán", color: ROOM_STATUS_COLOR.SETTLED },
 };
 
 const LEVEL_TAG: Record<string, { label: string; color: string }> = {
@@ -329,7 +341,7 @@ export const AdminMonitorPage: React.FC = () => {
           >
             Nhắn phòng
           </Button>
-          {r.status !== "PAUSED" && r.status !== "CLOSED" && r.status !== "SETTLED" && (
+          {r.status !== "PAUSED" && r.status !== "CLOSED" && r.status !== "COMPLETED" && r.status !== "SETTLED" && (
             <Popconfirm
               title={`Tạm dừng khẩn cấp phiên ${r.id}?`}
               onConfirm={() => handleRoomAction("halt", r.id)}

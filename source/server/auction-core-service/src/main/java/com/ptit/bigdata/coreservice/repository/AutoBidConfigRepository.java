@@ -16,6 +16,8 @@ public interface AutoBidConfigRepository extends JpaRepository<AutoBidConfig, Lo
 
     List<AutoBidConfig> findBySessionId(Long sessionId);
 
+    void deleteBySessionId(Long sessionId);
+
     List<AutoBidConfig> findByUserId(Long userId);
 }
 

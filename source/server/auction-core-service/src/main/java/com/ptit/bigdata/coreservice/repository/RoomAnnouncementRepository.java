@@ -24,5 +24,7 @@ public interface RoomAnnouncementRepository extends JpaRepository<RoomAnnounceme
     @Modifying
     @Query("update RoomAnnouncement r set r.pinned = false where r.sessionId = :sessionId and r.pinned = true")
     int clearPinned(@Param("sessionId") Long sessionId);
+
+    void deleteBySessionId(Long sessionId);
 }
 

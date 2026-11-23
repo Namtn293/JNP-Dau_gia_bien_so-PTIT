@@ -52,7 +52,7 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
     private boolean refreshErrorLogged;
 
     /** Dữ liệu của một lần làm mới, lấy đồng thời từ gateway. */
-    private record Snapshot(String roomId, List<RoomInfo> rooms, ServerMetrics metrics, List<ParticipantInfo> people) {
+    private record Snapshot(String roomId, List<RoomInfo> rooms, List<ParticipantInfo> people) {
     }
 
     public SessionControlPanel(AdminGateway gateway, StyledDocument logDocument, RoomSelection selection) {
@@ -107,6 +107,17 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
 
         busy = true;
 
+        gateway.fetchMetrics().whenComplete((metrics, error) -> {
+            metricsFetchFailed = error != null;
+            SwingUtilities.invokeLater(() -> {
+                if (error == null) {
+                    header.updateMetrics(metrics);
+                } else {
+                    header.showOffline();
+                }
+            });
+        });
+
         fetchSnapshot()
                 .thenAccept(snapshot -> SwingUtilities.invokeLater(() -> {
                     busy = false;
@@ -153,23 +164,16 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
 
         CompletableFuture<List<RoomInfo>> rooms = gateway.fetchRooms();
 
-        CompletableFuture<ServerMetrics> metrics = gateway.fetchMetrics()
-                .whenComplete((value, error) -> {
-                    metricsFetchFailed = error != null;
-                });
-
         CompletableFuture<List<ParticipantInfo>> people = roomId == null
                 ? CompletableFuture.completedFuture(List.of())
                 : gateway.fetchParticipants(roomId);
 
-        return CompletableFuture.allOf(rooms, metrics, people)
-                .thenApply(ignored -> new Snapshot(roomId, rooms.join(), metrics.join(), people.join()));
+        return CompletableFuture.allOf(rooms, people)
+                .thenApply(ignored -> new Snapshot(roomId, rooms.join(), people.join()));
     }
 
     /** Chạy trên EDT. */
     private void apply(Snapshot snapshot) {
-        header.updateMetrics(snapshot.metrics());
-
         // Người dùng đã chọn phòng khác trong lúc chờ: bỏ dữ liệu cũ của phòng trước
         if (!Objects.equals(snapshot.roomId(), selection.roomId())) {
             return;

@@ -7,14 +7,13 @@ public record RoomInfo(
         RoomStatus status,
         int participantCount,
         long currentPrice,
-        String remainingLabel,
-        int rttMs) {
+        String remainingLabel) {
 
     public RoomInfo withStatus(RoomStatus newStatus) {
-        return new RoomInfo(id, plate, region, newStatus, participantCount, currentPrice, remainingLabel, rttMs);
+        return new RoomInfo(id, plate, region, newStatus, participantCount, currentPrice, remainingLabel);
     }
 
     public RoomInfo withRemaining(String newRemaining) {
-        return new RoomInfo(id, plate, region, status, participantCount, currentPrice, newRemaining, rttMs);
+        return new RoomInfo(id, plate, region, status, participantCount, currentPrice, newRemaining);
     }
 }

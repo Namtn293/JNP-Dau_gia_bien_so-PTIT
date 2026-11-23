@@ -17,5 +17,4 @@ public class AdminRoomVO {
     private int participantCount;
     private long currentPrice;
     private String remainingLabel;
-    private int rttMs;
 }
