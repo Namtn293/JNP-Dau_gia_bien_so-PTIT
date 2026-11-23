@@ -39,7 +39,8 @@ import com.auction.model.ServerMetrics;
 
 /**
  * Bốn thẻ chỉ số đầu tab Giám sát.
- * Dữ liệu lấy từ gateway (UDP 8888 khi nối thật), không đọc tài nguyên của máy đang chạy Admin Console.
+ * Dữ liệu lấy từ gateway (UDP 8888 khi nối thật), không đọc tài nguyên của máy
+ * đang chạy Admin Console.
  */
 public class MetricCardsPanel extends JPanel {
     private static final int HISTORY_SECONDS = 60;
@@ -85,13 +86,18 @@ public class MetricCardsPanel extends JPanel {
         new Timer(REFRESH_MS, e -> refreshMetrics()).start();
     }
 
-    /** Cập nhật số phòng trong thẻ hoạt động, do MonitoringPanel gọi mỗi khi có danh sách phòng mới. */
+    /**
+     * Cập nhật số phòng trong thẻ hoạt động, do MonitoringPanel gọi mỗi khi có danh
+     * sách phòng mới.
+     */
     public void setRoomSummary(int totalRooms, int activeRooms) {
         activityCaptionLabel.setText(totalRooms + " phòng • " + activeRooms + " phiên đang nhận giá");
     }
 
     // ===== Lấy dữ liệu =====
-    /** Chạy trên EDT. Kết quả trả về được đưa lại EDT trước khi cập nhật giao diện. */
+    /**
+     * Chạy trên EDT. Kết quả trả về được đưa lại EDT trước khi cập nhật giao diện.
+     */
     private void refreshMetrics() {
         if (fetching) {
             return;
@@ -370,7 +376,7 @@ public class MetricCardsPanel extends JPanel {
 
         onlineValueLabel = new JLabel("—");
         bidRateValueLabel = new JLabel("—");
-        stats.add(createStat(onlineValueLabel, "Người trực tuyến"));
+        stats.add(createStat(onlineValueLabel, "Người trong các phiên LIVE"));
         stats.add(createStat(bidRateValueLabel, "Lượt đặt giá/giây"));
         card.add(stats);
 

@@ -32,6 +32,7 @@ import com.auction.ui.panels.control.SessionControlPanel;
 import com.auction.AdminConfig;
 
 import com.auction.gateway.AdminGateway;
+import com.auction.model.AdminSession;
 import com.auction.net.udp.UdpAdminGateway;
 import com.auction.ui.common.AlertLogger;
 
@@ -47,12 +48,18 @@ public class AdminConsoleUI extends JFrame {
     private StyledDocument logDocument;
     private MailService mailService;
     private RoomSelection selection;
+    private final AdminSession adminSession;
 
     public AdminConsoleUI() {
-        initializeUI(); // Khởi tạo giao diện
+        this(new UdpAdminGateway(), null);
     }
 
-    private void initializeUI() {
+    public AdminConsoleUI(UdpAdminGateway udpGateway, AdminSession adminSession) {
+        this.adminSession = adminSession;
+        initializeUI(udpGateway); // Khởi tạo giao diện
+    }
+
+    private void initializeUI(UdpAdminGateway udpGateway) {
         // Cấu hình cửa sổ theo kích thước vùng làm việc khả dụng (trừ taskbar)
         setTitle("Đấu giá biển số • Quản trị viên");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -67,7 +74,6 @@ public class AdminConsoleUI extends JFrame {
         logDocument = LogPanel.createDocument();
         LogPanel.loadSampleLog(logDocument);
 
-        UdpAdminGateway udpGateway = new UdpAdminGateway();
         udpGateway.addAlertListener(new AlertLogger(logDocument));
         AdminGateway gateway = udpGateway;
         selection = new RoomSelection();
@@ -130,10 +136,17 @@ public class AdminConsoleUI extends JFrame {
         user.setLayout(new BoxLayout(user, BoxLayout.Y_AXIS));
         user.setOpaque(false);
 
-        JLabel userName = new JLabel(AdminConfig.OPERATOR_NAME);
+        String displayOperator = adminSession != null
+                ? adminSession.username()
+                : AdminConfig.OPERATOR_NAME;
+        String displayRole = adminSession != null
+                ? "Quản trị viên (ADMIN) • Đã xác thực JWT"
+                : AdminConfig.OPERATOR_ROLE;
+
+        JLabel userName = new JLabel(displayOperator);
         userName.setFont(FONT_NORMAL);
 
-        JLabel userRole = new JLabel(AdminConfig.OPERATOR_ROLE);
+        JLabel userRole = new JLabel(displayRole);
         userRole.setFont(FONT_SMALL);
         userRole.setForeground(COLOR_MUTED);
 
