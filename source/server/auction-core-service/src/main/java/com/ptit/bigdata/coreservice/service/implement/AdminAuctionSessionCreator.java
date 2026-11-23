@@ -3,6 +3,7 @@ package com.ptit.bigdata.coreservice.service.implement;
 
 import com.ptit.bigdata.coreservice.entity.AuctionSession;
 import com.ptit.bigdata.coreservice.entity.NumberPlate;
+import com.ptit.bigdata.coreservice.entity.Province;
 import com.ptit.bigdata.coreservice.enumration.AuctionStatusEnum;
 import com.ptit.bigdata.coreservice.model.dto.CreateAuctionSessionDTO;
 import com.ptit.bigdata.coreservice.model.vo.AvailablePlateVO;
@@ -18,11 +19,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.text.Normalizer;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -68,8 +68,10 @@ public class AdminAuctionSessionCreator {
                         "Biển số không tồn tại: " + plateNumber));
 
         // 3. Đảm bảo biển số có tỉnh/thành hợp lệ
-        if (plate.getProvinceId() == null ||
-                !provinceRepository.existsById(plate.getProvinceId())) {
+        Province province = plate.getProvinceId() != null
+                ? provinceRepository.findById(plate.getProvinceId()).orElse(null)
+                : null;
+        if (province == null) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Biển số chưa có tỉnh/thành hợp lệ");
@@ -87,16 +89,8 @@ public class AdminAuctionSessionCreator {
                     "Biển số đã có phiên SOON, LIVE hoặc PAUSED");
         }
 
-        // 5. Tạo mã phiên
-        String date = now.format(
-                DateTimeFormatter.ofPattern("yyyyMMdd"));
-
-        String randomId = UUID.randomUUID()
-                .toString()
-                .substring(0, 8)
-                .toUpperCase(Locale.ROOT);
-
-        String sessionCode = "SES-" + date + "-" + randomId;
+        // 5. Tạo mã phiên theo định dạng SES-<MÃ_TỈNH>-<BIỂN_SỐ> (thêm hậu tố nếu đã tồn tại)
+        String sessionCode = buildUniqueSessionCode(province.getName(), plateNumber);
 
         // 6. Tạo Entity
         AuctionSession session = AuctionSession.builder()
@@ -129,5 +123,46 @@ public class AdminAuctionSessionCreator {
     @Transactional(readOnly = true)
     public List<AvailablePlateVO> getAvailablePlates() {
         return plateRepository.findAvailableForAuction(OPEN_STATUSES);
+    }
+
+    private String buildUniqueSessionCode(String provinceName, String plateNumber) {
+        String provinceCode = abbreviateProvince(provinceName);
+        String cleanPlate = plateNumber.replaceAll("[^A-Z0-9]", "");
+        String baseCode = "SES-" + provinceCode + "-" + cleanPlate;
+
+        String candidate = baseCode;
+        int suffix = 2;
+        while (sessionRepository.existsBySessionCode(candidate)) {
+            candidate = baseCode + "-" + suffix;
+            suffix++;
+        }
+        return candidate;
+    }
+
+    private static String abbreviateProvince(String provinceName) {
+        if (provinceName == null || provinceName.isBlank()) {
+            return "VN";
+        }
+        String normalized = Normalizer.normalize(provinceName, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "")
+                .replace('đ', 'd')
+                .replace('Đ', 'D')
+                .trim()
+                .toUpperCase(Locale.ROOT);
+
+        if (normalized.contains("HO CHI MINH") || normalized.equals("TP.HCM")) {
+            return "HCM";
+        }
+        if (normalized.equals("DONG NAI")) {
+            return "DNA";
+        }
+
+        StringBuilder abbr = new StringBuilder();
+        for (String token : normalized.split("[^A-Z0-9]+")) {
+            if (!token.isEmpty() && !token.equals("TP")) {
+                abbr.append(token.charAt(0));
+            }
+        }
+        return abbr.isEmpty() ? "VN" : abbr.toString();
     }
 }
