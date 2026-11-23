@@ -33,9 +33,12 @@ import com.auction.model.RoomInfo;
 import com.auction.model.RoomStatus;
 import com.auction.ui.common.UiKit;
 
+import com.auction.ui.common.ButtonStyles;
+
 /**
  * Bảng danh sách phòng: tìm kiếm, lọc trạng thái, phân trang.
- * Lựa chọn được giữ theo ID phòng, nên vẫn còn khi phòng đang chọn nằm ở trang khác.
+ * Lựa chọn được giữ theo ID phòng, nên vẫn còn khi phòng đang chọn nằm ở trang
+ * khác.
  */
 public class RoomTablePanel extends JPanel {
     /** Số phòng mỗi trang. Đổi giá trị này để thay đổi phân trang. */
@@ -64,11 +67,13 @@ public class RoomTablePanel extends JPanel {
     private final JButton nextButton;
     private final List<Consumer<RoomInfo>> selectionListeners = new ArrayList<>();
 
-    private List<RoomInfo> rooms = List.of();     // toàn bộ phòng
-    private List<RoomInfo> filtered = List.of();  // sau khi lọc
-    private List<RoomInfo> visible = List.of();   // trang hiện tại
+    private List<RoomInfo> rooms = List.of(); // toàn bộ phòng
+    private List<RoomInfo> filtered = List.of(); // sau khi lọc
+    private List<RoomInfo> visible = List.of(); // trang hiện tại
     private String selectedRoomId;
     private int page;
+
+    private final JButton createSessionButton;
 
     // true khi đang nạp lại bảng bằng code: bỏ qua sự kiện chọn dòng
     private boolean rebuilding;
@@ -111,6 +116,17 @@ public class RoomTablePanel extends JPanel {
         filterPanel.add(Box.createHorizontalStrut(6));
         filterPanel.add(new JLabel("Lọc:"));
         filterPanel.add(statusFilterCombo);
+
+        filterPanel.add(Box.createHorizontalStrut(6));
+
+        createSessionButton = ButtonStyles.filled(
+                "+ Tạo phiên mới",
+                COLOR_PRIMARY);
+
+        createSessionButton.setPreferredSize(
+                new Dimension(146, 34));
+
+        filterPanel.add(createSessionButton);
 
         JPanel headerPanel = new JPanel(new BorderLayout(8, 0));
         headerPanel.add(titlePanel, BorderLayout.WEST);
@@ -191,6 +207,7 @@ public class RoomTablePanel extends JPanel {
 
     /**
      * Chọn một phòng theo ID và chuyển tới trang chứa phòng đó.
+     * 
      * @return false nếu phòng không tồn tại hoặc đang bị bộ lọc ẩn.
      */
     public boolean selectRoom(String roomId) {
@@ -370,7 +387,7 @@ public class RoomTablePanel extends JPanel {
     private static class RoomCellRenderer extends DefaultTableCellRenderer {
         @Override
         public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected,
-                                                       boolean hasFocus, int row, int column) {
+                boolean hasFocus, int row, int column) {
             super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
 
             setText(textFor(value, column));
@@ -395,4 +412,19 @@ public class RoomTablePanel extends JPanel {
             default -> String.valueOf(value);
         };
     }
+
+    public void addCreateSessionListener(Runnable listener) {
+        createSessionButton.addActionListener(
+                e -> listener.run());
+    }
+
+    public void setCreateSessionEnabled(boolean enabled) {
+        createSessionButton.setEnabled(enabled);
+    }
+
+    public void showAllRooms() {
+        searchField.setText("");
+        statusFilterCombo.setSelectedItem(ALL_STATUS);
+    }
+
 }
