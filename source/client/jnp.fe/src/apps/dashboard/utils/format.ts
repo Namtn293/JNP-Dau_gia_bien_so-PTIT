@@ -26,12 +26,16 @@ export const formatTime = (s: number): string => {
 };
 
 export const getTimeLabel = (item: AuctionItem): string => {
+  if (item.resultStatus === "COMPLETED") return "Đã hoàn thành";
+  if (item.resultStatus === "END") return "Không có người thắng";
   if (item.st === "end") return "Đã chốt";
   if (item.st === "soon") return `Mở sau ${formatTime(item.t)}`;
   return `Còn ${formatTime(item.t)}`;
 };
 
 export const getPriceLabel = (item: AuctionItem): string => {
+  if (item.resultStatus === "COMPLETED") return "Giá trúng";
+  if (item.resultStatus === "END") return "Giá cuối";
   if (item.st === "end") return "Giá chốt";
   if (item.st === "soon") return "Giá khởi điểm";
   return "Giá hiện tại";
@@ -46,7 +50,7 @@ export const mapStatusToAuctionStatus = (status?: string): AuctionStatus => {
   if (!status) return "soon";
   const s = status.trim().toUpperCase();
   if (s === "LIVE" || s === "ĐANG DIỄN RA") return "live";
-  if (s === "END" || s === "ĐÃ KẾT THÚC") return "end";
+  if (s === "END" || s === "COMPLETED" || s === "ĐÃ KẾT THÚC" || s === "ĐÃ HOÀN THÀNH") return "end";
   return "soon";
 };
 
@@ -118,6 +122,7 @@ export const mapAuctionSessionVOToItem = (vo: AuctionSessionVO): AuctionItem => 
     type: getPlateTypeLabel(vo.plateType),
     plateTypeEnum: vo.plateType,
     st,
+    resultStatus: vo.statusCode === "COMPLETED" || vo.statusCode === "END" ? vo.statusCode : undefined,
     price: displayPrice,
     step: vo.nextStep ?? vo.stepPrice ?? 5000000,
     bids: vo.bidCount ?? 0,

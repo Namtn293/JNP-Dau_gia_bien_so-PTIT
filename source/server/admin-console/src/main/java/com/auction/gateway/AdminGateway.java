@@ -35,6 +35,11 @@ public interface AdminGateway {
 
     CompletableFuture<CommandResult> cancel(String roomId);
 
+    default CompletableFuture<CommandResult> deleteSession(String roomId) {
+        return CompletableFuture.failedFuture(
+                new UnsupportedOperationException("Gateway không hỗ trợ xóa phiên thật"));
+    }
+
     default CompletableFuture<CommandResult> announce(String roomId, String message) {
         return CompletableFuture.completedFuture(CommandResult.fail("Chưa hỗ trợ gửi thông báo"));
     }

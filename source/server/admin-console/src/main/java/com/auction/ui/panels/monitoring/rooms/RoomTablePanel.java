@@ -46,12 +46,11 @@ public class RoomTablePanel extends JPanel {
 
     private static final String[] COLUMNS = {
             "ID phòng", "Biển số", "Trạng thái", "Số người",
-            "Giá hiện tại (VNĐ)", "Còn lại", "RTT"
+            "Giá hiện tại (VNĐ)", "Còn lại"
     };
     private static final int COL_ID = 0;
     private static final int COL_STATUS = 2;
     private static final int COL_PRICE = 4;
-    private static final int COL_RTT = 6;
 
     private static final String ALL_STATUS = "Tất cả trạng thái";
 
@@ -60,18 +59,21 @@ public class RoomTablePanel extends JPanel {
     private final JTable roomTable;
     private final JTextField searchField;
     private final JComboBox<String> statusFilterCombo;
-    private final JLabel countLabel;
     private final JLabel filterInfoLabel;
     private final JLabel pageLabel;
     private final JButton prevButton;
     private final JButton nextButton;
+    private final JButton deleteSessionButton;
     private final List<Consumer<RoomInfo>> selectionListeners = new ArrayList<>();
+    private final List<Consumer<RoomInfo>> deleteSessionListeners = new ArrayList<>();
 
     private List<RoomInfo> rooms = List.of(); // toàn bộ phòng
     private List<RoomInfo> filtered = List.of(); // sau khi lọc
     private List<RoomInfo> visible = List.of(); // trang hiện tại
     private String selectedRoomId;
     private int page;
+    private boolean loading = true;
+    private boolean deleteBusy;
 
     private final JButton createSessionButton;
 
@@ -91,14 +93,9 @@ public class RoomTablePanel extends JPanel {
 
         // HEADER: tiêu đề + tìm kiếm + lọc
         JPanel titlePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-        JLabel title = new JLabel("Danh sách phòng đấu giá");
+        JLabel title = new JLabel("Danh sách phòng");
         title.setFont(FONT_NORMAL.deriveFont(Font.BOLD, 15f));
-        countLabel = new JLabel("00 phòng");
-        countLabel.setFont(FONT_SMALL);
-        countLabel.setForeground(COLOR_MUTED);
-        countLabel.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 0));
         titlePanel.add(title);
-        titlePanel.add(countLabel);
 
         searchField = new JTextField(12);
         searchField.setToolTipText("Tìm mã phòng / biển số");
@@ -126,7 +123,17 @@ public class RoomTablePanel extends JPanel {
         createSessionButton.setPreferredSize(
                 new Dimension(146, 34));
 
+        deleteSessionButton = ButtonStyles.filled("XÓA PHIÊN", COLOR_DANGER);
+        ButtonStyles.setFilled(deleteSessionButton, false, COLOR_DANGER);
+        deleteSessionButton.addActionListener(e -> {
+            RoomInfo selected = getSelectedRoom();
+            if (selected != null) {
+                deleteSessionListeners.forEach(listener -> listener.accept(selected));
+            }
+        });
+
         filterPanel.add(createSessionButton);
+        filterPanel.add(deleteSessionButton);
 
         JPanel headerPanel = new JPanel(new BorderLayout(8, 0));
         headerPanel.add(titlePanel, BorderLayout.WEST);
@@ -190,7 +197,23 @@ public class RoomTablePanel extends JPanel {
     /** Nạp lại toàn bộ danh sách phòng, giữ lựa chọn hiện tại. */
     public void setRooms(List<RoomInfo> newRooms) {
         rooms = List.copyOf(newRooms);
+        loading = false;
         applyView();
+    }
+
+    public void setLoadError(String message) {
+        loading = false;
+        applyView();
+        filterInfoLabel.setText(message);
+    }
+
+    public void addDeleteSessionListener(Consumer<RoomInfo> listener) {
+        deleteSessionListeners.add(listener);
+    }
+
+    public void setDeleteSessionBusy(boolean busy) {
+        deleteBusy = busy;
+        updateDeleteSessionButton();
     }
 
     public RoomInfo findRoom(String roomId) {
@@ -280,13 +303,24 @@ public class RoomTablePanel extends JPanel {
             rebuilding = false;
         }
 
-        countLabel.setText(String.format("%02d phòng", rooms.size()));
         pageLabel.setText(filtered.isEmpty()
                 ? "0 / 0"
                 : (from + 1) + "–" + to + " / " + filtered.size());
         prevButton.setEnabled(page > 0);
         nextButton.setEnabled(page < pageCount - 1);
-        updateFilterInfo();
+        if (loading) {
+            filterInfoLabel.setText("Đang tải danh sách phòng từ máy chủ...");
+        } else {
+            updateFilterInfo();
+        }
+        updateDeleteSessionButton();
+    }
+
+    private void updateDeleteSessionButton() {
+        RoomInfo selected = getSelectedRoom();
+        boolean deletableStatus = selected != null
+                && (selected.status() == RoomStatus.SCHEDULED || selected.status() == RoomStatus.WAITING);
+        ButtonStyles.setFilled(deleteSessionButton, deletableStatus && !deleteBusy, COLOR_DANGER);
     }
 
     /** Chọn lại dòng của phòng đang được chọn nếu nó nằm trong trang hiện tại. */
@@ -319,15 +353,14 @@ public class RoomTablePanel extends JPanel {
                 room.status(),
                 room.participantCount(),
                 room.currentPrice(),
-                room.remainingLabel(),
-                room.rttMs()
+                room.remainingLabel()
         };
     }
 
     private void configureRoomColumnWidths() {
         UiKit.configureTableColumns(roomTable,
-                new int[] { 155, 110, 130, 75, 150, 95, 70 },
-                new int[] { 115, 85, 100, 55, 110, 75, 50 });
+                new int[] { 155, 110, 130, 75, 150, 95 },
+                new int[] { 115, 85, 100, 55, 110, 75 });
     }
 
     private static JButton pagerButton(String text) {
@@ -396,9 +429,7 @@ public class RoomTablePanel extends JPanel {
 
             if (!isSelected) {
                 RoomStatus status = (RoomStatus) table.getValueAt(row, COL_STATUS);
-                setForeground(column == COL_RTT
-                        ? rttColor((Integer) value)
-                        : statusColor(status));
+                setForeground(statusColor(status));
             }
             return this;
         }
@@ -408,7 +439,6 @@ public class RoomTablePanel extends JPanel {
         return switch (column) {
             case COL_STATUS -> "● " + value;
             case COL_PRICE -> formatVnd((Long) value);
-            case COL_RTT -> value + " ms";
             default -> String.valueOf(value);
         };
     }

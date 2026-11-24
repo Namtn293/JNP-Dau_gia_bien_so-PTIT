@@ -207,7 +207,7 @@ public class AuctionSessionServiceImplement implements AuctionSessionService {
             if (session.getStartTime() != null && session.getStartTime().isAfter(now)) {
                 remaining = Math.max(0, Duration.between(now, session.getStartTime()).getSeconds());
             }
-        } else if (session.getStatus() != AuctionStatusEnum.END) {
+        } else if (!isFinished(session.getStatus())) {
             if (session.getEndTime() != null) {
                 if (session.getEndTime().isAfter(now)) {
                     remaining = Math.max(0, Duration.between(now, session.getEndTime()).getSeconds());
@@ -304,8 +304,10 @@ public class AuctionSessionServiceImplement implements AuctionSessionService {
                 timeLabel = "Đang đấu";
             } else if (s.getStatus() == AuctionStatusEnum.PAUSED) {
                 timeLabel = "Tạm dừng";
+            } else if (s.getStatus() == AuctionStatusEnum.COMPLETED) {
+                timeLabel = "Đã hoàn thành";
             } else if (s.getStatus() == AuctionStatusEnum.END) {
-                timeLabel = "Đã kết thúc";
+                timeLabel = "Không có người thắng";
             } else {
                 timeLabel = s.getStartTime() != null
                         ? s.getStartTime().format(DateTimeFormatter.ofPattern("HH:mm"))
@@ -344,7 +346,7 @@ public class AuctionSessionServiceImplement implements AuctionSessionService {
             if (startEpochMs != null && startEpochMs > serverNowMs) {
                 exactRemaining = Math.max(0L, (long) Math.ceil((startEpochMs - serverNowMs) / 1000.0));
             }
-        } else if (session.getStatus() != AuctionStatusEnum.END) {
+        } else if (!isFinished(session.getStatus())) {
             if (endEpochMs != null) {
                 exactRemaining = endEpochMs > serverNowMs
                         ? Math.max(0L, (long) Math.ceil((endEpochMs - serverNowMs) / 1000.0))
@@ -393,6 +395,10 @@ public class AuctionSessionServiceImplement implements AuctionSessionService {
                 .initialBids(bidItems)
                 .onlineParticipants(onlineParticipants)
                 .build();
+    }
+
+    private boolean isFinished(AuctionStatusEnum status) {
+        return status == AuctionStatusEnum.END || status == AuctionStatusEnum.COMPLETED;
     }
 
     private Long isoToEpochMs(String iso) {

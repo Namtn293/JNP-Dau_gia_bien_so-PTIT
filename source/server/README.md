@@ -8,7 +8,7 @@
 
 Cụm Server chịu trách nhiệm toàn bộ xử lý mạng và nghiệp vụ:
 - **Tiếp nhận & Broadcast thời gian thực:** Quản lý hàng trăm phiên đấu giá đồng thời, điều phối WebSocket Broker phát sóng bước giá và đếm ngược từng giây đến toàn bộ client.
-- **Vòng đời & Quyết toán tự động:** Background Scheduler (2 giây/lần) tự động chuyển phiên `SOON` $\rightarrow$ `LIVE` $\rightarrow$ `END`, chốt người thắng cuộc, trừ tiền ví và hoàn cọc 100% cho người không trúng thầu.
+- **Vòng đời & Quyết toán tự động:** Background Scheduler (2 giây/lần) tự động chuyển phiên `SOON` $\rightarrow$ `LIVE` rồi sang `COMPLETED` nếu có người thắng hoặc `END` nếu không có người thắng; sau đó xử lý tiền ví và hoàn cọc cho người không trúng thầu.
 - **Kênh điều hành khẩn cấp độc lập:** Lập trình ServerSocket TCP thuần trên cổng `9090` xử lý byte stream các lệnh can thiệp tức thời (`HALT`, `RESUME`, `KICK`, `UNKICK`, `CANCEL`).
 - **Viễn trắc hiệu năng hạ tầng:** Máy chủ UDP nhận gói tin đo đạc tài nguyên CPU/RAM định kỳ 1s (cổng `9001`), phản hồi gói tin Echo Ping/Pong đo độ trễ RTT (cổng `9002`), chuyển tiếp cảnh báo quá tải cho Admin (cổng `8888`).
 - **Gửi biên bản trúng đấu giá qua SMTP:** Tự động kết nối SMTP Server cổng `587` (bắt tay `STARTTLS`, xác thực `AUTH LOGIN/PLAIN`) gửi email xác nhận cho người thắng cuộc.

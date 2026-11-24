@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useNotification } from "@/shared/hooks/useNotification";
 import tokenManager from "@/shared/utils/tokenManager";
-import { formatMoney, parseMoney, getCurrentTimeString } from "../util/format";
+import { formatMoney, parseMoney } from "../util/format";
 import type { AuctionLot } from "../services/type";
 import { placeBidRestApi } from "../services/api";
 import {
@@ -18,8 +18,7 @@ interface UseActionProps {
   currentPrice: number;
   stepPrice: number;
   isEnded: boolean;
-  roomStatus?: "LIVE" | "SOON" | "PAUSED" | "END";
-  userLeadState?: "none" | "leading" | "outbid";
+  roomStatus?: "LIVE" | "SOON" | "PAUSED" | "END" | "COMPLETED";
   leader?: string;
   plateNumber: string;
   sessionCode: string;
@@ -70,7 +69,6 @@ export const useAction = ({
   setAutoBidEnabled,
   autoBidMax,
   setAutoBidMax,
-  sendSocketBid,
   sendSocketChat,
   // handleAuctionUpdate,
   // setChatMessages,
@@ -219,7 +217,7 @@ export const useAction = ({
   // 1. Prompt confirmation modal before placing bid
   const promptBidModal = useCallback(
     (targetAmount: number) => {
-      if (isEnded || roomStatus === "END") {
+      if (isEnded || roomStatus === "END" || roomStatus === "COMPLETED") {
         showErrorNotify("Phiên đấu giá đã kết thúc");
         return;
       }

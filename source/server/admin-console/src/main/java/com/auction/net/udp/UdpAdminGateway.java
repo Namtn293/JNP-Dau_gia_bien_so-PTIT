@@ -61,8 +61,8 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
         void onAlert(String level, String metric, double value, double threshold);
     }
 
-    private static final long ROOMS_CACHE_TTL_MS = 2_500L;
-    private static final long PARTICIPANTS_CACHE_TTL_MS = 2_500L;
+    private static final long ROOMS_CACHE_TTL_MS = 500L;
+    private static final long PARTICIPANTS_CACHE_TTL_MS = 500L;
 
     private record Snapshot(ServerMetrics metrics, long receivedAt) {
     }
@@ -186,24 +186,7 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
                 }
 
                 try {
-                    List<RoomInfo> combined = new ArrayList<>();
-
-                    for (String status : List.of("LIVE", "PAUSED", "SOON", "END")) {
-
-                        for (int page = 0;; page++) {
-
-                            int count = fetchByStatus(
-                                    status,
-                                    page,
-                                    combined);
-
-                            if (count < 50) {
-                                break;
-                            }
-                        }
-                    }
-
-                    List<RoomInfo> result = List.copyOf(combined);
+                    List<RoomInfo> result = fetchRoomsFromAdminApi();
 
                     this.cachedRooms = new CachedValue<>(
                             result,
@@ -223,6 +206,57 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
                 }
             }
         });
+    }
+
+    /** Fetch all rooms from one admin snapshot so status transitions cannot split pages. */
+    private List<RoomInfo> fetchRoomsFromAdminApi() throws Exception {
+        String url = "http://" + AdminConfig.CORE_HOST + ":" + AdminConfig.CORE_HTTP_PORT
+                + "/api/v1/admin/auction/rooms";
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .timeout(Duration.ofSeconds(6))
+                .header("Authorization", "Bearer " + resolveAdminJwt())
+                .GET()
+                .build();
+        HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+        if (resp.statusCode() != 200) {
+            throw new IOException("Core Service trả về HTTP " + resp.statusCode()
+                    + " khi lấy danh sách phòng admin");
+        }
+
+        JsonArray arr = JsonParser.parseString(resp.body()).getAsJsonArray();
+        LocalDateTime now = LocalDateTime.now();
+        List<RoomInfo> rooms = new ArrayList<>(arr.size());
+        for (JsonElement el : arr) {
+            JsonObject obj = el.getAsJsonObject();
+            String code = str(obj, "id", "UNKNOWN");
+            RoomStatus status = mapAdminRoomStatus(str(obj, "status", "SCHEDULED"));
+            rooms.add(new RoomInfo(code, str(obj, "plate", code), str(obj, "region", "Toàn quốc"), status,
+                    intValue(obj, "participantCount", 0), longValue(obj, "currentPrice", 0L),
+                    str(obj, "remainingLabel", formatRemaining(status, null, null, now))));
+        }
+        return List.copyOf(rooms);
+    }
+
+    private static RoomStatus mapAdminRoomStatus(String status) {
+        return switch (status.toUpperCase(java.util.Locale.ROOT)) {
+            case "ACTIVE", "LIVE" -> RoomStatus.ACTIVE;
+            case "EXTENDING" -> RoomStatus.EXTENDING;
+            case "WAITING" -> RoomStatus.WAITING;
+            case "PAUSED" -> RoomStatus.PAUSED;
+            case "CLOSED", "END" -> RoomStatus.CLOSED;
+            case "COMPLETED" -> RoomStatus.COMPLETED;
+            case "SETTLED" -> RoomStatus.SETTLED;
+            default -> RoomStatus.SCHEDULED;
+        };
+    }
+
+    private static int intValue(JsonObject obj, String key, int fallback) {
+        return obj.has(key) && !obj.get(key).isJsonNull() ? obj.get(key).getAsInt() : fallback;
+    }
+
+    private static long longValue(JsonObject obj, String key, long fallback) {
+        return obj.has(key) && !obj.get(key).isJsonNull() ? obj.get(key).getAsLong() : fallback;
     }
 
     private int fetchByStatus(String status, int page, List<RoomInfo> out) throws Exception {
@@ -288,7 +322,7 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
             RoomStatus roomStatus = mapRoomStatus(statusCode, startStr, endStr, now);
             String remaining = formatRemaining(roomStatus, startStr, endStr, now);
 
-            out.add(new RoomInfo(code, plate, region, roomStatus, participants, price, remaining, rttMs));
+            out.add(new RoomInfo(code, plate, region, roomStatus, participants, price, remaining));
         }
 
         return arr.size();
@@ -301,6 +335,8 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
     private static RoomStatus mapRoomStatus(String statusCode, String startStr, String endStr, LocalDateTime now) {
         if ("PAUSED".equalsIgnoreCase(statusCode))
             return RoomStatus.PAUSED;
+        if ("COMPLETED".equalsIgnoreCase(statusCode))
+            return RoomStatus.COMPLETED;
         if ("END".equalsIgnoreCase(statusCode))
             return RoomStatus.CLOSED;
         if ("LIVE".equalsIgnoreCase(statusCode)) {
@@ -368,10 +404,11 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
         try {
             String encodedRoom = URLEncoder.encode(roomId.trim(), StandardCharsets.UTF_8).replace("+", "%20");
             String url = "http://" + AdminConfig.CORE_HOST + ":" + AdminConfig.CORE_HTTP_PORT
-                    + "/api/v1/auction/room/" + encodedRoom;
+                    + "/api/v1/admin/auction/rooms/" + encodedRoom + "/participants";
             HttpRequest req = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .timeout(Duration.ofSeconds(6))
+                    .header("Authorization", "Bearer " + resolveAdminJwt())
                     .GET()
                     .build();
             HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
@@ -383,56 +420,23 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
                                 + roomId);
             }
 
-            JsonObject root = JsonParser.parseString(resp.body()).getAsJsonObject();
-            JsonObject dataObj = root.has("data") && root.get("data").isJsonObject()
-                    ? root.getAsJsonObject("data")
-                    : null;
-            if (dataObj == null
-                    || !dataObj.has("initialBids")
-                    || !dataObj.get("initialBids").isJsonArray()) {
-
-                throw new IOException(
-                        "Response phòng " + roomId
-                                + " không có data.initialBids hợp lệ");
-            }
-
-            JsonArray bids = dataObj.getAsJsonArray("initialBids");
-            if (bids.isEmpty()) {
-                return List.of();
-            }
-
-            LocalDateTime now = LocalDateTime.now();
-            Map<String, ParticipantAccum> byUser = new LinkedHashMap<>();
-            for (JsonElement el : bids) {
-                if (!el.isJsonObject())
-                    continue;
-                JsonObject bid = el.getAsJsonObject();
-                String uid = str(bid, "userId", null);
-                String name = str(bid, "userName", uid != null ? "User " + uid : "Ẩn danh");
-                String key = uid != null && !uid.isBlank() ? uid : name;
-                String displayId = uid != null && !uid.isBlank() ? uid : key;
-                long amount = bid.has("bidAmount") && !bid.get("bidAmount").isJsonNull()
-                        ? bid.get("bidAmount").getAsLong()
-                        : 0L;
-                LocalDateTime bidAt = parseBidTime(str(bid, "bidTime", null));
-                boolean recentBid = bidAt != null && Math.abs(Duration.between(bidAt, now).toMillis()) <= 5_000L;
-
-                ParticipantAccum acc = byUser.computeIfAbsent(key, k -> new ParticipantAccum(displayId, name));
-                if (amount > acc.lastPrice) {
-                    acc.lastPrice = amount;
-                }
-                if (recentBid) {
-                    acc.bidsInLast5s++;
-                }
-            }
-
+            JsonArray participants = JsonParser.parseString(resp.body()).getAsJsonArray();
             int currentRtt = Math.max(0, rttMs);
-            ConnectionState conn = currentRtt > AdminConfig.RTT_WARN_MS
-                    ? ConnectionState.CHECK_NEEDED
-                    : ConnectionState.CONNECTED;
-            return byUser.values().stream()
-                    .map(acc -> new ParticipantInfo(acc.userId, acc.fullName, conn, acc.bidsInLast5s, acc.lastPrice,
-                            currentRtt))
+            return participants.asList().stream()
+                    .filter(JsonElement::isJsonObject)
+                    .map(JsonElement::getAsJsonObject)
+                    .map(person -> {
+                        String presence = str(person, "connection", "OFFLINE");
+                        ConnectionState connection = "CONNECTED".equalsIgnoreCase(presence)
+                                ? (currentRtt > AdminConfig.RTT_WARN_MS
+                                        ? ConnectionState.CHECK_NEEDED
+                                        : ConnectionState.CONNECTED)
+                                : ConnectionState.DISCONNECTED;
+                        return new ParticipantInfo(str(person, "userId", ""),
+                                str(person, "fullName", "Người tham gia"), connection,
+                                intValue(person, "bidsInLast5s", 0),
+                                longValue(person, "lastPrice", 0L), currentRtt);
+                    })
                     .sorted(Comparator.comparingLong(ParticipantInfo::lastPrice).reversed())
                     .toList();
         } catch (Exception e) {
@@ -520,6 +524,41 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
     public CompletableFuture<CommandResult> cancel(String roomId) {
         return tcpClient.sendCommand("CANCEL " + roomId)
                 .whenComplete((r, ex) -> invalidateCache(roomId));
+    }
+
+    @Override
+    public CompletableFuture<CommandResult> deleteSession(String roomId) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                String encodedRoom = URLEncoder.encode(roomId.trim(), StandardCharsets.UTF_8).replace("+", "%20");
+                String url = "http://" + AdminConfig.CORE_HOST + ":" + AdminConfig.CORE_HTTP_PORT
+                        + "/api/v1/admin/auction/rooms/" + encodedRoom;
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create(url))
+                        .timeout(Duration.ofSeconds(10))
+                        .header("Authorization", "Bearer " + resolveAdminJwt())
+                        .DELETE()
+                        .build();
+                HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+                if (response.statusCode() != 200) {
+                    return CommandResult.fail(readErrorMessage(response.body()));
+                }
+
+                JsonObject body = JsonParser.parseString(response.body()).getAsJsonObject();
+                boolean success = body.has("success") && body.get("success").getAsBoolean();
+                String message = str(body, "message", success ? "Đã xóa phiên." : "Không thể xóa phiên.");
+                return new CommandResult(success, message);
+            } catch (Exception e) {
+                if (e instanceof InterruptedException) {
+                    Thread.currentThread().interrupt();
+                }
+                throw new IllegalStateException("Không thể xóa phiên " + roomId + ": " + e.getMessage(), e);
+            }
+        }).whenComplete((result, error) -> {
+            if (error == null && result.success()) {
+                invalidateCache(roomId);
+            }
+        });
     }
 
     @Override

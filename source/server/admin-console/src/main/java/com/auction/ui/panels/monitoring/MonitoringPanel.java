@@ -85,6 +85,7 @@ public class MonitoringPanel extends JPanel {
         quickControlPanel.setOnCommandCompleted(this::refreshRooms);
         roomTablePanel.addCreateSessionListener(
                 this::createNewSession);
+        roomTablePanel.addDeleteSessionListener(this::deleteSession);
 
         // Tải lần đầu, sau đó làm mới mỗi giây
         refreshRooms();
@@ -95,7 +96,13 @@ public class MonitoringPanel extends JPanel {
     }
 
     private void refreshRooms() {
-        gateway.fetchRooms().thenAccept(rooms -> SwingUtilities.invokeLater(() -> applyRooms(rooms)));
+        gateway.fetchRooms().whenComplete((rooms, error) -> SwingUtilities.invokeLater(() -> {
+            if (error == null) {
+                applyRooms(rooms);
+            } else {
+                roomTablePanel.setLoadError("Không tải được danh sách phòng; đang thử lại...");
+            }
+        }));
     }
 
     private void applyRooms(List<RoomInfo> rooms) {
@@ -137,6 +144,43 @@ public class MonitoringPanel extends JPanel {
         if (room != null) {
             quickControlPanel.showRoom(room);
         }
+    }
+
+    private void deleteSession(RoomInfo room) {
+        int choice = JOptionPane.showConfirmDialog(
+                this,
+                "Xóa phiên " + room.id() + " khỏi cơ sở dữ liệu?\n"
+                        + "Chỉ xóa được phiên chưa chạy và chưa có lượt đặt giá/đăng ký.",
+                "Xác nhận xóa phiên",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE);
+        if (choice != JOptionPane.YES_OPTION) {
+            return;
+        }
+
+        roomTablePanel.setDeleteSessionBusy(true);
+        gateway.deleteSession(room.id()).whenComplete((result, error) -> SwingUtilities.invokeLater(() -> {
+            roomTablePanel.setDeleteSessionBusy(false);
+            if (error != null) {
+                Throwable cause = error instanceof java.util.concurrent.CompletionException && error.getCause() != null
+                        ? error.getCause()
+                        : error;
+                LogPanel.appendTo(logDocument, LogPanel.Level.ERROR,
+                        "Xóa phiên " + room.id() + " thất bại: " + cause.getMessage());
+                JOptionPane.showMessageDialog(this, cause.getMessage(), "Không thể xóa phiên",
+                        JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            if (!result.success()) {
+                LogPanel.appendTo(logDocument, LogPanel.Level.ERROR, result.message());
+                JOptionPane.showMessageDialog(this, result.message(), "Không thể xóa phiên",
+                        JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            LogPanel.appendTo(logDocument, LogPanel.Level.SUCCESS, result.message());
+            refreshRooms();
+        }));
     }
 
     private void createNewSession() {

@@ -11,6 +11,8 @@ import java.util.List;
 
 @Repository
 public interface WalletTransactionRepository extends JpaRepository<WalletTransaction, Long> {
+    boolean existsBySessionCode(String sessionCode);
+
     Page<WalletTransaction> findByWalletIdOrderByCreatedAtDesc(Long walletId, Pageable pageable);
 
     Page<WalletTransaction> findByWalletIdAndTypeOrderByCreatedAtDesc(Long walletId, WalletTxTypeEnum type, Pageable pageable);

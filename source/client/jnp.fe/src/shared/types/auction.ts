@@ -3,7 +3,7 @@
  * Đồng bộ chính xác với Backend Auction Core Service (VO, Entity, DTO, Enums)
  */
 
-export type AuctionStatus = "SOON" | "LIVE" | "PAUSED" | "END";
+export type AuctionStatus = "SOON" | "LIVE" | "PAUSED" | "END" | "COMPLETED";
 export type RoomRole = "ADMIN" | "BIDDER" | "VIEWER";
 export type BidSource = "MANUAL" | "AUTO";
 export type RegistrationStatus = "ACTIVE" | "RELEASED" | "CAPTURED" | "CANCELLED";
@@ -26,6 +26,12 @@ export type NotificationType =
 export type ShillSeverity = "MEDIUM" | "HIGH";
 export type ShillAlertStatus = "OPEN" | "CONFIRMED" | "DISMISSED";
 export type AnnouncementLevel = "INFO" | "WARNING" | "IMPORTANT";
+export interface AnnouncementDTO {
+  content: string;
+  pinned?: boolean;
+  notifyWatchers?: boolean;
+  level?: AnnouncementLevel;
+}
 export type HistoryResult = "LEADING" | "OUTBID" | "WON" | "LOST";
 
 export interface SpringPage<T> {

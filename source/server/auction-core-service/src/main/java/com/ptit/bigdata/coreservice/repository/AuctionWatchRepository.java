@@ -23,5 +23,7 @@ public interface AuctionWatchRepository extends JpaRepository<AuctionWatch, Long
     boolean existsByUserIdAndSessionId(Long userId, Long sessionId);
 
     void deleteByUserIdAndSessionId(Long userId, Long sessionId);
+
+    void deleteBySessionId(Long sessionId);
 }
 

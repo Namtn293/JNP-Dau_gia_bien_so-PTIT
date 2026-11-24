@@ -53,6 +53,11 @@ public class AdminAuctionController {
         return ResponseEntity.ok(adminAuctionService.cancel(roomId));
     }
 
+    @DeleteMapping("/auction/rooms/{roomId}")
+    public ResponseEntity<AdminCommandResultVO> deleteRoom(@PathVariable("roomId") String roomId) {
+        return ResponseEntity.ok(adminAuctionService.deleteRoom(roomId));
+    }
+
     @PostMapping("/auction/rooms/{roomId}/kick/{userId}")
     public ResponseEntity<AdminCommandResultVO> kickUser(
             @PathVariable("roomId") String roomId,

@@ -223,7 +223,7 @@ public class AuctionWebSocketController {
     }
 
     /**
-     * Broadcast sự kiện cập nhật trạng thái phiên (ví dụ: SOON -> LIVE, LIVE -> END)
+     * Broadcast sự kiện cập nhật trạng thái phiên (ví dụ: SOON -> LIVE, LIVE -> COMPLETED/END)
      * CHỈ CHO PHÉP ADMIN THỰC HIỆN
      */
     @MessageMapping("/auction/status")

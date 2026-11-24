@@ -15,7 +15,7 @@ public class AuctionLotVO {
     private String provinceName;
     private String plateType;
     private Long currentPrice;
-    private String status; // LIVE, SOON, END
+    private String status; // AuctionStatusEnum value, including END and COMPLETED
     private String timeLabel;
     private boolean isCurrent;
 }

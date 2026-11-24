@@ -74,7 +74,8 @@ ON CONFLICT (plate_number) DO NOTHING;
 
 -- -----------------------------------------------------------------------------
 -- 3. BẢNG AUCTION_SESSION: Các phiên đấu giá mẫu (có cột end_price)
--- Trạng thái: LIVE (Đang diễn ra), SOON (Sắp diễn ra), END (Đã kết thúc)
+-- Trạng thái: LIVE, SOON; phiên kết thúc không có người thắng dùng END,
+-- phiên kết thúc có người thắng dùng COMPLETED (cần user_info_id khác NULL).
 -- -----------------------------------------------------------------------------
 INSERT INTO auction_session (
     session_code,
@@ -246,7 +247,7 @@ VALUES
     NOW()
 ),
 
--- 9. Đã kết thúc (END) - Biển lộc phát Hà Nội 30K-686.86 (end_price = 185.000.000)
+-- 9. Kết thúc không có người thắng (END, không có user_info_id) - 30K-686.86
 (
     'SES-HN-30K68686',
     'Đấu giá biển số xe ô tô 30K-686.86 (Hà Nội)',
@@ -265,7 +266,7 @@ VALUES
     NOW() - INTERVAL '2 DAY'
 ),
 
--- 10. Đã kết thúc (END) - Biển ngũ quý Hải Phòng 15K-999.99 (end_price = 420.000.000)
+-- 10. Kết thúc không có người thắng (END, không có user_info_id) - 15K-999.99
 (
     'SES-HP-15K99999',
     'Đấu giá biển số xe ô tô 15K-999.99 (Hải Phòng)',

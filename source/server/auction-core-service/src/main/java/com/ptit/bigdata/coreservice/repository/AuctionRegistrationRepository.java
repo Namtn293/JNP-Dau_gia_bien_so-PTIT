@@ -19,6 +19,8 @@ public interface AuctionRegistrationRepository extends JpaRepository<AuctionRegi
 
     List<AuctionRegistration> findBySessionId(Long sessionId);
 
+    long countBySessionId(Long sessionId);
+
     List<AuctionRegistration> findByUserId(Long userId);
 
     List<AuctionRegistration> findByUserIdAndStatus(Long userId, RegistrationStatusEnum status);

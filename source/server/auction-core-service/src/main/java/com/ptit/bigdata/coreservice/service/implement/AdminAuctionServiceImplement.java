@@ -11,14 +11,22 @@ import com.ptit.bigdata.coreservice.model.vo.AdminParticipantVO;
 import com.ptit.bigdata.coreservice.model.vo.AdminRoomVO;
 import com.ptit.bigdata.coreservice.model.vo.AdminServerMetricsVO;
 import com.ptit.bigdata.coreservice.repository.AuctionSessionRepository;
+import com.ptit.bigdata.coreservice.repository.AuctionWatchRepository;
 import com.ptit.bigdata.coreservice.repository.BidHistoryRepository;
 import com.ptit.bigdata.coreservice.repository.NumberPlateRepository;
+import com.ptit.bigdata.coreservice.repository.NotificationLogRepository;
+import com.ptit.bigdata.coreservice.repository.NotificationRepository;
 import com.ptit.bigdata.coreservice.repository.ProvinceRepository;
+import com.ptit.bigdata.coreservice.repository.RoomAnnouncementRepository;
+import com.ptit.bigdata.coreservice.repository.RoomChatMessageRepository;
+import com.ptit.bigdata.coreservice.repository.ShillAlertRepository;
 import com.ptit.bigdata.coreservice.repository.UserInfoRepository;
+import com.ptit.bigdata.coreservice.repository.WalletTransactionRepository;
 import com.ptit.bigdata.coreservice.service.AdminAuctionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.lang.management.ManagementFactory;
 import java.time.Duration;
@@ -36,10 +44,17 @@ import java.util.*;
 public class AdminAuctionServiceImplement implements AdminAuctionService {
 
     private final AuctionSessionRepository auctionSessionRepository;
+    private final AuctionWatchRepository auctionWatchRepository;
     private final NumberPlateRepository numberPlateRepository;
+    private final NotificationLogRepository notificationLogRepository;
+    private final NotificationRepository notificationRepository;
     private final ProvinceRepository provinceRepository;
+    private final RoomAnnouncementRepository roomAnnouncementRepository;
+    private final RoomChatMessageRepository roomChatMessageRepository;
+    private final ShillAlertRepository shillAlertRepository;
     private final BidHistoryRepository bidHistoryRepository;
     private final UserInfoRepository userInfoRepository;
+    private final WalletTransactionRepository walletTransactionRepository;
     private final com.ptit.bigdata.coreservice.core.auth.repository.UserRepository userRepository;
     private final com.ptit.bigdata.coreservice.service.WalletService walletService;
     private final com.ptit.bigdata.coreservice.repository.AuctionRegistrationRepository auctionRegistrationRepository;
@@ -59,26 +74,50 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
     public List<AdminRoomVO> getRooms() {
         List<AuctionSession> sessions = auctionSessionRepository.findAll();
         if (sessions.isEmpty()) {
-            return getDefaultMockRooms();
+            return Collections.emptyList();
         }
 
-        List<AdminRoomVO> result = new ArrayList<>();
         LocalDateTime now = LocalDateTime.now();
+        sessions.sort(Comparator
+                .comparingInt(this::roomSortPriority)
+                .thenComparing(session -> session.getStatus() == AuctionStatusEnum.LIVE
+                                ? session.getEndTime()
+                                : session.getStartTime(),
+                        Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(AuctionSession::getSessionCode, Comparator.nullsLast(Comparator.naturalOrder())));
+        List<AdminRoomVO> result = new ArrayList<>(sessions.size());
 
-        // Cache provinces and number plates to minimize DB queries
+        // Load related plate/province rows in batches instead of issuing queries per room.
+        Set<Long> plateIds = new HashSet<>();
+        for (AuctionSession session : sessions) {
+            if (session.getNumberPlateId() != null) {
+                plateIds.add(session.getNumberPlateId());
+            }
+        }
         Map<Long, NumberPlate> plateMap = new HashMap<>();
+        for (NumberPlate plate : numberPlateRepository.findAllById(plateIds)) {
+            plateMap.put(plate.getId(), plate);
+        }
+
+        Set<Long> provinceIds = new HashSet<>();
+        for (NumberPlate plate : plateMap.values()) {
+            if (plate.getProvinceId() != null) {
+                provinceIds.add(plate.getProvinceId());
+            }
+        }
         Map<Long, Province> provinceMap = new HashMap<>();
+        for (Province province : provinceRepository.findAllById(provinceIds)) {
+            provinceMap.put(province.getId(), province);
+        }
 
         for (AuctionSession session : sessions) {
             NumberPlate plate = null;
             Province province = null;
 
             if (session.getNumberPlateId() != null) {
-                plate = plateMap.computeIfAbsent(session.getNumberPlateId(),
-                        id -> numberPlateRepository.findById(id).orElse(null));
+                plate = plateMap.get(session.getNumberPlateId());
                 if (plate != null && plate.getProvinceId() != null) {
-                    province = provinceMap.computeIfAbsent(plate.getProvinceId(),
-                            id -> provinceRepository.findById(id).orElse(null));
+                    province = provinceMap.get(plate.getProvinceId());
                 }
             }
 
@@ -90,7 +129,9 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
             String remaining = calculateRemaining(session, now);
 
             long currentPrice = session.getCurrentPrice() != null ? session.getCurrentPrice() : session.getStartPrice();
-            int participantCount = session.getParticipantCount() != null ? session.getParticipantCount().intValue() : 0;
+            int participantCount = roomPresenceService != null
+                    ? roomPresenceService.getParticipantCount(session.getSessionCode())
+                    : session.getParticipantCount() != null ? session.getParticipantCount().intValue() : 0;
 
             result.add(AdminRoomVO.builder()
                     .id(session.getSessionCode())
@@ -100,7 +141,6 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
                     .participantCount(participantCount)
                     .currentPrice(currentPrice)
                     .remainingLabel(remaining)
-                    .rttMs(32)
                     .build());
         }
 
@@ -214,8 +254,11 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
         if (opt.isEmpty()) {
             return AdminCommandResultVO.fail("Không tìm thấy phiên " + roomId);
         }
-        pausedRooms.add(roomId);
         AuctionSession s = opt.get();
+        if (s.getStatus() == AuctionStatusEnum.END || s.getStatus() == AuctionStatusEnum.COMPLETED) {
+            return AdminCommandResultVO.fail("Phiên đã kết thúc, không thể tạm dừng.");
+        }
+        pausedRooms.add(roomId);
         s.setStatus(AuctionStatusEnum.PAUSED);
         auctionSessionRepository.save(s);
 
@@ -243,8 +286,11 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
         if (opt.isEmpty()) {
             return AdminCommandResultVO.fail("Không tìm thấy phiên " + roomId);
         }
-        pausedRooms.remove(roomId);
         AuctionSession s = opt.get();
+        if (s.getStatus() == AuctionStatusEnum.END || s.getStatus() == AuctionStatusEnum.COMPLETED) {
+            return AdminCommandResultVO.fail("Phiên đã kết thúc, không thể tiếp tục.");
+        }
+        pausedRooms.remove(roomId);
         s.setStatus(AuctionStatusEnum.LIVE);
         LocalDateTime now = LocalDateTime.now();
         if (s.getEndTime() != null && s.getEndTime().isBefore(now)) {
@@ -509,9 +555,14 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
         if (opt.isEmpty()) {
             return AdminCommandResultVO.fail("Không tìm thấy phiên " + roomId);
         }
-        pausedRooms.remove(roomId);
         AuctionSession s = opt.get();
+        if (s.getStatus() == AuctionStatusEnum.END || s.getStatus() == AuctionStatusEnum.COMPLETED) {
+            return AdminCommandResultVO.fail("Phiên đã kết thúc, không thể hủy lại.");
+        }
+        pausedRooms.remove(roomId);
         s.setStatus(AuctionStatusEnum.END);
+        s.setUserInfoId(null);
+        s.setWinningPrice(null);
         auctionSessionRepository.save(s);
         try {
             walletService.handleSessionCancelled(s.getId());
@@ -542,13 +593,55 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
         return AdminCommandResultVO.ok("Đã hủy phiên " + roomId + ". Đã kích hoạt hoàn trả 100% tiền cọc.");
     }
 
+    @Override
+    @Transactional
+    public AdminCommandResultVO deleteRoom(String roomId) {
+        Optional<AuctionSession> sessionOpt = auctionSessionRepository.findBySessionCode(roomId);
+        if (sessionOpt.isEmpty()) {
+            return AdminCommandResultVO.fail("Không tìm thấy phiên " + roomId);
+        }
+
+        AuctionSession session = sessionOpt.get();
+        if (session.getStatus() != AuctionStatusEnum.SOON) {
+            return AdminCommandResultVO.fail("Chỉ có thể xóa phiên sắp diễn ra. Phiên đã chạy phải được giữ lại để bảo toàn lịch sử.");
+        }
+        if (roomPresenceService != null && roomPresenceService.getParticipantCount(roomId) > 0) {
+            return AdminCommandResultVO.fail("Không thể xóa phiên đang có người trực tuyến.");
+        }
+        if (bidHistoryRepository.countByAuctionSessionId(session.getId()) > 0) {
+            return AdminCommandResultVO.fail("Không thể xóa phiên đã có lượt đặt giá.");
+        }
+        if (auctionRegistrationRepository.countBySessionId(session.getId()) > 0) {
+            return AdminCommandResultVO.fail("Phiên đã có đăng ký. Hãy hủy phiên để hoàn cọc trước; lịch sử đăng ký sẽ được giữ lại.");
+        }
+        if (walletTransactionRepository.existsBySessionCode(roomId)) {
+            return AdminCommandResultVO.fail("Không thể xóa phiên có giao dịch ví để bảo toàn lịch sử tài chính.");
+        }
+
+        String sessionCode = session.getSessionCode();
+        Long sessionId = session.getId();
+        auctionWatchRepository.deleteBySessionId(sessionId);
+        roomAnnouncementRepository.deleteBySessionId(sessionId);
+        roomChatMessageRepository.deleteByRoomCode(sessionCode);
+        shillAlertRepository.deleteBySessionId(sessionId);
+        notificationLogRepository.deleteBySessionId(sessionId);
+        notificationRepository.deleteBySessionCode(sessionCode);
+        if (autoBidConfigRepository != null) {
+            autoBidConfigRepository.deleteBySessionId(sessionId);
+        }
+        auctionSessionRepository.delete(session);
+        pausedRooms.remove(sessionCode);
+
+        log.info("Admin deleted unused scheduled auction session {} from database", sessionCode);
+        return AdminCommandResultVO.ok("Đã xóa phiên " + sessionCode + " khỏi cơ sở dữ liệu.");
+    }
+
     private String mapStatus(AuctionSession session, LocalDateTime now) {
         if (pausedRooms.contains(session.getSessionCode()) || session.getStatus() == AuctionStatusEnum.PAUSED) {
             return "PAUSED";
         }
-        if (session.getStatus() == AuctionStatusEnum.END) {
-            return "CLOSED";
-        }
+        if (session.getStatus() == AuctionStatusEnum.COMPLETED) return "COMPLETED";
+        if (session.getStatus() == AuctionStatusEnum.END) return "CLOSED";
         if (session.getStatus() == AuctionStatusEnum.LIVE) {
             if (session.getEndTime() != null && session.getEndTime().isAfter(now)) {
                 Duration d = Duration.between(now, session.getEndTime());
@@ -570,11 +663,27 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
         return "SCHEDULED";
     }
 
+    private int roomSortPriority(AuctionSession session) {
+        if (session.getStatus() == AuctionStatusEnum.LIVE) {
+            return 0;
+        }
+        if (session.getStatus() == AuctionStatusEnum.SOON) {
+            return 1;
+        }
+        if (session.getStatus() == AuctionStatusEnum.PAUSED) {
+            return 2;
+        }
+        if (session.getStatus() == AuctionStatusEnum.COMPLETED) {
+            return 4;
+        }
+        return 3;
+    }
+
     private String calculateRemaining(AuctionSession session, LocalDateTime now) {
         if (pausedRooms.contains(session.getSessionCode()) || session.getStatus() == AuctionStatusEnum.PAUSED) {
             return "Tạm dừng";
         }
-        if (session.getStatus() == AuctionStatusEnum.END) {
+        if (session.getStatus() == AuctionStatusEnum.END || session.getStatus() == AuctionStatusEnum.COMPLETED) {
             return "00:00:00";
         }
         if (session.getEndTime() != null && now.isAfter(session.getStartTime()) && now.isBefore(session.getEndTime())) {
@@ -614,16 +723,4 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
         return title;
     }
 
-    private List<AdminRoomVO> getDefaultMockRooms() {
-        return List.of(
-                new AdminRoomVO("AUC-1021", "51L - 888.88", "TP.HCM", "ACTIVE", 68, 380_000_000L, "04:52", 32),
-                new AdminRoomVO("AUC-1022", "43A - 567.89", "Đà Nẵng", "EXTENDING", 35, 165_000_000L, "00:24", 112),
-                new AdminRoomVO("AUC-1023", "30K - 999.99", "Hà Nội", "PAUSED", 42, 245_000_000L, "02:18", 32),
-                new AdminRoomVO("AUC-1024", "30L - 686.86", "Hà Nội", "ACTIVE", 51, 120_000_000L, "07:36", 326),
-                new AdminRoomVO("AUC-1025", "51M - 123.45", "TP.HCM", "WAITING", 29, 40_000_000L, "Chưa bắt đầu", 32),
-                new AdminRoomVO("AUC-1026", "43B - 888.89", "Đà Nẵng", "SCHEDULED", 0, 40_000_000L, "15:00 hôm nay", 32),
-                new AdminRoomVO("AUC-1019", "30K - 567.89", "Hà Nội", "CLOSED", 12, 210_000_000L, "00:00", 32),
-                new AdminRoomVO("AUC-1018", "51L - 666.68", "TP.HCM", "SETTLED", 11, 195_000_000L, "00:00", 32)
-        );
-    }
 }
