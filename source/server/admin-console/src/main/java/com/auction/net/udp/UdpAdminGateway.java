@@ -335,6 +335,8 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
     private static RoomStatus mapRoomStatus(String statusCode, String startStr, String endStr, LocalDateTime now) {
         if ("PAUSED".equalsIgnoreCase(statusCode))
             return RoomStatus.PAUSED;
+        if ("COMPLETED".equalsIgnoreCase(statusCode))
+            return RoomStatus.COMPLETED;
         if ("END".equalsIgnoreCase(statusCode))
             return RoomStatus.CLOSED;
         if ("LIVE".equalsIgnoreCase(statusCode)) {

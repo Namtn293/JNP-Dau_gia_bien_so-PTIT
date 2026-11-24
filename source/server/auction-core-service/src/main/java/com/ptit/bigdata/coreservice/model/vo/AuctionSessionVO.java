@@ -29,7 +29,7 @@ public class AuctionSessionVO {
     private Long participantCount;
     private Integer bidCount;
     private Long endPrice;
-    private String statusCode; // mới: tên enum SOON | LIVE | END
+    private String statusCode; // tên enum SOON | LIVE | PAUSED | END | COMPLETED
     private Long currentPrice; // mới: giá hiện tại
     private String sessionCode;
     private Boolean isWatched;

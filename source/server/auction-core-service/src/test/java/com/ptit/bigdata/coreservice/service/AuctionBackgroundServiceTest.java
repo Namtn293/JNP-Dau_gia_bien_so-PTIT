@@ -155,7 +155,7 @@ class AuctionBackgroundServiceTest {
     }
 
     @Test
-    @DisplayName("Chốt phiên LIVE quá hạn phải chuyển sang END và gửi email thông báo trúng đấu giá cho người thắng")
+    @DisplayName("Chốt phiên LIVE quá hạn có người thắng phải chuyển sang COMPLETED và gửi email thông báo")
     void testEndSessionSendsWinnerEmail() {
         AuctionSession session = AuctionSession.builder()
                 .sessionCode("SES-HN-30K56789")
@@ -210,7 +210,7 @@ class AuctionBackgroundServiceTest {
 
         backgroundService.checkAndProcessAuctionStatus();
 
-        assertEquals(AuctionStatusEnum.END, session.getStatus());
+        assertEquals(AuctionStatusEnum.COMPLETED, session.getStatus());
         assertEquals(110_000_000L, session.getEndPrice());
         assertEquals(110_000_000L, session.getWinningPrice());
 
@@ -226,5 +226,57 @@ class AuctionBackgroundServiceTest {
                 eq(40_000_000L),
                 eq(1L)
         );
+    }
+
+    @Test
+    @DisplayName("Chốt phiên không có người thắng phải giữ END và không gửi email trúng đấu giá")
+    void testEndSessionWithoutWinnerKeepsEndStatus() {
+        AuctionSession session = AuctionSession.builder()
+                .sessionCode("SES-HN-30K68686")
+                .title("Đấu giá biển số xe ô tô 30K-686.86")
+                .numberPlateId(11L)
+                .startPrice(40_000_000L)
+                .currentPrice(40_000_000L)
+                .depositAmount(40_000_000L)
+                .bidCount(0)
+                .startTime(LocalDateTime.now().minusHours(2))
+                .endTime(LocalDateTime.now().minusSeconds(10))
+                .status(AuctionStatusEnum.LIVE)
+                .build();
+        session.setId(21L);
+
+        NumberPlate plate = NumberPlate.builder()
+                .plateNumber("30K-686.86")
+                .build();
+        plate.setId(11L);
+
+        when(auctionSessionRepository.findByStatusAndEndTimeBefore(eq(AuctionStatusEnum.LIVE), any()))
+                .thenReturn(List.of(session));
+        when(auctionSessionRepository.findByStatusAndEndTimeBefore(eq(AuctionStatusEnum.SOON), any()))
+                .thenReturn(Collections.emptyList());
+        when(auctionSessionRepository.findByStatusAndStartTimeBeforeAndEndTimeAfter(eq(AuctionStatusEnum.SOON), any(), any()))
+                .thenReturn(Collections.emptyList());
+        when(auctionSessionRepository.findById(21L)).thenReturn(Optional.of(session));
+        when(numberPlateRepository.findById(11L)).thenReturn(Optional.of(plate));
+        when(bidHistoryRepository.findByAuctionSessionIdOrderByBidTimeDesc(21L)).thenReturn(Collections.emptyList());
+        when(auctionWatchRepository.findBySessionId(21L)).thenReturn(Collections.emptyList());
+
+        doAnswer(inv -> {
+            TransactionCallback<?> cb = inv.getArgument(0);
+            return cb.doInTransaction(txStatus);
+        }).when(transactionTemplate).execute(any());
+
+        backgroundService.checkAndProcessAuctionStatus();
+
+        assertEquals(AuctionStatusEnum.END, session.getStatus());
+        assertNull(session.getUserInfoId());
+        assertNull(session.getWinningPrice());
+        verify(walletService).handleSessionEnded(21L);
+        verify(autoBidScheduler).cancelSessionTasks(21L);
+        verify(auctionMailService, never()).sendWinnerNoticeAsync(any(), any(), anyLong(), anyLong(), anyLong());
+
+        ArgumentCaptor<BidMessageVO> statusCaptor = ArgumentCaptor.forClass(BidMessageVO.class);
+        verify(messagingTemplate).convertAndSend(eq("/topic/auction/SES-HN-30K68686"), statusCaptor.capture());
+        assertEquals("END", statusCaptor.getValue().getStatus());
     }
 }

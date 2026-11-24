@@ -361,7 +361,7 @@ export const AdminMonitorPage: React.FC = () => {
               RESUME (+30s)
             </Button>
           )}
-          {r.status !== "CLOSED" && r.status !== "SETTLED" && (
+          {r.status !== "CLOSED" && r.status !== "COMPLETED" && r.status !== "SETTLED" && (
             <Popconfirm
               title={`Hủy phiên ${r.id} và hoàn cọc 100%?`}
               onConfirm={() => handleRoomAction("cancel", r.id)}

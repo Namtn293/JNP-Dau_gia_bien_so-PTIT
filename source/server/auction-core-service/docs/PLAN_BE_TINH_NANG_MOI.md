@@ -119,7 +119,7 @@ Bật `@EnableAsync` và khai báo một `ThreadPoolTaskExecutor` riêng (ví d�
 **Cần test:**
 
 - Hai luồng bid đồng thời cùng giá: chỉ một luồng thành công.
-- Bid khi phiên `SOON`/`PAUSED`/`END` bị từ chối.
+- Bid khi phiên `SOON`/`PAUSED`/`END`/`COMPLETED` bị từ chối.
 - Bid sai bước giá bị từ chối.
 - Khách xem bid bị từ chối.
 
@@ -215,7 +215,7 @@ Số dư khả dụng = `balance - heldAmount`. Tính khi trả về, không lư
 - **Nạp tiền ảo:** `amount` trong `(0, auction.wallet.max-topup]` (500 triệu mỗi lần). Ghi `TOPUP`.
 - **Đăng ký đấu giá** (từ khách xem thành người đấu giá): phiên `SOON` hoặc `LIVE`, khả dụng ≥ `depositAmount`. Giữ cọc (`HOLD`) và tạo `AuctionRegistration` ACTIVE.
 - **Hủy đăng ký:** chỉ khi phiên còn `SOON`. Ghi `RELEASE`, đặt `CANCELLED`, và tắt auto-bid nếu có.
-- **Kết thúc phiên** (trong `handleEndSession`, cùng transaction với việc chuyển sang `END`):
+- **Kết thúc phiên** (trong `handleEndSession`, cùng transaction): phiên có người thắng chuyển sang `COMPLETED`; phiên không có người thắng chuyển sang `END`.
   - Người thắng: `CAPTURE` tiền cọc (`balance` và `heldAmount` cùng giảm), đặt `CAPTURED`.
   - Người còn lại: `RELEASE`, đặt `RELEASED`.
   - Phần còn lại của giá trúng thanh toán ngoài hệ thống.
@@ -543,7 +543,7 @@ Hiện `pinnedNotice` trong `AuctionSessionServiceImplement` là một câu vi�
 | DELETE | `/api/admin/auction/{code}/announcements/{id}` | ADMIN (gỡ thông điệp, phát `ANNOUNCEMENT_REMOVED`) |
 | GET | `/api/v1/auction/{code}/announcements?page&size` | mọi người đã đăng nhập |
 
-- Phiên đã `END` vẫn gửi được, để thông báo kết quả hoặc hướng dẫn nộp tiền.
+- Phiên đã `END` hoặc `COMPLETED` vẫn gửi được, để thông báo kết quả hoặc hướng dẫn nộp tiền.
 
 ---
 

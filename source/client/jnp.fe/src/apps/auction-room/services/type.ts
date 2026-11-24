@@ -1,4 +1,4 @@
-export type AuctionRoomStatus = "LIVE" | "SOON" | "END";
+export type AuctionRoomStatus = "LIVE" | "SOON" | "PAUSED" | "END" | "COMPLETED";
 
 export interface AuctionLot {
   roomId: string;

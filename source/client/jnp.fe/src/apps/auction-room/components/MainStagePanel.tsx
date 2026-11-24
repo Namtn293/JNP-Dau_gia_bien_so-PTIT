@@ -30,7 +30,7 @@ interface MainStagePanelProps {
   userLeadState: "none" | "leading" | "outbid";
   stepPrice: number;
   isEnded: boolean;
-  roomStatus?: "LIVE" | "SOON" | "PAUSED" | "END";
+  roomStatus?: "LIVE" | "SOON" | "PAUSED" | "END" | "COMPLETED";
   quickSteps: number[];
   onQuickBid: (multiplier: number) => void;
   onMainBid: () => void;

@@ -184,7 +184,7 @@ export const useData = (roomId: string) => {
   const [depositAmount, setDepositAmount] = useState(0);
   const [reserveMet, setReserveMet] = useState(false);
   const [remainingSeconds, setRemainingSeconds] = useState(0);
-  const [roomStatus, setRoomStatus] = useState<"LIVE" | "SOON" | "PAUSED" | "END">("LIVE");
+  const [roomStatus, setRoomStatus] = useState<"LIVE" | "SOON" | "PAUSED" | "END" | "COMPLETED">("LIVE");
   const [isEnded, setIsEnded] = useState(false);
   const [leader, setLeader] = useState<string>("");
   const [leaderId, setLeaderId] = useState<string>("");
@@ -207,7 +207,7 @@ export const useData = (roomId: string) => {
   const hasWarned30sRef = useRef(false);
   const wsTransitionStatusRef = useRef<{
     roomId: string;
-    status: "LIVE" | "PAUSED" | "END";
+    status: "LIVE" | "PAUSED" | "END" | "COMPLETED";
     at: number;
   } | null>(null);
   useEffect(() => {
@@ -395,14 +395,13 @@ export const useData = (roomId: string) => {
     if (lastSyncedDetailRef.current === initialDetail) return;
 
     const incomingRoom = initialDetail.sessionCode || roomId;
-    const st = (initialDetail.status || "LIVE").toUpperCase() as "LIVE" | "SOON" | "PAUSED" | "END";
+    const st = (initialDetail.status || "LIVE").toUpperCase() as "LIVE" | "SOON" | "PAUSED" | "END" | "COMPLETED";
     const pendingWs = wsTransitionStatusRef.current;
     const isStaleSoonRollback =
       pendingWs &&
       pendingWs.roomId === incomingRoom &&
       Date.now() - pendingWs.at < 15000 &&
-      st === "SOON" &&
-      pendingWs.status !== "SOON";
+      st === "SOON";
 
     if (isStaleSoonRollback) {
       const retryTimer = setTimeout(() => {
@@ -432,9 +431,9 @@ export const useData = (roomId: string) => {
       updateServerClockOffset(initialDetail.serverTimeMs, 800);
     }
 
-    if (st === "PAUSED" || st === "END") {
+    if (st === "PAUSED" || st === "END" || st === "COMPLETED") {
       targetDeadlineMsRef.current = null;
-      setRemainingSeconds(st === "END" ? 0 : (initialDetail.remainingSeconds || 0));
+      setRemainingSeconds(st === "PAUSED" ? (initialDetail.remainingSeconds || 0) : 0);
     } else {
       const targetMs = resolveTargetEpochMs({
         epochMs: st === "SOON" ? initialDetail.startTimeEpochMs : initialDetail.endTimeEpochMs,
@@ -448,7 +447,7 @@ export const useData = (roomId: string) => {
       );
     }
 
-    const ended = st === "END" || (st === "LIVE" && (initialDetail.remainingSeconds ?? 0) <= 0);
+    const ended = st === "END" || st === "COMPLETED" || (st === "LIVE" && (initialDetail.remainingSeconds ?? 0) <= 0);
     setIsEnded(ended);
     if (ended) {
       hasAnnouncedEndRef.current = true;
@@ -535,13 +534,18 @@ export const useData = (roomId: string) => {
   const handleAuctionUpdate = useCallback(
     (msg: WsAuctionMessage) => {
       const lotKey = msg.roomId || targetCode;
-      if (msg.status === "END") {
-        wsTransitionStatusRef.current = { roomId: lotKey, status: "END", at: Date.now() };
+      if (msg.status === "END" || msg.status === "COMPLETED") {
+        const completed = msg.status === "COMPLETED";
+        const terminalStatus = completed ? "COMPLETED" : "END";
+        wsTransitionStatusRef.current = { roomId: lotKey, status: terminalStatus, at: Date.now() };
         targetDeadlineMsRef.current = null;
-        setRoomStatus("END");
+        setRoomStatus(terminalStatus);
         setIsEnded(true);
         setRemainingSeconds(0);
-        updateLotInList(lotKey, { status: "END", timeLabel: "Đã kết thúc" });
+        updateLotInList(lotKey, {
+          status: terminalStatus,
+          timeLabel: completed ? "Đã hoàn thành" : "Không có người thắng",
+        });
       } else if (msg.status === "LIVE") {
         wsTransitionStatusRef.current = { roomId: lotKey, status: "LIVE", at: Date.now() };
         setRoomStatus("LIVE");
@@ -564,7 +568,7 @@ export const useData = (roomId: string) => {
       }
 
       // Đồng bộ targetDeadlineMs chuẩn theo đồng hồ server cho BID / EXTEND / STATUS_CHANGE
-      if (msg.status !== "END" && msg.status !== "PAUSED") {
+      if (msg.status !== "END" && msg.status !== "COMPLETED" && msg.status !== "PAUSED") {
         const nextTargetMs = resolveTargetEpochMs({
           epochMs: msg.endTimeEpochMs,
           isoTime: msg.endTime,
