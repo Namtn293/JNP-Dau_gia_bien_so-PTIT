@@ -106,8 +106,8 @@ export const DepositConfirmModal: React.FC<DepositConfirmModalProps> = ({
         <div className="notice-box">
           <CheckCircleOutlined />
           <span>
-            Khoản tiền đặt trước sẽ được phong tỏa tạm thời theo quy định tại Nghị định 39/2023/NĐ-CP.
-            Hệ thống <b>tự động hoàn trả 100% tiền đặt trước</b> cho bạn nếu bạn không trúng đấu giá khi phiên kết thúc.
+            Khoản tiền đặt trước sẽ được <b>trừ trực tiếp từ số dư ví</b> khi bạn xác nhận đăng ký theo Nghị định 39/2023/NĐ-CP.
+            Khi phiên kết thúc, hệ thống <b>tự động hoàn trả 100% tiền cọc về ví</b> nếu bạn không trúng đấu giá, hoặc <b>chỉ trừ thêm phần chênh lệch còn lại</b> (Giá trúng − Tiền cọc) nếu bạn là người trúng đấu giá.
           </span>
         </div>
 

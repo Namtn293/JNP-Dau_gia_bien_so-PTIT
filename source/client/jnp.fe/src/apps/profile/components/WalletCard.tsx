@@ -35,8 +35,8 @@ export const WalletCard: React.FC<WalletCardProps> = ({
         </div>
 
         <div className="balance-display">
-          <div className="balance-label">Số dư khả dụng để cọc phiên</div>
-          <div className="balance-value">{formatVnd(wallet.available)}</div>
+          <div className="balance-label">Số dư ví hiện tại</div>
+          <div className="balance-value">{formatVnd(wallet.balance)}</div>
         </div>
       </div>
 
@@ -45,7 +45,7 @@ export const WalletCard: React.FC<WalletCardProps> = ({
           <div className="sub-item">
             <div className="sub-label">
               <LockOutlined />
-              <span>Tiền đang giữ cọc</span>
+              <span>Tiền đang đặt cọc</span>
             </div>
             <div className="sub-value">{formatVnd(wallet.heldAmount)}</div>
           </div>
@@ -53,9 +53,11 @@ export const WalletCard: React.FC<WalletCardProps> = ({
           <div className="sub-item">
             <div className="sub-label">
               <CheckCircleOutlined />
-              <span>Tổng số dư ví</span>
+              <span>Tổng giá trị (Ví + Cọc)</span>
             </div>
-            <div className="sub-value">{formatVnd(wallet.balance)}</div>
+            <div className="sub-value">
+              {formatVnd((wallet.balance || 0) + (wallet.heldAmount || 0))}
+            </div>
           </div>
         </div>
 

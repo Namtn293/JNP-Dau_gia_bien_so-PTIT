@@ -39,34 +39,34 @@ export const getTxTypeBadge = (type?: WalletTxType): TxBadgeConfig => {
       };
     case "HOLD":
       return {
-        label: "Giữ cọc",
+        label: "Trừ tiền đặt cọc",
         color: "#d46b08",
         bg: "#fff7e6",
         border: "#ffd591",
-        sign: "🔒",
+        sign: "−",
       };
     case "RELEASE":
       return {
-        label: "Hoàn cọc",
+        label: "Hoàn tiền cọc",
         color: "#0958d9",
         bg: "#e6f7ff",
         border: "#91c5ff",
-        sign: "🔓",
+        sign: "+",
       };
     case "CAPTURE":
       return {
-        label: "Trừ cọc (Trúng)",
-        color: "#cf1322",
-        bg: "#fff1f0",
-        border: "#ffa39e",
-        sign: "−",
+        label: "Chốt cọc trúng đấu",
+        color: "#722ed1",
+        bg: "#f9f0ff",
+        border: "#d3adf7",
+        sign: "✓",
       };
     case "AUCTION_PAYMENT":
       return {
-        label: "Quyết toán trúng thầu",
-        color: "#d4380d",
-        bg: "#fff2e8",
-        border: "#ffbb96",
+        label: "Quyết toán chênh lệch",
+        color: "#cf1322",
+        bg: "#fff1f0",
+        border: "#ffa39e",
         sign: "−",
       };
     default:

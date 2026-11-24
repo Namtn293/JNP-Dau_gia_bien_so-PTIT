@@ -41,13 +41,13 @@ export const TransactionHistoryTable: React.FC<TransactionHistoryTableProps> = (
             Lịch Sử Giao Dịch Số Dư
           </h3>
           <span>
-            Theo dõi chi tiết các lượt nạp tiền, giữ cọc, hoàn cọc và trừ cọc trúng đấu giá
+            Theo dõi chi tiết các lượt nạp tiền, trừ tiền cọc, hoàn cọc và quyết toán chênh lệch trúng đấu giá
           </span>
         </div>
 
         <div className="filter-group">
           <Select
-            style={{ width: 180 }}
+            style={{ width: 195 }}
             value={txType}
             onChange={onTypeChange}
             placeholder="Tất cả loại GD"
@@ -56,10 +56,10 @@ export const TransactionHistoryTable: React.FC<TransactionHistoryTableProps> = (
               { label: "Tất cả giao dịch", value: "" },
               { label: "Tặng ban đầu", value: "INIT_BONUS" },
               { label: "Nạp tiền", value: "TOPUP" },
-              { label: "Giữ tiền cọc", value: "HOLD" },
-              { label: "Hoàn cọc", value: "RELEASE" },
-              { label: "Trừ cọc trúng đấu", value: "CAPTURE" },
-              { label: "Quyết toán trúng thầu", value: "AUCTION_PAYMENT" },
+              { label: "Trừ tiền đặt cọc", value: "HOLD" },
+              { label: "Hoàn tiền cọc", value: "RELEASE" },
+              { label: "Chốt cọc trúng đấu", value: "CAPTURE" },
+              { label: "Quyết toán chênh lệch", value: "AUCTION_PAYMENT" },
             ]}
           />
 

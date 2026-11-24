@@ -28,6 +28,10 @@ public interface AuctionSessionRepository extends JpaRepository<AuctionSession, 
         @Query("select a from AuctionSession a where a.sessionCode = :code")
         Optional<AuctionSession> findBySessionCodeForUpdate(@Param("code") String code);
 
+        @Lock(LockModeType.PESSIMISTIC_WRITE)
+        @Query("select a from AuctionSession a where a.id = :id")
+        Optional<AuctionSession> findByIdForUpdate(@Param("id") Long id);
+
         Optional<AuctionSession> findFirstByNumberPlateId(Long numberPlateId);
 
         Optional<AuctionSession> findFirstByNumberPlateIdAndStatus(Long numberPlateId, AuctionStatusEnum status);

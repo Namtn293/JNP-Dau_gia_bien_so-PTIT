@@ -740,6 +740,8 @@ export const useData = (roomId: string) => {
         if (isLoggedIn) {
           refetchWallet();
           refetchRegistration();
+          queryClient.invalidateQueries(["wallet-tx"]);
+          queryClient.invalidateQueries(["my-bids"]);
         }
         setTimeout(() => refetchRoomDetail({ cancelRefetch: true }), 500);
       } else if (event.event === "END") {
@@ -752,6 +754,9 @@ export const useData = (roomId: string) => {
         addSystemNotice(event.message || "Phiên đấu giá đã kết thúc!");
         if (isLoggedIn) {
           refetchWallet();
+          refetchRegistration();
+          queryClient.invalidateQueries(["wallet-tx"]);
+          queryClient.invalidateQueries(["my-bids"]);
         }
         setTimeout(() => refetchRoomDetail({ cancelRefetch: true }), 500);
       } else if (event.event === "START") {

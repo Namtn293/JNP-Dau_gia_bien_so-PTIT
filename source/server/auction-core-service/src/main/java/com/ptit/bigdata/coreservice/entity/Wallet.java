@@ -49,8 +49,7 @@ public class Wallet extends EntityBase {
 
     public Long getAvailable() {
         long bal = this.balance != null ? this.balance : 0L;
-        long held = this.heldAmount != null ? this.heldAmount : 0L;
-        return Math.max(0L, bal - held);
+        return Math.max(0L, bal);
     }
 }
 

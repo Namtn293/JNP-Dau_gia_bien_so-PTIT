@@ -125,6 +125,8 @@ public class AuctionBackgroundService {
             int bidCount,
             Long winnerUserId,
             long depositAmount,
+            Set<Long> loserParticipantIds,
+            Set<Long> watcherOnlyIds,
             String time
     ) {}
 
@@ -148,7 +150,7 @@ public class AuctionBackgroundService {
      */
     private void handleEndSession(Long sessionId, LocalDateTime now) {
         EndSessionPayload payload = transactionTemplate.execute(txStatus -> {
-            AuctionSession session = auctionSessionRepository.findById(sessionId).orElse(null);
+            AuctionSession session = auctionSessionRepository.findByIdForUpdate(sessionId).orElse(null);
             if (session == null || session.getStatus() == AuctionStatusEnum.END
                     || session.getStatus() == AuctionStatusEnum.COMPLETED) {
                 return null;
@@ -185,12 +187,6 @@ public class AuctionBackgroundService {
 
             auctionSessionRepository.save(session);
 
-            try {
-                walletService.handleSessionEnded(session.getId());
-            } catch (Exception e) {
-                log.error("[BACKGROUND-SERVICE] Lỗi xử lý cọc ví phiên {}: ", session.getSessionCode(), e);
-            }
-
             String plateNumber = "";
             if (session.getNumberPlateId() != null) {
                 plateNumber = numberPlateRepository.findById(session.getNumberPlateId())
@@ -201,34 +197,26 @@ public class AuctionBackgroundService {
             String time = DateTimeFormatter.ofPattern("HH:mm:ss").format(LocalTime.now());
 
             Long winnerUserId = session.getUserInfoId();
-            Set<Long> bidderUserIds = bids.stream()
+            Set<Long> participantUserIds = bids.stream()
                     .map(BidHistory::getUserID)
                     .filter(Objects::nonNull)
-                    .collect(Collectors.toSet());
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+            auctionRegistrationRepository.findBySessionIdAndStatus(session.getId(), RegistrationStatusEnum.ACTIVE)
+                    .forEach(reg -> {
+                        if (reg.getUserId() != null) {
+                            participantUserIds.add(reg.getUserId());
+                        }
+                    });
 
-            if (winnerUserId != null) {
-                notificationService.notifyUser(winnerUserId, NotificationTypeEnum.ENDED_WON,
-                        "Chúc mừng! Bạn đã trúng đấu giá",
-                        String.format("Bạn đã trúng đấu giá biển số %s trong phiên %s với giá %,d VNĐ.", plateNumber, session.getSessionCode(), finalPrice),
-                        session.getSessionCode());
-            }
+            Set<Long> loserParticipantIds = participantUserIds.stream()
+                    .filter(uid -> !uid.equals(winnerUserId))
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
 
-            for (Long bId : bidderUserIds) {
-                if (!bId.equals(winnerUserId)) {
-                    notificationService.notifyUser(bId, NotificationTypeEnum.ENDED_LOST,
-                            "Phiên đấu giá đã kết thúc",
-                            String.format("Phiên đấu giá biển số %s đã kết thúc với mức giá %,d VNĐ.", plateNumber, finalPrice),
-                            session.getSessionCode());
-                }
-            }
-
+            Set<Long> watcherOnlyIds = new LinkedHashSet<>();
             List<AuctionWatch> watchers = auctionWatchRepository.findBySessionId(session.getId());
             for (AuctionWatch w : watchers) {
-                if (!bidderUserIds.contains(w.getUserId())) {
-                    notificationService.notifyUser(w.getUserId(), NotificationTypeEnum.ENDED,
-                            "Phiên bạn theo dõi đã kết thúc",
-                            String.format("Phiên đấu giá biển số %s đã kết thúc với mức giá %,d VNĐ.", plateNumber, finalPrice),
-                            session.getSessionCode());
+                if (w.getUserId() != null && !participantUserIds.contains(w.getUserId())) {
+                    watcherOnlyIds.add(w.getUserId());
                 }
             }
 
@@ -236,11 +224,29 @@ public class AuctionBackgroundService {
             long depositAmount = session.getDepositAmount() != null ? session.getDepositAmount() : 40_000_000L;
             log.info("[BACKGROUND-SERVICE] Đã hoàn tất chốt phiên {} với giá: {} VNĐ",
                     session.getSessionCode(), finalPrice);
-            return new EndSessionPayload(session.getId(), session.getSessionCode(), plateNumber, finalPrice, bidCount, winnerUserId, depositAmount, time);
+            return new EndSessionPayload(
+                    session.getId(),
+                    session.getSessionCode(),
+                    plateNumber,
+                    finalPrice,
+                    bidCount,
+                    winnerUserId,
+                    depositAmount,
+                    loserParticipantIds,
+                    watcherOnlyIds,
+                    time
+            );
         });
 
         if (payload == null) {
             return;
+        }
+
+        // Xử lý hoàn cọc người thua và trừ chênh lệch người thắng SAU KHI phiên đã commit trạng thái kết thúc
+        try {
+            walletService.handleSessionEnded(payload.sessionId());
+        } catch (Exception e) {
+            log.error("[BACKGROUND-SERVICE] Lỗi xử lý cọc ví phiên {}: ", payload.sessionCode(), e);
         }
 
         // Hủy lịch và tắt toàn bộ auto-bid sau khi đã chốt
@@ -248,6 +254,36 @@ public class AuctionBackgroundService {
             autoBidScheduler.cancelSessionTasks(payload.sessionId());
         } catch (Exception e) {
             log.error("[BACKGROUND-SERVICE] Lỗi tắt auto-bid phiên {}: ", payload.sessionCode(), e);
+        }
+
+        // Gửi thông báo cá nhân sau khi tiền cọc/quyết toán đã commit để FE tự động làm mới đúng số dư mới
+        if (payload.winnerUserId() != null) {
+            long remainingDiff = Math.max(0L, payload.finalPrice() - payload.depositAmount());
+            String winContent = remainingDiff > 0
+                    ? String.format("Bạn đã trúng đấu giá biển số %s trong phiên %s với giá %,d VNĐ. Đã khấu trừ phần chênh lệch %,d VNĐ (đã cọc %,d VNĐ).",
+                            payload.plateNumber(), payload.sessionCode(), payload.finalPrice(), remainingDiff, payload.depositAmount())
+                    : String.format("Bạn đã trúng đấu giá biển số %s trong phiên %s với giá %,d VNĐ (đã thanh toán đủ từ tiền cọc %,d VNĐ).",
+                            payload.plateNumber(), payload.sessionCode(), payload.finalPrice(), payload.depositAmount());
+            notificationService.notifyUser(payload.winnerUserId(), NotificationTypeEnum.ENDED_WON,
+                    "Chúc mừng! Bạn đã trúng đấu giá",
+                    winContent,
+                    payload.sessionCode());
+        }
+
+        for (Long loserId : payload.loserParticipantIds()) {
+            notificationService.notifyUser(loserId, NotificationTypeEnum.ENDED_LOST,
+                    "Phiên đấu giá đã kết thúc",
+                    String.format("Phiên đấu giá biển số %s đã kết thúc với mức giá %,d VNĐ. Tiền cọc của bạn đã được hoàn trả 100%% về ví.",
+                            payload.plateNumber(), payload.finalPrice()),
+                    payload.sessionCode());
+        }
+
+        for (Long watcherId : payload.watcherOnlyIds()) {
+            notificationService.notifyUser(watcherId, NotificationTypeEnum.ENDED,
+                    "Phiên bạn theo dõi đã kết thúc",
+                    String.format("Phiên đấu giá biển số %s đã kết thúc với mức giá %,d VNĐ.",
+                            payload.plateNumber(), payload.finalPrice()),
+                    payload.sessionCode());
         }
 
         // Broadcast sau khi DB đã commit
@@ -296,7 +332,7 @@ public class AuctionBackgroundService {
      */
     private void handleStartSession(Long sessionId, LocalDateTime now) {
         StartSessionPayload payload = transactionTemplate.execute(txStatus -> {
-            AuctionSession session = auctionSessionRepository.findById(sessionId).orElse(null);
+            AuctionSession session = auctionSessionRepository.findByIdForUpdate(sessionId).orElse(null);
             if (session == null || session.getStatus() != AuctionStatusEnum.SOON) {
                 return null;
             }

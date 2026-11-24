@@ -13,6 +13,8 @@ import java.util.List;
 public interface WalletTransactionRepository extends JpaRepository<WalletTransaction, Long> {
     boolean existsBySessionCode(String sessionCode);
 
+    boolean existsByWalletIdAndSessionCodeAndType(Long walletId, String sessionCode, WalletTxTypeEnum type);
+
     Page<WalletTransaction> findByWalletIdOrderByCreatedAtDesc(Long walletId, Pageable pageable);
 
     Page<WalletTransaction> findByWalletIdAndTypeOrderByCreatedAtDesc(Long walletId, WalletTxTypeEnum type, Pageable pageable);

@@ -108,7 +108,7 @@ class AuctionBackgroundServiceTest {
         when(auctionSessionRepository.findByStatus(AuctionStatusEnum.SOON)).thenReturn(Collections.emptyList());
         when(auctionSessionRepository.findByStatus(AuctionStatusEnum.LIVE)).thenReturn(Collections.emptyList());
 
-        when(auctionSessionRepository.findById(13L)).thenReturn(Optional.of(session));
+        when(auctionSessionRepository.findByIdForUpdate(13L)).thenReturn(Optional.of(session));
         when(numberPlateRepository.findById(99L)).thenReturn(Optional.of(plate));
         when(auctionWatchRepository.findBySessionId(13L)).thenReturn(Collections.emptyList());
         when(auctionRegistrationRepository.findBySessionIdAndStatus(eq(13L), any())).thenReturn(Collections.emptyList());
@@ -192,7 +192,7 @@ class AuctionBackgroundServiceTest {
         when(auctionSessionRepository.findByStatus(AuctionStatusEnum.SOON)).thenReturn(Collections.emptyList());
         when(auctionSessionRepository.findByStatus(AuctionStatusEnum.LIVE)).thenReturn(Collections.emptyList());
 
-        when(auctionSessionRepository.findById(20L)).thenReturn(Optional.of(session));
+        when(auctionSessionRepository.findByIdForUpdate(20L)).thenReturn(Optional.of(session));
         when(numberPlateRepository.findById(10L)).thenReturn(Optional.of(plate));
         when(bidHistoryRepository.findByAuctionSessionIdOrderByBidTimeDesc(20L)).thenReturn(List.of(winningBid));
         when(auctionWatchRepository.findBySessionId(20L)).thenReturn(Collections.emptyList());
@@ -256,7 +256,7 @@ class AuctionBackgroundServiceTest {
                 .thenReturn(Collections.emptyList());
         when(auctionSessionRepository.findByStatusAndStartTimeBeforeAndEndTimeAfter(eq(AuctionStatusEnum.SOON), any(), any()))
                 .thenReturn(Collections.emptyList());
-        when(auctionSessionRepository.findById(21L)).thenReturn(Optional.of(session));
+        when(auctionSessionRepository.findByIdForUpdate(21L)).thenReturn(Optional.of(session));
         when(numberPlateRepository.findById(11L)).thenReturn(Optional.of(plate));
         when(bidHistoryRepository.findByAuctionSessionIdOrderByBidTimeDesc(21L)).thenReturn(Collections.emptyList());
         when(auctionWatchRepository.findBySessionId(21L)).thenReturn(Collections.emptyList());

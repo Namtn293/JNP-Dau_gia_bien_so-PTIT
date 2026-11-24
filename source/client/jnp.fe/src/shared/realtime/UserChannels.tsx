@@ -47,6 +47,8 @@ export const UserChannels: React.FC = () => {
         queryClient.invalidateQueries(QK.roomDetail(payload.sessionCode));
       }
       queryClient.invalidateQueries(QK.wallet);
+      queryClient.invalidateQueries(["wallet-tx"]);
+      queryClient.invalidateQueries(["my-bids"]);
     },
     [queryClient]
   );
@@ -66,9 +68,15 @@ export const UserChannels: React.FC = () => {
       queryClient.invalidateQueries(QK.notifications(0, false));
       queryClient.invalidateQueries(QK.notifications(0, true));
 
-      if (item?.type === "WALLET_TOPUP") {
+      if (
+        item?.type === "WALLET_TOPUP" ||
+        item?.type === "ENDED_WON" ||
+        item?.type === "ENDED_LOST" ||
+        item?.type === "ENDED"
+      ) {
         queryClient.invalidateQueries(QK.wallet);
         queryClient.invalidateQueries(["wallet-tx"]);
+        queryClient.invalidateQueries(["my-bids"]);
       }
 
       // Không hiển thị popup nhỏ nếu là OUTBID vì kênh outbid đã có cảnh báo riêng

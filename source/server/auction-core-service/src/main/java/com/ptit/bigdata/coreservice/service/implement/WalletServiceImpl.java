@@ -158,13 +158,15 @@ public class WalletServiceImpl implements WalletService {
             throw new BusinessException(ErrorCode.WALLET_INSUFFICIENT);
         }
 
-        // Giữ tiền cọc
+        // Trừ tiền cọc trực tiếp khỏi số dư ví và ghi nhận vào tiền đang đặt cọc (heldAmount)
+        long newBalance = wallet.getBalance() - deposit;
         long newHeld = wallet.getHeldAmount() + deposit;
+        wallet.setBalance(newBalance);
         wallet.setHeldAmount(newHeld);
         wallet = walletRepository.save(wallet);
 
-        recordTx(wallet.getId(), WalletTxTypeEnum.HOLD, deposit, wallet.getBalance(), newHeld,
-                sessionCode, "Đặt cọc tham gia phiên đấu giá " + sessionCode);
+        recordTx(wallet.getId(), WalletTxTypeEnum.HOLD, deposit, newBalance, newHeld,
+                sessionCode, "Trừ tiền đặt cọc tham gia phiên đấu giá " + sessionCode);
 
         // Lưu bản ghi đăng ký
         AuctionRegistration reg = existingOpt.orElse(AuctionRegistration.builder()
@@ -213,12 +215,14 @@ public class WalletServiceImpl implements WalletService {
 
         long deposit = reg.getDepositAmount() != null ? reg.getDepositAmount() : 40_000_000L;
         Wallet wallet = getOrCreateWallet(userId);
+        long newBalance = wallet.getBalance() + deposit;
         long newHeld = Math.max(0L, wallet.getHeldAmount() - deposit);
+        wallet.setBalance(newBalance);
         wallet.setHeldAmount(newHeld);
         walletRepository.save(wallet);
 
-        recordTx(wallet.getId(), WalletTxTypeEnum.RELEASE, deposit, wallet.getBalance(), newHeld,
-                sessionCode, "Hoàn cọc do hủy đăng ký phiên " + sessionCode);
+        recordTx(wallet.getId(), WalletTxTypeEnum.RELEASE, deposit, newBalance, newHeld,
+                sessionCode, "Hoàn tiền cọc do hủy đăng ký phiên " + sessionCode);
 
         reg.setStatus(RegistrationStatusEnum.CANCELLED);
         auctionRegistrationRepository.save(reg);
@@ -300,46 +304,58 @@ public class WalletServiceImpl implements WalletService {
 
                 if (winnerUserId != null && winnerUserId.equals(reg.getUserId())) {
                     winnerHandled = true;
-                    // CAPTURE cọc người thắng
-                    long newBal = Math.max(0L, w.getBalance() - dep);
+                    // Tiền cọc (dep) đã bị trừ trực tiếp khỏi số dư ví lúc đăng ký -> giải phóng heldAmount
                     long newHeld = Math.max(0L, w.getHeldAmount() - dep);
-                    w.setBalance(newBal);
-                    w.setHeldAmount(newHeld);
-                    walletRepository.save(w);
 
-                    recordTx(w.getId(), WalletTxTypeEnum.CAPTURE, dep, newBal, newHeld, session.getSessionCode(),
-                            "Khấu trừ cọc trúng đấu giá phiên " + session.getSessionCode());
-                    reg.setStatus(RegistrationStatusEnum.CAPTURED);
-                    auctionRegistrationRepository.save(reg);
-                    log.info("[CAPTURE-DEPOSIT] Đã khấu trừ {} cọc của người thắng {}", dep, reg.getUserId());
-
-                    // Trừ tiếp số tiền trúng đấu giá còn lại (finalPrice - dep)
+                    // Tính giá trúng đấu giá và phần chênh lệch cần trừ thêm (finalPrice - dep)
                     long finalPrice = session.getWinningPrice() != null ? session.getWinningPrice()
                             : (session.getCurrentPrice() != null ? session.getCurrentPrice()
                             : (session.getEndPrice() != null ? session.getEndPrice() : session.getStartPrice()));
                     long remainingAmount = Math.max(0L, finalPrice - dep);
+
                     if (remainingAmount > 0) {
-                        long balanceAfterPay = Math.max(0L, w.getBalance() - remainingAmount);
+                        long actualDeducted = Math.min(w.getBalance(), remainingAmount);
+                        long balanceAfterPay = w.getBalance() - actualDeducted;
                         w.setBalance(balanceAfterPay);
+                        w.setHeldAmount(newHeld);
                         walletRepository.save(w);
 
-                        recordTx(w.getId(), WalletTxTypeEnum.AUCTION_PAYMENT, remainingAmount, balanceAfterPay, w.getHeldAmount(),
-                                session.getSessionCode(),
-                                String.format("Quyết toán tiền trúng đấu giá phiên %s (Tổng: %,d VNĐ, đã trừ %,d VNĐ cọc)",
+                        String note = actualDeducted < remainingAmount
+                                ? String.format("Trừ chênh lệch trúng đấu giá phiên %s (Giá trúng: %,d VNĐ - Đã cọc: %,d VNĐ, đã trừ %,d VNĐ, còn thiếu %,d VNĐ)",
+                                        session.getSessionCode(), finalPrice, dep, actualDeducted, remainingAmount - actualDeducted)
+                                : String.format("Trừ chênh lệch trúng đấu giá phiên %s (Giá trúng: %,d VNĐ - Đã cọc: %,d VNĐ)",
+                                        session.getSessionCode(), finalPrice, dep);
+                        recordTx(w.getId(), WalletTxTypeEnum.AUCTION_PAYMENT, actualDeducted, balanceAfterPay, newHeld,
+                                session.getSessionCode(), note);
+                        log.info("[AUCTION-PAYMENT] Người thắng {}: chốt cọc {} và trừ thêm chênh lệch {} (tổng giá trúng {})",
+                                reg.getUserId(), dep, actualDeducted, finalPrice);
+                    } else {
+                        w.setHeldAmount(newHeld);
+                        walletRepository.save(w);
+
+                        recordTx(w.getId(), WalletTxTypeEnum.CAPTURE, 0L, w.getBalance(), newHeld, session.getSessionCode(),
+                                String.format("Chốt cọc trúng đấu giá phiên %s (Giá trúng %,d VNĐ đã thanh toán đủ từ tiền cọc %,d VNĐ)",
                                         session.getSessionCode(), finalPrice, dep));
-                        log.info("[AUCTION-PAYMENT] Đã trừ tiếp số tiền trúng đấu giá {} cho người thắng {}", remainingAmount, reg.getUserId());
+                        log.info("[CAPTURE-DEPOSIT] Người thắng {}: chốt cọc {} (giá trúng {} không phát sinh chênh lệch)",
+                                reg.getUserId(), dep, finalPrice);
                     }
+
+                    reg.setStatus(RegistrationStatusEnum.CAPTURED);
+                    auctionRegistrationRepository.save(reg);
                 } else {
-                    // RELEASE cọc người không thắng
+                    // Hoàn 100% tiền cọc về số dư ví cho người không trúng đấu giá
+                    long newBalance = w.getBalance() + dep;
                     long newHeld = Math.max(0L, w.getHeldAmount() - dep);
+                    w.setBalance(newBalance);
                     w.setHeldAmount(newHeld);
                     walletRepository.save(w);
 
-                    recordTx(w.getId(), WalletTxTypeEnum.RELEASE, dep, w.getBalance(), newHeld, session.getSessionCode(),
-                            "Hoàn cọc không trúng đấu giá phiên " + session.getSessionCode());
+                    recordTx(w.getId(), WalletTxTypeEnum.RELEASE, dep, newBalance, newHeld, session.getSessionCode(),
+                            "Hoàn 100% tiền cọc do không trúng đấu giá phiên " + session.getSessionCode());
                     reg.setStatus(RegistrationStatusEnum.RELEASED);
                     auctionRegistrationRepository.save(reg);
-                    log.info("[RELEASE-DEPOSIT] Đã hoàn {} cọc cho người dùng {}", dep, reg.getUserId());
+                    log.info("[RELEASE-DEPOSIT] Đã hoàn {} cọc về ví cho người dùng {} (số dư mới: {})",
+                            dep, reg.getUserId(), newBalance);
                 }
             } catch (Exception e) {
                 log.error("[SESSION-END-WALLET-ERR] Lỗi khi xử lý cọc cho user {}: ", reg.getUserId(), e);
@@ -348,21 +364,31 @@ public class WalletServiceImpl implements WalletService {
 
         if (!winnerHandled && winnerUserId != null) {
             try {
+                boolean alreadyCaptured = auctionRegistrationRepository.findByUserIdAndSessionId(winnerUserId, sessionId)
+                        .map(r -> r.getStatus() == RegistrationStatusEnum.CAPTURED)
+                        .orElse(false);
                 Wallet w = getOrCreateWallet(winnerUserId);
-                long finalPrice = session.getWinningPrice() != null ? session.getWinningPrice()
-                        : (session.getCurrentPrice() != null ? session.getCurrentPrice()
-                        : (session.getEndPrice() != null ? session.getEndPrice() : session.getStartPrice()));
-                long dep = 40_000_000L;
-                long remainingAmount = Math.max(0L, finalPrice - dep);
-                long balanceAfterPay = Math.max(0L, w.getBalance() - remainingAmount);
-                w.setBalance(balanceAfterPay);
-                walletRepository.save(w);
+                boolean alreadyPaid = alreadyCaptured
+                        || walletTransactionRepository.existsByWalletIdAndSessionCodeAndType(
+                                w.getId(), session.getSessionCode(), WalletTxTypeEnum.AUCTION_PAYMENT)
+                        || walletTransactionRepository.existsByWalletIdAndSessionCodeAndType(
+                                w.getId(), session.getSessionCode(), WalletTxTypeEnum.CAPTURE);
+                if (!alreadyPaid) {
+                    long finalPrice = session.getWinningPrice() != null ? session.getWinningPrice()
+                            : (session.getCurrentPrice() != null ? session.getCurrentPrice()
+                            : (session.getEndPrice() != null ? session.getEndPrice() : session.getStartPrice()));
+                    long actualDeducted = Math.min(w.getBalance(), Math.max(0L, finalPrice));
+                    long balanceAfterPay = w.getBalance() - actualDeducted;
+                    w.setBalance(balanceAfterPay);
+                    walletRepository.save(w);
 
-                recordTx(w.getId(), WalletTxTypeEnum.AUCTION_PAYMENT, remainingAmount, balanceAfterPay, w.getHeldAmount(),
-                        session.getSessionCode(),
-                        String.format("Quyết toán tiền trúng đấu giá phiên %s (Tổng: %,d VNĐ, đã trừ %,d VNĐ cọc)",
-                                session.getSessionCode(), finalPrice, dep));
-                log.info("[AUCTION-PAYMENT-FALLBACK] Đã quyết toán tiền trúng đấu giá cho người thắng {}", winnerUserId);
+                    recordTx(w.getId(), WalletTxTypeEnum.AUCTION_PAYMENT, actualDeducted, balanceAfterPay, w.getHeldAmount(),
+                            session.getSessionCode(),
+                            String.format("Quyết toán tiền trúng đấu giá phiên %s (Tổng: %,d VNĐ)",
+                                    session.getSessionCode(), finalPrice));
+                    log.info("[AUCTION-PAYMENT-FALLBACK] Đã quyết toán {} VNĐ cho người thắng {} (chưa có bản ghi cọc)",
+                            actualDeducted, winnerUserId);
+                }
             } catch (Exception e) {
                 log.error("[AUCTION-PAYMENT-FALLBACK-ERR] Lỗi quyết toán cho người thắng {}: ", winnerUserId, e);
             }
@@ -382,12 +408,14 @@ public class WalletServiceImpl implements WalletService {
             try {
                 Wallet w = getOrCreateWallet(reg.getUserId());
                 long dep = reg.getDepositAmount() != null ? reg.getDepositAmount() : 40_000_000L;
+                long newBalance = w.getBalance() + dep;
                 long newHeld = Math.max(0L, w.getHeldAmount() - dep);
+                w.setBalance(newBalance);
                 w.setHeldAmount(newHeld);
                 walletRepository.save(w);
 
-                recordTx(w.getId(), WalletTxTypeEnum.RELEASE, dep, w.getBalance(), newHeld, session.getSessionCode(),
-                        "Hoàn 100% cọc do admin hủy phiên " + session.getSessionCode());
+                recordTx(w.getId(), WalletTxTypeEnum.RELEASE, dep, newBalance, newHeld, session.getSessionCode(),
+                        "Hoàn 100% tiền cọc do admin hủy phiên " + session.getSessionCode());
                 reg.setStatus(RegistrationStatusEnum.CANCELLED);
                 auctionRegistrationRepository.save(reg);
             } catch (Exception e) {
