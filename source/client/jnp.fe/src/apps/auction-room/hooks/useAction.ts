@@ -19,6 +19,7 @@ interface UseActionProps {
   stepPrice: number;
   isEnded: boolean;
   roomStatus?: "LIVE" | "SOON" | "PAUSED" | "END" | "COMPLETED";
+  userLeadState?: "none" | "leading" | "outbid";
   leader?: string;
   plateNumber: string;
   sessionCode: string;
