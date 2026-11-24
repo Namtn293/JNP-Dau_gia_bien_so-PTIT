@@ -57,7 +57,7 @@ Mục 0 và 1 là việc nền, bắt buộc làm trước.
 Tạo `src/shared/types/auction.ts` sao chép đúng VO của BE:
 
 ```ts
-export type AuctionStatus = "SOON" | "LIVE" | "PAUSED" | "END";
+export type AuctionStatus = "SOON" | "LIVE" | "PAUSED" | "END" | "COMPLETED";
 export type RoomRole = "ADMIN" | "BIDDER" | "VIEWER";
 export type BidSource = "MANUAL" | "AUTO";
 export type RegistrationStatus = "ACTIVE" | "RELEASED" | "CAPTURED" | "CANCELLED";
@@ -204,7 +204,7 @@ export const QK = {
   - Gọi `POST /api/v1/auction/{code}/register`.
   - Thành công thì invalidate `registration`, `roomDetail`, `wallet`.
   - Thiếu tiền (`message` của `WALLET_INSUFFICIENT`) thì có nút "Nạp thêm" mở `TopupModal` (mục 4).
-- Phiên `END` thì ẩn nút.
+- Phiên `END` hoặc `COMPLETED` thì ẩn nút.
 - Nút **"Hủy đăng ký"** chỉ hiện khi `isBidder && status === 'SOON'`; gọi `DELETE .../register` sau `Popconfirm`.
 
 **Khách chưa đăng nhập vào phòng:** WS sẽ từ chối các kênh phòng. Hiện trang phòng ở chế độ chỉ đọc dữ liệu REST (detail, biểu đồ, bid), kèm banner "Đăng nhập để theo dõi realtime", và không subscribe kênh phòng.

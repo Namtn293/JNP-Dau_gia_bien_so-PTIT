@@ -36,7 +36,7 @@ export interface MyAuctionHistoryVO {
   sessionCode: string;
   plateNumber: string;
   provinceName: string;
-  status: string;
+  status: "SOON" | "LIVE" | "PAUSED" | "END" | "COMPLETED";
   startTime: string;
   endTime: string;
   myBidCount: number;

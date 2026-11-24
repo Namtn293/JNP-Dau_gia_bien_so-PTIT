@@ -29,7 +29,7 @@ public class AuctionRoomDetailVO {
     private Long endTimeEpochMs;
     private Long serverTimeMs;
     private Long remainingSeconds;
-    private String status; // LIVE, SOON, END
+    private String status; // AuctionStatusEnum value, including END and COMPLETED
     private Integer bidCount;
     private Long participantCount;
     private String leadingUser;

@@ -7,7 +7,8 @@ public enum AuctionStatusEnum {
     SOON("Sắp diễn ra"),
     LIVE("Đang diễn ra"),
     PAUSED("Tạm dừng"),
-    END("Đã kết thúc");
+    END("Đã kết thúc"),
+    COMPLETED("Đã hoàn thành");
 
     private final String description;
 

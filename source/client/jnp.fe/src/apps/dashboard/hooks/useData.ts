@@ -79,7 +79,7 @@ export const useData = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(6);
 
-  // Tải đồng thời toàn bộ 3 trạng thái (LIVE, SOON, END) để đếm số lượng trên cả 3 tab và đồng bộ chế độ xem Theo cột
+  // Tải các trạng thái lưu trong DB; END và COMPLETED cùng hiển thị ở nhóm phiên đã kết thúc.
   const {
     data: apiResponse,
     isLoading,
@@ -295,15 +295,20 @@ export const useData = () => {
               : item.participantCount ?? 0;
 
           let nextStatus = item.st;
+          let nextResultStatus = item.resultStatus;
           if (msg.status) {
             const lower = msg.status.toLowerCase();
             if (lower === "live" || lower === "soon" || lower === "end") {
               nextStatus = lower as AuctionStatus;
+              if (lower === "end") nextResultStatus = "END";
+            } else if (lower === "completed") {
+              nextStatus = "end";
+              nextResultStatus = "COMPLETED";
             } else if (lower === "paused") {
               nextStatus = "live";
             }
           }
-          if (nextStatus !== item.st) {
+          if (nextStatus !== item.st || nextResultStatus !== item.resultStatus) {
             statusChanged = true;
           }
 
@@ -327,6 +332,7 @@ export const useData = () => {
             participantCount: nextParticipantCount,
             step: nextStep,
             st: nextStatus,
+            resultStatus: nextResultStatus,
             targetTimeMs: nextTargetMs,
             t:
               nextStatus === "end"

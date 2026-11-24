@@ -35,8 +35,8 @@ public interface BidHistoryRepository extends JpaRepository<BidHistory, Long> {
             "and (:result is null or :result = '' " +
             "  or (:result = 'LEADING' and a.status in (com.ptit.bigdata.coreservice.enumration.AuctionStatusEnum.LIVE, com.ptit.bigdata.coreservice.enumration.AuctionStatusEnum.PAUSED) and exists (select 1 from BidHistory w where w.auctionSessionId = a.id and w.userID = :userId and w.isWinningBid = true)) " +
             "  or (:result = 'OUTBID' and a.status in (com.ptit.bigdata.coreservice.enumration.AuctionStatusEnum.LIVE, com.ptit.bigdata.coreservice.enumration.AuctionStatusEnum.PAUSED) and not exists (select 1 from BidHistory w where w.auctionSessionId = a.id and w.userID = :userId and w.isWinningBid = true)) " +
-            "  or (:result = 'WON' and a.status = com.ptit.bigdata.coreservice.enumration.AuctionStatusEnum.END and exists (select 1 from BidHistory w where w.auctionSessionId = a.id and w.userID = :userId and w.isWinningBid = true)) " +
-            "  or (:result = 'LOST' and a.status = com.ptit.bigdata.coreservice.enumration.AuctionStatusEnum.END and not exists (select 1 from BidHistory w where w.auctionSessionId = a.id and w.userID = :userId and w.isWinningBid = true)) " +
+            "  or (:result = 'WON' and a.status = com.ptit.bigdata.coreservice.enumration.AuctionStatusEnum.COMPLETED and a.userInfoId = :userId) " +
+            "  or (:result = 'LOST' and (a.status = com.ptit.bigdata.coreservice.enumration.AuctionStatusEnum.END or (a.status = com.ptit.bigdata.coreservice.enumration.AuctionStatusEnum.COMPLETED and (a.userInfoId is null or a.userInfoId <> :userId)))) " +
             ") " +
             "group by b.auctionSessionId " +
             "order by max(b.bidTime) desc",
@@ -46,8 +46,8 @@ public interface BidHistoryRepository extends JpaRepository<BidHistory, Long> {
             "and (:result is null or :result = '' " +
             "  or (:result = 'LEADING' and a.status in (com.ptit.bigdata.coreservice.enumration.AuctionStatusEnum.LIVE, com.ptit.bigdata.coreservice.enumration.AuctionStatusEnum.PAUSED) and exists (select 1 from BidHistory w where w.auctionSessionId = a.id and w.userID = :userId and w.isWinningBid = true)) " +
             "  or (:result = 'OUTBID' and a.status in (com.ptit.bigdata.coreservice.enumration.AuctionStatusEnum.LIVE, com.ptit.bigdata.coreservice.enumration.AuctionStatusEnum.PAUSED) and not exists (select 1 from BidHistory w where w.auctionSessionId = a.id and w.userID = :userId and w.isWinningBid = true)) " +
-            "  or (:result = 'WON' and a.status = com.ptit.bigdata.coreservice.enumration.AuctionStatusEnum.END and exists (select 1 from BidHistory w where w.auctionSessionId = a.id and w.userID = :userId and w.isWinningBid = true)) " +
-            "  or (:result = 'LOST' and a.status = com.ptit.bigdata.coreservice.enumration.AuctionStatusEnum.END and not exists (select 1 from BidHistory w where w.auctionSessionId = a.id and w.userID = :userId and w.isWinningBid = true)) " +
+            "  or (:result = 'WON' and a.status = com.ptit.bigdata.coreservice.enumration.AuctionStatusEnum.COMPLETED and a.userInfoId = :userId) " +
+            "  or (:result = 'LOST' and (a.status = com.ptit.bigdata.coreservice.enumration.AuctionStatusEnum.END or (a.status = com.ptit.bigdata.coreservice.enumration.AuctionStatusEnum.COMPLETED and (a.userInfoId is null or a.userInfoId <> :userId)))) " +
             ")")
     Page<Long> findMyAuctionSessionIds(@Param("userId") Long userId, @Param("result") String result, Pageable pageable);
 

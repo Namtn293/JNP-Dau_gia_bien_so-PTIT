@@ -254,8 +254,11 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
         if (opt.isEmpty()) {
             return AdminCommandResultVO.fail("Không tìm thấy phiên " + roomId);
         }
-        pausedRooms.add(roomId);
         AuctionSession s = opt.get();
+        if (s.getStatus() == AuctionStatusEnum.END || s.getStatus() == AuctionStatusEnum.COMPLETED) {
+            return AdminCommandResultVO.fail("Phiên đã kết thúc, không thể tạm dừng.");
+        }
+        pausedRooms.add(roomId);
         s.setStatus(AuctionStatusEnum.PAUSED);
         auctionSessionRepository.save(s);
 
@@ -283,8 +286,11 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
         if (opt.isEmpty()) {
             return AdminCommandResultVO.fail("Không tìm thấy phiên " + roomId);
         }
-        pausedRooms.remove(roomId);
         AuctionSession s = opt.get();
+        if (s.getStatus() == AuctionStatusEnum.END || s.getStatus() == AuctionStatusEnum.COMPLETED) {
+            return AdminCommandResultVO.fail("Phiên đã kết thúc, không thể tiếp tục.");
+        }
+        pausedRooms.remove(roomId);
         s.setStatus(AuctionStatusEnum.LIVE);
         LocalDateTime now = LocalDateTime.now();
         if (s.getEndTime() != null && s.getEndTime().isBefore(now)) {
@@ -549,8 +555,11 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
         if (opt.isEmpty()) {
             return AdminCommandResultVO.fail("Không tìm thấy phiên " + roomId);
         }
-        pausedRooms.remove(roomId);
         AuctionSession s = opt.get();
+        if (s.getStatus() == AuctionStatusEnum.END || s.getStatus() == AuctionStatusEnum.COMPLETED) {
+            return AdminCommandResultVO.fail("Phiên đã kết thúc, không thể hủy lại.");
+        }
+        pausedRooms.remove(roomId);
         s.setStatus(AuctionStatusEnum.END);
         s.setUserInfoId(null);
         s.setWinningPrice(null);
@@ -631,9 +640,8 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
         if (pausedRooms.contains(session.getSessionCode()) || session.getStatus() == AuctionStatusEnum.PAUSED) {
             return "PAUSED";
         }
-        if (session.getStatus() == AuctionStatusEnum.END) {
-            return session.getUserInfoId() != null ? "COMPLETED" : "CLOSED";
-        }
+        if (session.getStatus() == AuctionStatusEnum.COMPLETED) return "COMPLETED";
+        if (session.getStatus() == AuctionStatusEnum.END) return "CLOSED";
         if (session.getStatus() == AuctionStatusEnum.LIVE) {
             if (session.getEndTime() != null && session.getEndTime().isAfter(now)) {
                 Duration d = Duration.between(now, session.getEndTime());
@@ -665,7 +673,7 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
         if (session.getStatus() == AuctionStatusEnum.PAUSED) {
             return 2;
         }
-        if (session.getStatus() == AuctionStatusEnum.END && session.getUserInfoId() != null) {
+        if (session.getStatus() == AuctionStatusEnum.COMPLETED) {
             return 4;
         }
         return 3;
@@ -675,7 +683,7 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
         if (pausedRooms.contains(session.getSessionCode()) || session.getStatus() == AuctionStatusEnum.PAUSED) {
             return "Tạm dừng";
         }
-        if (session.getStatus() == AuctionStatusEnum.END) {
+        if (session.getStatus() == AuctionStatusEnum.END || session.getStatus() == AuctionStatusEnum.COMPLETED) {
             return "00:00:00";
         }
         if (session.getEndTime() != null && now.isAfter(session.getStartTime()) && now.isBefore(session.getEndTime())) {

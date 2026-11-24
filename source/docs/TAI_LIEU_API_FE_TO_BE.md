@@ -21,7 +21,7 @@
 ## 2. Nhóm Sảnh & Phòng đấu giá (`/api/v1/auction`)
 📂 **Controller phụ trách:** [`AuctionSessionController.java`](file:///d:/Important-Project/JNP-Dau_gia_bien_so-PTIT/source/server/auction-core-service/src/main/java/com/ptit/bigdata/coreservice/controller/AuctionSessionController.java)  
 * `GET /api/v1/auction/time` — Lấy timestamp chuẩn máy chủ (`serverTimeMs`) để đồng bộ đồng hồ đếm ngược *(Public)*
-* `GET /api/v1/auction/get?status={LIVE|SOON|END}&page=0&size=20` — Lấy danh sách phiên đấu giá theo trạng thái *(Public)*
+* `GET /api/v1/auction/get?status={LIVE|SOON|END|COMPLETED}&page=0&size=20` — Lấy danh sách phiên đấu giá theo đúng trạng thái trong DB *(Public)*
 * `GET /api/v1/auction/room/{roomId}` — Lấy dữ liệu chi tiết toàn diện của phòng đấu giá *(Tùy chọn Token)*
 * `GET /api/v1/auction/{code}/price-series` — Lấy chuỗi lịch sử giá để vẽ biểu đồ biến động giá *(Public)*
 * `GET /api/v1/auction/{code}/bids?page=0&size=20` — Lấy lịch sử tất cả các lượt trả giá trong phiên *(Public)*

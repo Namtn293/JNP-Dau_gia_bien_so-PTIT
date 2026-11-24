@@ -1,4 +1,5 @@
 export type AuctionStatus = "live" | "soon" | "end";
+export type AuctionResultStatus = "END" | "COMPLETED";
 
 export type PlateTypeEnum =
   | "NGU_QUY"
@@ -65,6 +66,7 @@ export interface AuctionItem {
   type: string;
   plateTypeEnum?: PlateTypeEnum | string;
   st: AuctionStatus;
+  resultStatus?: AuctionResultStatus;
   price: number;
   step: number;
   bids: number;

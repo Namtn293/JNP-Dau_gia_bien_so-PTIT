@@ -66,7 +66,7 @@ public class AuctionBackgroundService {
     public void checkAndProcessAuctionStatus() {
         LocalDateTime now = LocalDateTime.now();
 
-        // 1. Tự động chốt các phiên LIVE đã quá endTime sang END
+        // 1. Tự động chốt các phiên LIVE đã quá endTime sang END hoặc COMPLETED tùy kết quả
         List<AuctionSession> expiredSessions = auctionSessionRepository
                 .findByStatusAndEndTimeBefore(AuctionStatusEnum.LIVE, now);
 
@@ -78,7 +78,7 @@ public class AuctionBackgroundService {
             }
         }
 
-        // 1b. Tự động chốt các phiên SOON đã quá endTime sang END
+        // 1b. Tự động chốt các phiên SOON đã quá endTime sang END hoặc COMPLETED tùy kết quả
         List<AuctionSession> expiredSoonSessions = auctionSessionRepository
                 .findByStatusAndEndTimeBefore(AuctionStatusEnum.SOON, now);
 
@@ -143,20 +143,19 @@ public class AuctionBackgroundService {
 
     /**
      * Xử lý kết thúc phiên đấu giá:
-     * - Commit status = END, endPrice, hoàn/thu cọc trong transaction trước
-     * - Sau khi transaction commit mới broadcast sự kiện END tới Dashboard và Auction Room
+     * - Commit status = COMPLETED khi có người trúng, END khi không có người trúng
+     * - Sau khi transaction commit mới broadcast trạng thái END/COMPLETED và sự kiện kết thúc phòng
      */
     private void handleEndSession(Long sessionId, LocalDateTime now) {
         EndSessionPayload payload = transactionTemplate.execute(txStatus -> {
             AuctionSession session = auctionSessionRepository.findById(sessionId).orElse(null);
-            if (session == null || session.getStatus() == AuctionStatusEnum.END) {
+            if (session == null || session.getStatus() == AuctionStatusEnum.END
+                    || session.getStatus() == AuctionStatusEnum.COMPLETED) {
                 return null;
             }
 
             log.info("[BACKGROUND-SERVICE] Phiên {} ({}) đã hết giờ. Bắt đầu tự động chốt kết quả...",
                     session.getSessionCode(), session.getTitle());
-
-            session.setStatus(AuctionStatusEnum.END);
 
             long finalPrice = session.getCurrentPrice() != null ? session.getCurrentPrice() : session.getStartPrice();
             session.setEndPrice(finalPrice);
@@ -179,6 +178,10 @@ public class AuctionBackgroundService {
                 log.info("[BACKGROUND-SERVICE] Phiên {} kết thúc nhưng không có lượt đặt giá nào. Không có người trúng.",
                         session.getSessionCode());
             }
+
+            session.setStatus(session.getUserInfoId() != null
+                    ? AuctionStatusEnum.COMPLETED
+                    : AuctionStatusEnum.END);
 
             auctionSessionRepository.save(session);
 
@@ -254,7 +257,7 @@ public class AuctionBackgroundService {
                 .currentPrice(payload.finalPrice())
                 .bidCount(payload.bidCount())
                 .remainingSeconds(0L)
-                .status("END")
+                .status(payload.winnerUserId() != null ? "COMPLETED" : "END")
                 .type("STATUS_CHANGE")
                 .timestamp(payload.time())
                 .build();

@@ -75,13 +75,17 @@ public class AuctionHistoryServiceImpl implements AuctionHistoryService {
             var myLastBidAt = myBids.isEmpty() ? null : myBids.get(0).getBidTime();
             boolean hasWinningBid = myBids.stream().anyMatch(b -> Boolean.TRUE.equals(b.getIsWinningBid()));
 
-            // Xác định result: LEADING/WON khi lượt is_winning_bid là của tôi
+            // Chỉ COMPLETED mới có kết quả thắng; END là phiên kết thúc không có người thắng.
             String result;
-            boolean isLeader = hasWinningBid || (session.getUserInfoId() != null && session.getUserInfoId().equals(userId));
+            boolean isLeader = session.getStatus() == AuctionStatusEnum.COMPLETED
+                    ? userId.equals(session.getUserInfoId())
+                    : hasWinningBid;
             if (session.getStatus() == AuctionStatusEnum.LIVE || session.getStatus() == AuctionStatusEnum.PAUSED) {
                 result = isLeader ? "LEADING" : "OUTBID";
-            } else if (session.getStatus() == AuctionStatusEnum.END) {
+            } else if (session.getStatus() == AuctionStatusEnum.COMPLETED) {
                 result = isLeader ? "WON" : "LOST";
+            } else if (session.getStatus() == AuctionStatusEnum.END) {
+                result = "LOST";
             } else {
                 result = "OUTBID";
             }

@@ -26,16 +26,18 @@ export const getAuctionSessionsApi = async (
   const size = params?.size ?? 100;
 
   if (status === "ALL") {
-    const [liveRes, soonRes, endRes] = await Promise.all([
+    const [liveRes, soonRes, endRes, completedRes] = await Promise.all([
       fetchByStatus("LIVE", page, size),
       fetchByStatus("SOON", page, size),
       fetchByStatus("END", page, size),
+      fetchByStatus("COMPLETED", page, size),
     ]);
 
     const combinedContent: AuctionSessionVO[] = [
       ...(Array.isArray(liveRes?.content) ? liveRes.content : []),
       ...(Array.isArray(soonRes?.content) ? soonRes.content : []),
       ...(Array.isArray(endRes?.content) ? endRes.content : []),
+      ...(Array.isArray(completedRes?.content) ? completedRes.content : []),
     ];
 
     return {
