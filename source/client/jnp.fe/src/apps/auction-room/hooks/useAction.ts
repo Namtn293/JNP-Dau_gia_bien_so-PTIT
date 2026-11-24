@@ -19,6 +19,7 @@ interface UseActionProps {
   stepPrice: number;
   isEnded: boolean;
   roomStatus?: "LIVE" | "SOON" | "PAUSED" | "END";
+  userLeadState?: "none" | "leading" | "outbid";
   leader?: string;
   plateNumber: string;
   sessionCode: string;
@@ -54,6 +55,7 @@ export const useAction = ({
   stepPrice,
   isEnded,
   roomStatus = "LIVE",
+  userLeadState = "none",
   plateNumber,
   sessionCode,
   currentUser,
@@ -234,6 +236,10 @@ export const useAction = ({
         setDepositModalOpen(true);
         return;
       }
+      if (userLeadState === "leading") {
+        showErrorNotify("Bạn đang là người dẫn đầu phiên đấu giá, không thể đặt giá thêm!");
+        return;
+      }
       if (targetAmount <= currentPrice) {
         showErrorNotify(`Mức giá phải cao hơn giá hiện tại (${formatMoney(currentPrice)})`);
         return;
@@ -243,7 +249,7 @@ export const useAction = ({
         amount: targetAmount,
       });
     },
-    [isEnded, roomStatus, isRegistered, currentPrice, setConfirmModal, setDepositModalOpen, showErrorNotify]
+    [isEnded, roomStatus, isRegistered, userLeadState, currentPrice, setConfirmModal, setDepositModalOpen, showErrorNotify]
   );
 
   // 2. Action: Quick bid buttons (+1, +2, +5 steps)
@@ -348,6 +354,10 @@ export const useAction = ({
     async (checked: boolean) => {
       const targetCode = sessionCode || plateNumber;
       if (checked) {
+        if (userLeadState === "leading") {
+          showErrorNotify("Bạn đang là người dẫn đầu phiên đấu giá, không thể đặt giá tự động!");
+          return;
+        }
         const maxVal = parseMoney(autoBidMax);
         const minRequired = currentPrice + stepPrice;
         if (maxVal < minRequired) {
@@ -385,6 +395,7 @@ export const useAction = ({
     [
       sessionCode,
       plateNumber,
+      userLeadState,
       autoBidMax,
       currentPrice,
       stepPrice,
@@ -398,6 +409,10 @@ export const useAction = ({
 
   // 9b. Action: Update auto bid max while enabled
   const onUpdateAutoBidMax = useCallback(async () => {
+    if (userLeadState === "leading") {
+      showErrorNotify("Bạn đang là người dẫn đầu phiên đấu giá, không thể đặt giá tự động!");
+      return;
+    }
     const targetCode = sessionCode || plateNumber;
     const maxVal = parseMoney(autoBidMax);
     const minRequired = currentPrice + stepPrice;
@@ -421,6 +436,7 @@ export const useAction = ({
   }, [
     sessionCode,
     plateNumber,
+    userLeadState,
     autoBidMax,
     currentPrice,
     stepPrice,

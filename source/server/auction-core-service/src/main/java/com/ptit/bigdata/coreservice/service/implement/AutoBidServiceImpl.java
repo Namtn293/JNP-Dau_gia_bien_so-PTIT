@@ -3,6 +3,7 @@ package com.ptit.bigdata.coreservice.service.implement;
 import com.ptit.bigdata.coreservice.core.util.BusinessException;
 import com.ptit.bigdata.coreservice.entity.AuctionSession;
 import com.ptit.bigdata.coreservice.entity.AutoBidConfig;
+import com.ptit.bigdata.coreservice.entity.BidHistory;
 import com.ptit.bigdata.coreservice.enumration.AuctionStatusEnum;
 import com.ptit.bigdata.coreservice.enumration.AutoBidStopReasonEnum;
 import com.ptit.bigdata.coreservice.enumration.ErrorCode;
@@ -10,6 +11,7 @@ import com.ptit.bigdata.coreservice.enumration.RoomRoleEnum;
 import com.ptit.bigdata.coreservice.model.vo.AutoBidConfigVO;
 import com.ptit.bigdata.coreservice.repository.AuctionSessionRepository;
 import com.ptit.bigdata.coreservice.repository.AutoBidConfigRepository;
+import com.ptit.bigdata.coreservice.repository.BidHistoryRepository;
 import com.ptit.bigdata.coreservice.service.AutoBidScheduler;
 import com.ptit.bigdata.coreservice.service.AutoBidService;
 import com.ptit.bigdata.coreservice.service.RoomRoleResolver;
@@ -20,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Slf4j
@@ -29,6 +32,7 @@ public class AutoBidServiceImpl implements AutoBidService {
 
     private final AutoBidConfigRepository autoBidConfigRepository;
     private final AuctionSessionRepository auctionSessionRepository;
+    private final BidHistoryRepository bidHistoryRepository;
     private final RoomRoleResolver roomRoleResolver;
     private final StepPriceCalculator stepPriceCalculator;
     private final AutoBidScheduler autoBidScheduler;
@@ -51,6 +55,18 @@ public class AutoBidServiceImpl implements AutoBidService {
         RoomRoleEnum role = roomRoleResolver.resolve(userId, session.getId());
         if (role != RoomRoleEnum.BIDDER) {
             throw new BusinessException(ErrorCode.AUTOBID_NOT_ALLOWED);
+        }
+
+        // Người đang dẫn giá không thể đặt giá tự động
+        Long leadingUserId = session.getUserInfoId();
+        if (leadingUserId == null) {
+            List<BidHistory> recentBids = bidHistoryRepository.findByAuctionSessionIdOrderByBidTimeDesc(session.getId());
+            if (!recentBids.isEmpty()) {
+                leadingUserId = recentBids.get(0).getUserID();
+            }
+        }
+        if (leadingUserId != null && leadingUserId.equals(userId)) {
+            throw new BusinessException(ErrorCode.ALREADY_LEADING);
         }
 
         long currentPrice = session.getCurrentPrice() != null ? session.getCurrentPrice() : session.getStartPrice();

@@ -32,6 +32,7 @@ export const AuctionRoomPage: React.FC = () => {
     stepPrice: data.stepPrice,
     isEnded: data.isEnded,
     roomStatus: data.roomStatus,
+    userLeadState: data.userLeadState,
     leader: data.leader,
     plateNumber: data.plateNumber,
     sessionCode: data.sessionCode,

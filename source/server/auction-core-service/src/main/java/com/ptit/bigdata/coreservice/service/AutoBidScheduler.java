@@ -6,12 +6,14 @@ import com.ptit.bigdata.coreservice.core.auth.repository.UserRepository;
 import com.ptit.bigdata.coreservice.core.util.BusinessException;
 import com.ptit.bigdata.coreservice.entity.AuctionSession;
 import com.ptit.bigdata.coreservice.entity.AutoBidConfig;
+import com.ptit.bigdata.coreservice.entity.BidHistory;
 import com.ptit.bigdata.coreservice.enumration.AuctionStatusEnum;
 import com.ptit.bigdata.coreservice.enumration.AutoBidStopReasonEnum;
 import com.ptit.bigdata.coreservice.enumration.BidSourceEnum;
 import com.ptit.bigdata.coreservice.enumration.NotificationTypeEnum;
 import com.ptit.bigdata.coreservice.repository.AuctionSessionRepository;
 import com.ptit.bigdata.coreservice.repository.AutoBidConfigRepository;
+import com.ptit.bigdata.coreservice.repository.BidHistoryRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -35,6 +37,7 @@ public class AutoBidScheduler {
     private final ThreadPoolTaskScheduler scheduler;
     private final AutoBidConfigRepository autoBidConfigRepository;
     private final AuctionSessionRepository auctionSessionRepository;
+    private final BidHistoryRepository bidHistoryRepository;
     private final StepPriceCalculator stepPriceCalculator;
     private final BidService bidService;
     private final NotificationService notificationService;
@@ -49,6 +52,7 @@ public class AutoBidScheduler {
             @Qualifier("auctionTaskScheduler") ThreadPoolTaskScheduler scheduler,
             AutoBidConfigRepository autoBidConfigRepository,
             AuctionSessionRepository auctionSessionRepository,
+            BidHistoryRepository bidHistoryRepository,
             StepPriceCalculator stepPriceCalculator,
             BidService bidService,
             NotificationService notificationService,
@@ -58,6 +62,7 @@ public class AutoBidScheduler {
         this.scheduler = scheduler;
         this.autoBidConfigRepository = autoBidConfigRepository;
         this.auctionSessionRepository = auctionSessionRepository;
+        this.bidHistoryRepository = bidHistoryRepository;
         this.stepPriceCalculator = stepPriceCalculator;
         this.bidService = bidService;
         this.notificationService = notificationService;
@@ -101,6 +106,12 @@ public class AutoBidScheduler {
         long step = stepPriceCalculator.stepFor(currentPrice);
         long nextMinBid = currentPrice + step;
         Long leadingUserId = session.getUserInfoId();
+        if (leadingUserId == null) {
+            List<BidHistory> recentBids = bidHistoryRepository.findByAuctionSessionIdOrderByBidTimeDesc(sessionId);
+            if (!recentBids.isEmpty()) {
+                leadingUserId = recentBids.get(0).getUserID();
+            }
+        }
 
         // 3. Tìm ứng viên: active = true, khác leading user, maxAmount >= nextMinBid
         List<AutoBidConfig> configs = autoBidConfigRepository.findBySessionIdAndActiveTrue(sessionId);
@@ -184,8 +195,17 @@ public class AutoBidScheduler {
                 return;
             }
 
-            if (session.getUserInfoId() != null && session.getUserInfoId().equals(config.getUserId())) {
-                // Người này đã dẫn giá do sự kiện khác chen vào
+            Long currentLeaderId = session.getUserInfoId();
+            if (currentLeaderId == null) {
+                List<BidHistory> recentBids = bidHistoryRepository.findByAuctionSessionIdOrderByBidTimeDesc(sessionId);
+                if (!recentBids.isEmpty()) {
+                    currentLeaderId = recentBids.get(0).getUserID();
+                }
+            }
+
+            if (currentLeaderId != null && currentLeaderId.equals(config.getUserId())) {
+                log.info("[AUTOBID-SKIPPED] Phiên {}: User {} đang là người dẫn đầu, bỏ qua lượt đặt giá tự động",
+                        session.getSessionCode(), config.getUserId());
                 return;
             }
 

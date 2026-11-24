@@ -303,7 +303,13 @@ export const BiddingControlBox: React.FC<BiddingControlBoxProps> = ({
           <input
             type="checkbox"
             checked={autoBidEnabled}
-            disabled={isEnded || !isRegistered || autoBidLoading}
+            disabled={
+              isEnded ||
+              isPaused ||
+              !isRegistered ||
+              autoBidLoading ||
+              (!autoBidEnabled && userLeadState === "leading")
+            }
             onChange={(e) => onToggleAutoBid(e.target.checked)}
           />
           Đặt giá tự động, tối đa
@@ -312,16 +318,32 @@ export const BiddingControlBox: React.FC<BiddingControlBoxProps> = ({
           <input
             type="text"
             inputMode="numeric"
-            placeholder="Mức tối đa (VNĐ)"
+            placeholder={
+              userLeadState === "leading" && !autoBidEnabled
+                ? "Đang dẫn đầu (Không thể đặt)"
+                : "Mức tối đa (VNĐ)"
+            }
             value={autoBidMax}
-            disabled={isEnded || !isRegistered || autoBidLoading}
+            disabled={
+              isEnded ||
+              isPaused ||
+              !isRegistered ||
+              autoBidLoading ||
+              (!autoBidEnabled && userLeadState === "leading")
+            }
             onChange={(e) => onChangeAutoBidMax(e.target.value)}
             style={{ flex: 1 }}
           />
           {autoBidEnabled && onUpdateAutoBidMax && (
             <button
               type="button"
-              disabled={isEnded || !isRegistered || autoBidLoading}
+              disabled={
+                isEnded ||
+                isPaused ||
+                !isRegistered ||
+                autoBidLoading ||
+                userLeadState === "leading"
+              }
               onClick={onUpdateAutoBidMax}
               style={{
                 padding: "4px 10px",
@@ -341,7 +363,14 @@ export const BiddingControlBox: React.FC<BiddingControlBoxProps> = ({
       </AutoBidToggleRow>
       {!isEnded && autoBidEnabled && (
         <div style={{ fontSize: 11, color: "#059669", marginTop: -4, marginBottom: 6 }}>
-          Đấu giá tự động đang bật trên server (tự động trả sau 5–6.5 giây nếu bị vượt giá).
+          {userLeadState === "leading"
+            ? "Đấu giá tự động đang kích hoạt (bảo vệ vị trí dẫn đầu, sẽ tự động trả giá khi bị vượt)."
+            : "Đấu giá tự động đang bật trên server (tự động trả sau 5–6.5 giây nếu bị vượt giá)."}
+        </div>
+      )}
+      {!isEnded && !autoBidEnabled && userLeadState === "leading" && (
+        <div style={{ fontSize: 11, color: "#6b7280", marginTop: -4, marginBottom: 6 }}>
+          Bạn đang dẫn đầu phiên đấu giá, không thể đặt thêm giá.
         </div>
       )}
 

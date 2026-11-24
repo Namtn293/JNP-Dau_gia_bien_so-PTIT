@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -87,6 +88,12 @@ public class BidServiceImpl implements BidService {
 
         // 5. Kiểm tra người đặt có đang dẫn giá không
         Long previousLeaderUserId = session.getUserInfoId();
+        if (previousLeaderUserId == null) {
+            List<BidHistory> recentBids = bidHistoryRepository.findByAuctionSessionIdOrderByBidTimeDesc(session.getId());
+            if (!recentBids.isEmpty()) {
+                previousLeaderUserId = recentBids.get(0).getUserID();
+            }
+        }
         if (previousLeaderUserId != null && previousLeaderUserId.equals(userId)) {
             throw new BusinessException(ErrorCode.ALREADY_LEADING);
         }
