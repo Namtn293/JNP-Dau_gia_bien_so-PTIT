@@ -2,7 +2,9 @@ package com.auction.ui.panels.control;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
@@ -44,8 +46,11 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
     private final InterventionPanel intervention = new InterventionPanel(this);
     private final ParticipantsPanel participantsPanel = new ParticipantsPanel(
             userId -> intervention.setKickAccount(userId));
+    private final Map<String, List<ParticipantInfo>> participantsCache = new HashMap<>();
+    private final Map<String, CompletableFuture<List<ParticipantInfo>>> participantRequests = new HashMap<>();
 
     private boolean busy;
+    private boolean refreshPending;
     private String loadedRoomId;
 
     private volatile boolean metricsFetchFailed;
@@ -70,6 +75,7 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
         logPanel.setPreferredSize(new Dimension(0, 140));
         add(logPanel, BorderLayout.SOUTH);
 
+        selection.addListener(this::onRoomSelectionChanged);
         refresh();
         new Timer(REFRESH_MS, e -> refresh()).start();
     }
@@ -102,6 +108,7 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
 
     private void refresh() {
         if (busy) {
+            refreshPending = true;
             return;
         }
 
@@ -120,9 +127,12 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
 
         fetchSnapshot()
                 .thenAccept(snapshot -> SwingUtilities.invokeLater(() -> {
-                    busy = false;
-                    refreshErrorLogged = false;
-                    apply(snapshot);
+                    try {
+                        refreshErrorLogged = false;
+                        apply(snapshot);
+                    } finally {
+                        finishRefresh();
+                    }
                 }))
                 .exceptionally(ex -> {
 
@@ -133,8 +143,6 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
                     String message = cause.getMessage();
 
                     SwingUtilities.invokeLater(() -> {
-                        busy = false;
-
                         // Chỉ báo offline nếu telemetry lỗi
                         if (metricsFetchFailed) {
                             header.showOffline();
@@ -149,6 +157,7 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
 
                             refreshErrorLogged = true;
                         }
+                        finishRefresh();
                     });
 
                     return null;
@@ -166,7 +175,7 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
 
         CompletableFuture<List<ParticipantInfo>> people = roomId == null
                 ? CompletableFuture.completedFuture(List.of())
-                : gateway.fetchParticipants(roomId);
+                : fetchParticipants(roomId);
 
         return CompletableFuture.allOf(rooms, people)
                 .thenApply(ignored -> new Snapshot(roomId, rooms.join(), people.join()));
@@ -189,7 +198,59 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
 
         boolean roomChanged = !snapshot.roomId().equals(loadedRoomId);
         loadedRoomId = snapshot.roomId();
+        participantsCache.put(snapshot.roomId(), snapshot.people());
         participantsPanel.setParticipants(snapshot.people(), roomChanged);
+        participantsPanel.setLoading(false);
+    }
+
+    /** Dùng chung request của snapshot và request ưu tiên khi vừa đổi phòng. */
+    private CompletableFuture<List<ParticipantInfo>> fetchParticipants(String roomId) {
+        return participantRequests.computeIfAbsent(roomId, id -> {
+            CompletableFuture<List<ParticipantInfo>> request = gateway.fetchParticipants(id);
+            request.whenComplete((people, error) -> SwingUtilities.invokeLater(
+                    () -> participantRequests.remove(id, request)));
+            return request;
+        });
+    }
+
+    /** Tải danh sách độc lập với fetchRooms để không bị chặn bởi request khác. */
+    private void loadParticipantsForRoom(String roomId) {
+        if (roomId == null) {
+            return;
+        }
+
+        fetchParticipants(roomId).whenComplete((people, error) -> SwingUtilities.invokeLater(() -> {
+            if (!Objects.equals(roomId, selection.roomId())) {
+                return;
+            }
+            if (error != null) {
+                participantsPanel.setLoading(false);
+                reportRefreshError(errorMessage(error));
+                return;
+            }
+
+            List<ParticipantInfo> freshPeople = List.copyOf(people);
+            participantsCache.put(roomId, freshPeople);
+            boolean roomChanged = !roomId.equals(loadedRoomId);
+            loadedRoomId = roomId;
+            participantsPanel.setParticipants(freshPeople, roomChanged);
+            participantsPanel.setLoading(false);
+        }));
+    }
+
+    private static String errorMessage(Throwable error) {
+        Throwable cause = error instanceof java.util.concurrent.CompletionException && error.getCause() != null
+                ? error.getCause()
+                : error;
+        return cause.getMessage();
+    }
+
+    private void reportRefreshError(String message) {
+        if (refreshErrorLogged) {
+            return;
+        }
+        LogPanel.appendTo(logDocument, LogPanel.Level.ERROR, "Lỗi làm mới dữ liệu: " + message);
+        refreshErrorLogged = true;
     }
 
     private static RoomInfo findRoom(List<RoomInfo> rooms, String roomId) {
@@ -246,5 +307,31 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
     @Override
     public void onCancel(String roomId) {
         CommandLogger.dispatch(logDocument, "> CANCEL " + roomId, gateway.cancel(roomId), this::refresh);
+    }
+
+    private void finishRefresh() {
+        busy = false;
+        if (refreshPending) {
+            refreshPending = false;
+            refresh();
+        }
+    }
+
+    private void onRoomSelectionChanged(String roomId) {
+        clearRoom();
+        refreshErrorLogged = false;
+        RoomInfo selectedRoom = selection.selectedRoom();
+        if (selectedRoom != null && Objects.equals(roomId, selectedRoom.id())) {
+            applyRoom(selectedRoom);
+            loadedRoomId = roomId;
+        }
+        List<ParticipantInfo> cachedPeople = participantsCache.get(roomId);
+        if (roomId != null && cachedPeople != null) {
+            participantsPanel.setParticipants(cachedPeople, true);
+            loadedRoomId = roomId;
+        }
+        participantsPanel.setLoading(roomId != null);
+        loadParticipantsForRoom(roomId);
+        refresh();
     }
 }

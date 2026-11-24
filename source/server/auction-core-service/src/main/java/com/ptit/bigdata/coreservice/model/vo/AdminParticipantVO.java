@@ -14,6 +14,5 @@ public class AdminParticipantVO {
     private String fullName;
     private String connection;
     private long lastPrice;
-    private int rttMs;
     private String role;
 }

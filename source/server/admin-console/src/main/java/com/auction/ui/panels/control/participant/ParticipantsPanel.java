@@ -4,7 +4,6 @@ import static com.auction.ui.common.Theme.*;
 import static com.auction.ui.common.UiKit.*;
 
 import java.awt.BorderLayout;
-import java.awt.Color;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Dimension;
@@ -39,6 +38,7 @@ public class ParticipantsPanel extends JPanel {
     private List<ParticipantInfo> participants = List.of();
     private List<ParticipantInfo> visible = List.of();
     private int page;
+    private boolean loading;
 
     // true khi đang nạp lại bảng bằng code: bỏ qua sự kiện chọn dòng để không ghi đè ô KICK
     private boolean rebuilding;
@@ -76,6 +76,11 @@ public class ParticipantsPanel extends JPanel {
             page = 0;
         }
         applyView();
+    }
+
+    public void setLoading(boolean loading) {
+        this.loading = loading;
+        updateCountLabel();
     }
 
     // ===== Bố cục =====
@@ -132,6 +137,7 @@ public class ParticipantsPanel extends JPanel {
         };
 
         table = new JTable(tableModel);
+        table.setOpaque(false);
         table.setFont(FONT_NORMAL);
         table.setRowHeight(36);
         table.setGridColor(COLOR_BORDER);
@@ -149,8 +155,9 @@ public class ParticipantsPanel extends JPanel {
         });
 
         JScrollPane scroll = new JScrollPane(table);
+        scroll.setOpaque(false);
         scroll.setBorder(BorderFactory.createLineBorder(COLOR_BORDER));
-        scroll.getViewport().setBackground(Color.WHITE);
+        scroll.getViewport().setOpaque(false);
         return scroll;
     }
 
@@ -228,10 +235,20 @@ public class ParticipantsPanel extends JPanel {
             rebuilding = false;
         }
 
-        countLabel.setText(participants.size() + " tài khoản");
+        updateCountLabel();
         pageLabel.setText(filtered.isEmpty() ? "0 / 0" : (from + 1) + "–" + to + " / " + filtered.size());
         prevButton.setEnabled(page > 0);
         nextButton.setEnabled(page < pageCount - 1);
+    }
+
+    private void updateCountLabel() {
+        if (loading) {
+            countLabel.setText(participants.isEmpty()
+                    ? "Đang tải danh sách..."
+                    : participants.size() + " tài khoản • Đang cập nhật");
+        } else {
+            countLabel.setText(participants.size() + " tài khoản");
+        }
     }
 
     private String selectedUserId() {
@@ -253,8 +270,8 @@ public class ParticipantsPanel extends JPanel {
 
     private void configureParticipantColumnWidths() {
         configureTableColumns(table,
-                new int[] { 95, 195, 125, 150, 75 },
-                new int[] { 70, 130, 95, 110, 55 });
+                new int[] { 95, 195, 125, 150 },
+                new int[] { 70, 130, 95, 110 });
     }
 
     private static Object[] toRow(ParticipantInfo p) {
@@ -262,8 +279,7 @@ public class ParticipantsPanel extends JPanel {
                 p.userId(),
                 p.fullName(),
                 p.connection(),
-                p.lastPrice(),
-                p.rttMs()
+                p.lastPrice()
         };
     }
 }

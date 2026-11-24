@@ -36,7 +36,6 @@ public final class AdminConfig {
     // Tài chính (theo tổng quan dự án)
     public static final long DEPOSIT_VND = 40_000_000L;
     public static final long START_PRICE_VND = 40_000_000L;
-    public static final long BID_STEP_VND = 5_000_000L;
 
     // Khoảng thời gian cuối phiên: có lượt đặt giá thì phiên được gia hạn (theo
     // tổng quan dự án)

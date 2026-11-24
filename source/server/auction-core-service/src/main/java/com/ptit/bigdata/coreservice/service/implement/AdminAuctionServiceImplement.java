@@ -141,6 +141,7 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
                     .participantCount(participantCount)
                     .currentPrice(currentPrice)
                     .remainingLabel(remaining)
+                    .depositAmount(session.getDepositAmount())
                     .build());
         }
 
@@ -195,7 +196,6 @@ public class AdminAuctionServiceImplement implements AdminAuctionService {
                             .fullName(name)
                             .connection(isOnline ? "CONNECTED" : "OFFLINE")
                             .lastPrice(maxBid)
-                            .rttMs(32)
                             .role(role)
                             .build());
                 }

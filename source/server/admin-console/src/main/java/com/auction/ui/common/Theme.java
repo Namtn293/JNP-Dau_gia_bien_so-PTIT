@@ -17,8 +17,6 @@ public final class Theme {
     public static final Color COLOR_MUTED = new Color(100, 116, 139);
     public static final Color COLOR_BORDER = new Color(226, 232, 240);
     public static final Color COLOR_PRIMARY = new Color(37, 99, 235);
-    public static final Color COLOR_CONNECTED_ROW = new Color(239, 246, 255);
-    public static final Color COLOR_DISCONNECTED_ROW = new Color(255, 241, 242);
     public static final Color COLOR_SUCCESS = new Color(22, 128, 61);
     public static final Color COLOR_WARNING = new Color(180, 83, 9);
     public static final Color COLOR_DANGER = new Color(185, 28, 28);

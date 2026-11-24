@@ -233,7 +233,8 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
             RoomStatus status = mapAdminRoomStatus(str(obj, "status", "SCHEDULED"));
             rooms.add(new RoomInfo(code, str(obj, "plate", code), str(obj, "region", "Toàn quốc"), status,
                     intValue(obj, "participantCount", 0), longValue(obj, "currentPrice", 0L),
-                    str(obj, "remainingLabel", formatRemaining(status, null, null, now))));
+                    str(obj, "remainingLabel", formatRemaining(status, null, null, now)),
+                    nullableLong(obj, "depositAmount")));
         }
         return List.copyOf(rooms);
     }
@@ -322,7 +323,8 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
             RoomStatus roomStatus = mapRoomStatus(statusCode, startStr, endStr, now);
             String remaining = formatRemaining(roomStatus, startStr, endStr, now);
 
-            out.add(new RoomInfo(code, plate, region, roomStatus, participants, price, remaining));
+            out.add(new RoomInfo(code, plate, region, roomStatus, participants, price, remaining,
+                    nullableLong(obj, "depositAmount")));
         }
 
         return arr.size();
@@ -330,6 +332,10 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
 
     private static String str(JsonObject obj, String key, String def) {
         return obj.has(key) && !obj.get(key).isJsonNull() ? obj.get(key).getAsString() : def;
+    }
+
+    private static Long nullableLong(JsonObject obj, String key) {
+        return obj.has(key) && !obj.get(key).isJsonNull() ? obj.get(key).getAsLong() : null;
     }
 
     private static RoomStatus mapRoomStatus(String statusCode, String startStr, String endStr, LocalDateTime now) {
@@ -421,20 +427,17 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
             }
 
             JsonArray participants = JsonParser.parseString(resp.body()).getAsJsonArray();
-            int currentRtt = Math.max(0, rttMs);
             return participants.asList().stream()
                     .filter(JsonElement::isJsonObject)
                     .map(JsonElement::getAsJsonObject)
                     .map(person -> {
                         String presence = str(person, "connection", "OFFLINE");
                         ConnectionState connection = "CONNECTED".equalsIgnoreCase(presence)
-                                ? (currentRtt > AdminConfig.RTT_WARN_MS
-                                        ? ConnectionState.CHECK_NEEDED
-                                        : ConnectionState.CONNECTED)
+                                ? ConnectionState.CONNECTED
                                 : ConnectionState.DISCONNECTED;
                         return new ParticipantInfo(str(person, "userId", ""),
                                 str(person, "fullName", "Người tham gia"), connection,
-                                longValue(person, "lastPrice", 0L), currentRtt);
+                                longValue(person, "lastPrice", 0L));
                     })
                     .sorted(Comparator.comparingLong(ParticipantInfo::lastPrice).reversed())
                     .toList();
