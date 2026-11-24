@@ -4,9 +4,9 @@ import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 
 import com.auction.model.AdminSession;
-import com.auction.net.udp.UdpAdminGateway;
+import com.auction.gateway.AdminGatewayImpl;
 import com.auction.ui.AdminConsoleUI;
-import com.auction.ui.common.AdminLoginDialog;
+import com.auction.ui.dialog.AdminLoginDialog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,9 +32,15 @@ import org.slf4j.LoggerFactory;
 public class AdminConsoleApp {
     private static final Logger logger = LoggerFactory.getLogger(AdminConsoleApp.class);
 
+    /**
+     * Khởi tạo Look and Feel và mở giao diện Swing trên Event Dispatch Thread
+     * (EDT).
+     */
     public static void main(String[] args) {
         logger.info("===== Khởi động Admin Console =====");
-        logger.info("Máy chủ: {} • {}", AdminConfig.SERVER_ADDRESS, AdminConfig.CLUSTER_NAME); // ifconfig để lấy ip máy chủ - hiện fixed cứng để demo test
+        logger.info("Máy chủ: {} • {}", AdminConfig.SERVER_ADDRESS, AdminConfig.CLUSTER_NAME); // ifconfig để lấy ip máy
+                                                                                               // chủ - hiện fixed cứng
+                                                                                               // để demo test
         logger.info("Java Version: {}", System.getProperty("java.version"));
 
         try {
@@ -45,9 +51,9 @@ public class AdminConsoleApp {
         }
 
         SwingUtilities.invokeLater(() -> { // to EDT
-            UdpAdminGateway gateway = null;
+            AdminGatewayImpl gateway = null;
             try {
-                gateway = new UdpAdminGateway();
+                gateway = new AdminGatewayImpl();
                 AdminSession session = AdminLoginDialog.showLogin(gateway);
                 if (session == null) {
                     logger.info("Người dùng đã hủy đăng nhập, đóng Admin Console");

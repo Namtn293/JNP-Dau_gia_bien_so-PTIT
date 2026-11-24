@@ -28,8 +28,10 @@ public final class PingProbe implements AutoCloseable {
 
     /** Nhận kết quả đo */
     public interface Listener {
+        /** Nhận kết quả RTT tính tại client sau khi đối chiếu PONG với PING. */
         void onRtt(int rttMs);
 
+        /** Xử lý PING không nhận được PONG trong thời hạn. */
         void onTimeout(long seq);
     }
 
@@ -50,12 +52,14 @@ public final class PingProbe implements AutoCloseable {
 
     private volatile boolean running;
 
+    /** Khởi tạo cấu hình, callback và tài nguyên cần thiết cho kênh UDP. */
     public PingProbe(InetSocketAddress target, Listener listener) throws SocketException {
         this.target = target;
         this.listener = listener;
         this.socket = new DatagramSocket();
     }
 
+    /** Khởi động luồng nhận hoặc tác vụ định kỳ của thành phần. */
     public void start(long intervalMS) {
         running = true;
 
@@ -67,6 +71,7 @@ public final class PingProbe implements AutoCloseable {
         log.info("Đo RTT tới {} mỗi {} ms", target, intervalMS);
     }
 
+    /** Thực hiện một chu kỳ xử lý; không để lỗi làm dừng scheduler. */
     private void tick() {
         // Bắt mọi lỗi: nếu task ném exception, scheduleAtFixedRate sẽ dừng hẳn
         try {
@@ -75,9 +80,13 @@ public final class PingProbe implements AutoCloseable {
             pending.put(seq, now);
 
             byte[] data = ("PING seq=" + seq + " ts=" + now).getBytes(StandardCharsets.UTF_8);
-            socket.send(new DatagramPacket(data, data.length, target));
-
             expireOld(now);
+            try {
+                socket.send(new DatagramPacket(data, data.length, target));
+            } catch (IOException e) {
+                pending.remove(seq);
+                throw e;
+            }
         } catch (IOException e) {
             log.warn("Không gửi được PING: {}", e.getMessage());
         } catch (RuntimeException e) {
@@ -85,17 +94,21 @@ public final class PingProbe implements AutoCloseable {
         }
     }
 
+    /** Loại bỏ PING đã hết hạn và thông báo timeout. */
     private void expireOld(long now) {
         Iterator<Map.Entry<Long, Long>> it = pending.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<Long, Long> entry = it.next();
             if (now - entry.getValue() > TIMEOUT_MS) {
-                it.remove();
-                listener.onTimeout(entry.getKey());
+                // Chỉ báo timeout nếu luồng nhận PONG chưa xóa seq này.
+                if (pending.remove(entry.getKey(), entry.getValue())) {
+                    listener.onTimeout(entry.getKey());
+                }
             }
         }
     }
 
+    /** Nhận UDP PONG trên socket gửi PING; đối chiếu địa chỉ nguồn. */
     private void receiveLoop() {
         byte[] buffer = new byte[MAX_PACKET];
 
@@ -112,10 +125,14 @@ public final class PingProbe implements AutoCloseable {
 
             String text = new String(packet.getData(), packet.getOffset(), packet.getLength(), StandardCharsets.UTF_8)
                     .trim();
-            handle(text);
+            // Chỉ nhận PONG từ đúng địa chỉ và cổng server đã cấu hình.
+            if (target.equals(packet.getSocketAddress())) {
+                handle(text);
+            }
         }
     }
 
+    /** Phân loại hoặc xử lý thông điệp ứng dụng vừa nhận. */
     private void handle(String text) {
         if (!text.startsWith("PONG ")) {
             return;
@@ -132,6 +149,10 @@ public final class PingProbe implements AutoCloseable {
             return;
         }
         long rtt = System.currentTimeMillis() - sentAt;
+        if (rtt > TIMEOUT_MS) {
+            listener.onTimeout(seq);
+            return;
+        }
         listener.onRtt((int) Math.max(0, rtt));
     }
 
@@ -152,6 +173,7 @@ public final class PingProbe implements AutoCloseable {
         return -1;
     }
 
+    /** Dừng tác vụ và giải phóng tài nguyên mạng thuộc thành phần. */
     @Override
     public void close() {
         running = false;

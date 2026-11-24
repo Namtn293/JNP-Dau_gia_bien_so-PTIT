@@ -26,6 +26,9 @@ public final class UdpMetricsListener implements AutoCloseable {
         /** pingMs luôn là 0 ở đây, RTT được đo riêng bởi PingProbe. */
         void onMetrics(ServerMetrics metrics, long receivedAt);
 
+        /**
+         * Xử lý callback cảnh báo; không cập nhật Swing trực tiếp từ luồng nhận UDP.
+         */
         void onAlert(String level, String metric, double value, double threadhold);
     }
 
@@ -33,11 +36,13 @@ public final class UdpMetricsListener implements AutoCloseable {
     private final DatagramSocket socket;
     private volatile boolean running = true;
 
+    /** Khởi tạo cấu hình, callback và tài nguyên cần thiết cho kênh UDP. */
     public UdpMetricsListener(int port, Listener listener) throws SocketException {
         this.listener = listener;
         this.socket = new DatagramSocket(port);
     }
 
+    /** Khởi động luồng nhận hoặc tác vụ định kỳ của thành phần. */
     public void start() {
         Thread thread = new Thread(this::loop, "udp-metrics-listener");
         thread.setDaemon(true);
@@ -45,6 +50,7 @@ public final class UdpMetricsListener implements AutoCloseable {
         log.info("Nhận METRICS/ALERT trên cổng {}", socket.getLocalPort());
     }
 
+    /** Nhận từng UDP datagram, giải mã UTF-8 và chuyển cho bộ xử lý. */
     private void loop() {
         byte[] buffer = new byte[MAX_PACKET];
         while (running) {
@@ -68,6 +74,7 @@ public final class UdpMetricsListener implements AutoCloseable {
         }
     }
 
+    /** Phân loại hoặc xử lý thông điệp ứng dụng vừa nhận. */
     private void handle(String text, long now) {
         String type = text.split("\\s+", 2)[0];
         Map<String, String> f = fields(text);
@@ -109,18 +116,24 @@ public final class UdpMetricsListener implements AutoCloseable {
         return map;
     }
 
+    /** Đọc trường số của gói UDP và từ chối giá trị không hợp lệ. */
     private static double number(Map<String, String> f, String key) {
         String v = f.get(key);
         if (v == null) {
             throw new IllegalArgumentException("thiếu trường " + key);
         }
         try {
-            return Double.parseDouble(v);
+            double value = Double.parseDouble(v);
+            if (!Double.isFinite(value)) {
+                throw new IllegalArgumentException("trường " + key + " không hữu hạn");
+            }
+            return value;
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("trường " + key + " không phải số");
         }
     }
 
+    /** Dừng tác vụ và giải phóng tài nguyên mạng thuộc thành phần. */
     @Override
     public void close() {
         running = false;

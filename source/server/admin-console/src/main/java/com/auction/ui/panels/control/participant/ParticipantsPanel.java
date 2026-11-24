@@ -1,5 +1,6 @@
 package com.auction.ui.panels.control.participant;
 
+import com.auction.ui.common.UiKit;
 import static com.auction.ui.common.Theme.*;
 import static com.auction.ui.common.UiKit.*;
 
@@ -11,7 +12,6 @@ import java.awt.Dimension;
 import java.util.List;
 import java.util.function.Consumer;
 
-
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JLabel;
@@ -20,8 +20,6 @@ import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableModel;
 
 import com.auction.model.ParticipantInfo;
@@ -39,7 +37,8 @@ public class ParticipantsPanel extends JPanel {
     private List<ParticipantInfo> visible = List.of();
     private int page;
 
-    // true khi đang nạp lại bảng bằng code: bỏ qua sự kiện chọn dòng để không ghi đè ô KICK
+    // true khi đang nạp lại bảng bằng code: bỏ qua sự kiện chọn dòng để không ghi
+    // đè ô KICK
     private boolean rebuilding;
 
     private JLabel countLabel;
@@ -51,6 +50,7 @@ public class ParticipantsPanel extends JPanel {
     private JButton prevButton;
     private JButton nextButton;
 
+    /** Khởi tạo thành phần Swing, bố cục và trạng thái ban đầu. */
     public ParticipantsPanel(Consumer<String> userPickedListener) {
         this.userPickedListener = userPickedListener;
 
@@ -68,6 +68,7 @@ public class ParticipantsPanel extends JPanel {
 
     /**
      * Thay danh sách người tham gia.
+     *
      * @param resetPaging true khi chuyển sang phòng khác, để quay về trang đầu
      */
     public void setParticipants(List<ParticipantInfo> people, boolean resetPaging) {
@@ -79,6 +80,7 @@ public class ParticipantsPanel extends JPanel {
         applyView();
     }
 
+    /** Hiển thị trạng thái tải danh sách người tham gia. */
     public void setLoading(String message) {
         loadingLabel.setText(message == null ? "" : message);
     }
@@ -102,22 +104,7 @@ public class ParticipantsPanel extends JPanel {
 
         searchField = new JTextField(16);
         searchField.setToolTipText("Tìm ID / tên người tham gia");
-        searchField.getDocument().addDocumentListener(new DocumentListener() {
-            @Override
-            public void insertUpdate(DocumentEvent e) {
-                onSearchChanged();
-            }
-
-            @Override
-            public void removeUpdate(DocumentEvent e) {
-                onSearchChanged();
-            }
-
-            @Override
-            public void changedUpdate(DocumentEvent e) {
-                onSearchChanged();
-            }
-        });
+        searchField.getDocument().addDocumentListener(UiKit.onDocumentChange(this::onSearchChanged));
 
         JPanel searchBox = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         searchBox.setOpaque(false);
@@ -131,8 +118,10 @@ public class ParticipantsPanel extends JPanel {
         return top;
     }
 
+    /** Khởi tạo JTable, model và renderer theo giao diện cũ. */
     private JScrollPane buildTable() {
         tableModel = new DefaultTableModel(ParticipantRenderer.COLUMNS, 0) {
+            /** Xác định ô bảng không được sửa trực tiếp. */
             @Override
             public boolean isCellEditable(int row, int column) {
                 return false;
@@ -163,9 +152,10 @@ public class ParticipantsPanel extends JPanel {
         return scroll;
     }
 
+    /** Tạo thanh phân trang của bảng. */
     private JPanel buildFooter() {
-        prevButton = pagerButton("‹");
-        nextButton = pagerButton("›");
+        prevButton = UiKit.pagerButton("‹");
+        nextButton = UiKit.pagerButton("›");
         prevButton.addActionListener(e -> changePage(-1));
         nextButton.addActionListener(e -> changePage(1));
         pageLabel = caption("0 / 0");
@@ -182,13 +172,6 @@ public class ParticipantsPanel extends JPanel {
         return footer;
     }
 
-    private static JButton pagerButton(String text) {
-        JButton button = new JButton(text);
-        button.setFont(FONT_NORMAL);
-        button.setFocusPainted(false);
-        return button;
-    }
-
     // ===== Sự kiện =====
 
     private void onSearchChanged() {
@@ -196,6 +179,7 @@ public class ParticipantsPanel extends JPanel {
         applyView();
     }
 
+    /** Đổi trang trong giới hạn số trang hiện có. */
     private void changePage(int delta) {
         page += delta;
         applyView();
@@ -211,7 +195,10 @@ public class ParticipantsPanel extends JPanel {
 
     // ===== Lọc, phân trang, nạp bảng =====
 
-    /** Lọc theo ô tìm kiếm, cắt theo trang, rồi nạp lại bảng và giữ lựa chọn nếu có thể. */
+    /**
+     * Lọc theo ô tìm kiếm, cắt theo trang, rồi nạp lại bảng và giữ lựa chọn nếu có
+     * thể.
+     */
     private void applyView() {
         String keepUser = selectedUserId();
         String query = searchField.getText().trim().toLowerCase();
@@ -246,11 +233,13 @@ public class ParticipantsPanel extends JPanel {
         nextButton.setEnabled(page < pageCount - 1);
     }
 
+    /** Lấy ID người tham gia đang được chọn. */
     private String selectedUserId() {
         int viewRow = table.getSelectedRow();
         return (viewRow >= 0 && viewRow < visible.size()) ? visible.get(viewRow).userId() : null;
     }
 
+    /** Khôi phục lựa chọn theo ID sau khi bảng được dựng lại. */
     private void restoreSelection(String userId) {
         if (userId != null) {
             for (int i = 0; i < visible.size(); i++) {
@@ -263,12 +252,14 @@ public class ParticipantsPanel extends JPanel {
         table.clearSelection();
     }
 
+    /** Thiết lập độ rộng các cột bảng người tham gia. */
     private void configureParticipantColumnWidths() {
         configureTableColumns(table,
                 new int[] { 110, 230, 145, 180 },
                 new int[] { 80, 150, 110, 130 });
     }
 
+    /** Chuyển dữ liệu model thành các giá trị cột JTable. */
     private static Object[] toRow(ParticipantInfo p) {
         return new Object[] {
                 p.userId(),

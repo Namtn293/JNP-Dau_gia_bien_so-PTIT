@@ -11,7 +11,9 @@ import com.auction.model.RoomStatus;
 
  */
 public final class Theme {
-    private Theme() { }
+    /** Ngăn khởi tạo lớp tiện ích chỉ chứa thành viên tĩnh. */
+    private Theme() {
+    }
 
     public static final Color COLOR_TEXT = new Color(15, 23, 42);
     public static final Color COLOR_MUTED = new Color(100, 116, 139);
@@ -54,6 +56,15 @@ public final class Theme {
             return COLOR_WARNING;
         }
         return COLOR_DANGER;
+    }
+
+    /** Nhãn chất lượng RTT dùng chung với các ngưỡng màu hiện có. */
+    public static String rttStatusText(int ms) {
+        if (ms < RTT_GOOD_MS)
+            return "Ổn định";
+        if (ms <= RTT_BAD_MS)
+            return "Trung bình";
+        return "Kém";
     }
 
     /** Định dạng tiền VNĐ kiểu 380.000.000. */

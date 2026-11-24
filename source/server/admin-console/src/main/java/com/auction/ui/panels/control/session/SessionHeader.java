@@ -1,12 +1,11 @@
 package com.auction.ui.panels.control.session;
 
+import com.auction.ui.common.UiKit;
 import static com.auction.ui.common.Theme.*;
 import static com.auction.ui.common.UiKit.*;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
-import java.awt.Component;
-import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
 import java.time.LocalTime;
@@ -40,9 +39,10 @@ public class SessionHeader extends JPanel {
     private final JLabel pingLabel = bigValue("—");
     private final JLabel pingStatusLabel = new JLabel(" ");
 
-    private final JProgressBar cpuBar = createThinBar();
-    private final JProgressBar ramBar = createThinBar();
+    private final JProgressBar cpuBar = UiKit.thinBar(0);
+    private final JProgressBar ramBar = UiKit.thinBar(0);
 
+    /** Khởi tạo thành phần Swing, bố cục và trạng thái ban đầu. */
     public SessionHeader() {
         setLayout(new BorderLayout(0, 12));
         setOpaque(false);
@@ -88,6 +88,7 @@ public class SessionHeader extends JPanel {
         pingStatusLabel.setForeground(rttColor);
     }
 
+    /** Hiển thị trạng thái thiếu dữ liệu hoặc mất kết nối. */
     public void showOffline() {
         cpuLabel.setText("—");
         ramLabel.setText("—");
@@ -102,7 +103,8 @@ public class SessionHeader extends JPanel {
     }
 
     /**
-     * Hiện banner khi phòng đang tạm dừng. Truyền null khi không có phòng nào được chọn.
+     * Hiện banner khi phòng đang tạm dừng. Truyền null khi không có phòng nào được
+     * chọn.
      */
     public void setRoom(RoomInfo room) {
         if (room == null) {
@@ -170,6 +172,7 @@ public class SessionHeader extends JPanel {
         return cell;
     }
 
+    /** Tạo ô hiển thị trạng thái kênh kết nối. */
     private static JPanel createChannelCell() {
         JLabel ok = new JLabel("● Raw TCP 9090 • Sẵn sàng");
         ok.setFont(FONT_NORMAL);
@@ -183,31 +186,10 @@ public class SessionHeader extends JPanel {
     // ===== Trạng thái ping =====
 
     /** Chữ hiển thị kèm RTT, cùng ngưỡng với màu trong Theme. */
-    private static String rttStatusText(int ms) {
-        if (ms < RTT_GOOD_MS) {
-            return "Ổn định";
-        }
-        if (ms <= RTT_BAD_MS) {
-            return "Trung bình";
-        }
-        return "Kém";
-    }
 
     // ===== Thanh tiến trình =====
 
     /** Thanh mỏng, cùng kiểu với thanh trên thẻ CPU/RAM bên tab Giám sát. */
-    private static JProgressBar createThinBar() {
-        JProgressBar bar = new JProgressBar(0, 100);
-        bar.setValue(0);
-        bar.setStringPainted(false);
-        bar.setForeground(COLOR_PRIMARY);
-        bar.setBackground(new Color(230, 230, 230));
-        bar.setBorderPainted(false);
-        bar.setPreferredSize(new Dimension(0, 6));
-        bar.setMaximumSize(new Dimension(Integer.MAX_VALUE, 6));
-        bar.setAlignmentX(Component.LEFT_ALIGNMENT);
-        return bar;
-    }
 
     /** Giới hạn giá trị trong khoảng 0 đến 100 trước khi đưa vào thanh. */
     private static void setBarValue(JProgressBar bar, double percent) {

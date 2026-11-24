@@ -25,8 +25,6 @@ import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
@@ -83,10 +81,12 @@ public class RoomTablePanel extends JPanel {
     // true khi đang nạp lại bảng bằng code: bỏ qua sự kiện chọn dòng
     private boolean rebuilding;
 
+    /** Khởi tạo thành phần Swing, bố cục và trạng thái ban đầu. */
     public RoomTablePanel() {
         setLayout(new BorderLayout(0, 8));
 
         model = new DefaultTableModel(COLUMNS, 0) {
+            /** Xác định ô bảng không được sửa trực tiếp. */
             @Override
             public boolean isCellEditable(int row, int column) {
                 return false;
@@ -165,8 +165,8 @@ public class RoomTablePanel extends JPanel {
         filterInfoLabel.setFont(FONT_SMALL);
         filterInfoLabel.setForeground(COLOR_MUTED);
 
-        prevButton = pagerButton("‹");
-        nextButton = pagerButton("›");
+        prevButton = UiKit.pagerButton("‹");
+        nextButton = UiKit.pagerButton("›");
         pageLabel = new JLabel("0 / 0");
         pageLabel.setFont(FONT_SMALL);
         pageLabel.setForeground(COLOR_MUTED);
@@ -193,6 +193,7 @@ public class RoomTablePanel extends JPanel {
         attachFilterListeners();
         attachSelectionListener();
         roomTable.addMouseListener(new MouseAdapter() {
+            /** Xử lý sự kiện nhấn chuột trên bảng. */
             @Override
             public void mouseClicked(MouseEvent event) {
                 if (event.getClickCount() == 2 && roomTable.getSelectedRow() >= 0) {
@@ -215,21 +216,25 @@ public class RoomTablePanel extends JPanel {
         applyView();
     }
 
+    /** Hiển thị trạng thái tải danh sách phòng thất bại. */
     public void setLoadError(String message) {
         loading = false;
         applyView();
         filterInfoLabel.setText(message);
     }
 
+    /** Đăng ký callback khi quản trị viên yêu cầu xóa phiên. */
     public void addDeleteSessionListener(Consumer<RoomInfo> listener) {
         deleteSessionListeners.add(listener);
     }
 
+    /** Khóa thao tác xóa trong thời gian yêu cầu đang xử lý. */
     public void setDeleteSessionBusy(boolean busy) {
         deleteBusy = busy;
         updateDeleteSessionButton();
     }
 
+    /** Tìm phòng theo mã trong danh sách hiện tại. */
     public RoomInfo findRoom(String roomId) {
         return rooms.stream()
                 .filter(r -> r.id().equals(roomId))
@@ -270,6 +275,7 @@ public class RoomTablePanel extends JPanel {
         selectionListeners.add(listener);
     }
 
+    /** Đăng ký callback khi nhấn đúp một phòng. */
     public void addRoomDoubleClickListener(Consumer<RoomInfo> listener) {
         doubleClickListeners.add(listener);
     }
@@ -281,11 +287,13 @@ public class RoomTablePanel extends JPanel {
         applyView();
     }
 
+    /** Đổi trang trong giới hạn số trang hiện có. */
     private void changePage(int delta) {
         page += delta;
         applyView();
     }
 
+    /** Kiểm tra phòng có khớp tìm kiếm và trạng thái lọc. */
     private boolean matchesFilter(RoomInfo room) {
         String query = searchField.getText().trim().toLowerCase();
         String status = (String) statusFilterCombo.getSelectedItem();
@@ -334,6 +342,7 @@ public class RoomTablePanel extends JPanel {
         updateDeleteSessionButton();
     }
 
+    /** Cập nhật trạng thái nút xóa theo điều kiện của phòng. */
     private void updateDeleteSessionButton() {
         RoomInfo selected = getSelectedRoom();
         boolean deletableStatus = selected != null
@@ -356,6 +365,7 @@ public class RoomTablePanel extends JPanel {
         roomTable.clearSelection();
     }
 
+    /** Cập nhật nhãn số lượng và trạng thái lọc. */
     private void updateFilterInfo() {
         String info = String.format("Hiển thị %d / %d phòng.", filtered.size(), rooms.size());
         if (selectedRoomId != null) {
@@ -364,6 +374,7 @@ public class RoomTablePanel extends JPanel {
         filterInfoLabel.setText(info);
     }
 
+    /** Chuyển dữ liệu model thành các giá trị cột JTable. */
     private static Object[] toRow(RoomInfo room) {
         return new Object[] {
                 room.id(),
@@ -375,42 +386,22 @@ public class RoomTablePanel extends JPanel {
         };
     }
 
+    /** Thiết lập độ rộng các cột bảng phòng. */
     private void configureRoomColumnWidths() {
         UiKit.configureTableColumns(roomTable,
                 new int[] { 155, 110, 130, 75, 150, 95 },
                 new int[] { 115, 85, 100, 55, 110, 75 });
     }
 
-    private static JButton pagerButton(String text) {
-        JButton button = new JButton(text);
-        button.setFont(FONT_NORMAL);
-        button.setFocusPainted(false);
-        return button;
-    }
-
     // ===== Sự kiện =====
 
     private void attachFilterListeners() {
-        searchField.getDocument().addDocumentListener(new DocumentListener() {
-            @Override
-            public void insertUpdate(DocumentEvent e) {
-                onFilterChanged();
-            }
-
-            @Override
-            public void removeUpdate(DocumentEvent e) {
-                onFilterChanged();
-            }
-
-            @Override
-            public void changedUpdate(DocumentEvent e) {
-                onFilterChanged();
-            }
-        });
+        searchField.getDocument().addDocumentListener(UiKit.onDocumentChange(this::onFilterChanged));
 
         statusFilterCombo.addActionListener(e -> onFilterChanged());
     }
 
+    /** Đăng ký sự kiện chọn dòng bảng. */
     private void attachSelectionListener() {
         roomTable.getSelectionModel().addListSelectionListener(e -> {
             if (e.getValueIsAdjusting() || rebuilding) {
@@ -436,6 +427,7 @@ public class RoomTablePanel extends JPanel {
     // ===== Hiển thị =====
 
     private static class RoomCellRenderer extends DefaultTableCellRenderer {
+        /** Định dạng ô bảng theo dữ liệu và trạng thái chọn hiện tại. */
         @Override
         public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected,
                 boolean hasFocus, int row, int column) {
@@ -453,6 +445,7 @@ public class RoomTablePanel extends JPanel {
         }
     }
 
+    /** Chuyển giá trị ô thành chuỗi hiển thị. */
     private static String textFor(Object value, int column) {
         return switch (column) {
             case COL_STATUS -> "● " + value;
@@ -461,15 +454,18 @@ public class RoomTablePanel extends JPanel {
         };
     }
 
+    /** Đăng ký callback mở hộp thoại tạo phiên. */
     public void addCreateSessionListener(Runnable listener) {
         createSessionButton.addActionListener(
                 e -> listener.run());
     }
 
+    /** Bật/tắt nút tạo phiên theo trạng thái xử lý. */
     public void setCreateSessionEnabled(boolean enabled) {
         createSessionButton.setEnabled(enabled);
     }
 
+    /** Đưa bộ lọc danh sách phòng về trạng thái hiển thị tất cả. */
     public void showAllRooms() {
         searchField.setText("");
         statusFilterCombo.setSelectedItem(ALL_STATUS);

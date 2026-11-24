@@ -15,18 +15,20 @@ final class RttMonitor {
 
     private final int warnMs;
     private final int critMs;
-    private final UdpAdminGateway.AlertListener sink;
+    private final UdpMonitoringClient.AlertListener sink;
 
     private Level current = Level.NORMAL;
     private Level candidate;
     private int candidateCount;
 
-    RttMonitor(int warnMs, int critMs, UdpAdminGateway.AlertListener sink) {
+    /** Khởi tạo thành phần và lưu các phụ thuộc cần thiết. */
+    RttMonitor(int warnMs, int critMs, UdpMonitoringClient.AlertListener sink) {
         this.warnMs = warnMs;
         this.critMs = critMs;
         this.sink = sink;
     }
 
+    /** So sánh RTT với ngưỡng và phát cảnh báo khi thay đổi mức. */
     void update(int rttMs) {
         Level measured = rttMs > critMs ? Level.CRITICAL
                 : rttMs > warnMs ? Level.WARNING

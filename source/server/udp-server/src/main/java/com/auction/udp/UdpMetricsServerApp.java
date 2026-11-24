@@ -6,6 +6,7 @@ import java.util.concurrent.CountDownLatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.auction.udp.config.UdpServerConfig;
 import com.auction.udp.monitor.AlertScheduler;
 import com.auction.udp.monitor.ThresholdMonitor;
 import com.auction.udp.protocol.Message;
@@ -26,27 +27,21 @@ import com.auction.udp.store.LatestMetrics;
 public final class UdpMetricsServerApp {
     private static final Logger log = LoggerFactory.getLogger(UdpMetricsServerApp.class);
 
+    /**
+     * Đọc cấu hình, mở hai socket UDP riêng cho METRICS và PING, chạy tác vụ định
+     * kỳ và đăng ký shutdown hook.
+     */
     public static void main(String[] args) throws Exception {
-        int metricsPort = Integer.parseInt(env("UDP_METRICS_PORT", "9001"));
-        int pingPort = Integer.parseInt(env("UDP_PING_PORT", "9002"));
-        String adminHost = env("ADMIN_HOST", "127.0.0.1");
-        int adminPort = Integer.parseInt(env("ADMIN_PORT", "8888"));
-        long intervalMs = Long.parseLong(env("FORWARD_INTERVAL_MS", "1000"));
-        long staleMs = Long.parseLong(env("CORE_STALE_MS", "3000"));
+        UdpServerConfig config = UdpServerConfig.fromEnv();
 
-        double cpuWarn = Double.parseDouble(env("CPU_WARN", "85"));
-        double cpuCrit = Double.parseDouble(env("CPU_CRIT", "95"));
-        double ramWarn = Double.parseDouble(env("RAM_WARN", "85"));
-        double ramCrit = Double.parseDouble(env("RAM_CRIT", "95"));
-
-        LatestMetrics store = new LatestMetrics(staleMs);
-        AdminSender adminSender = new AdminSender(new InetSocketAddress(adminHost, adminPort));
-        MetricsForwarder forwarder = new MetricsForwarder(store, adminSender, intervalMs);
+        LatestMetrics store = new LatestMetrics(config.staleMs());
+        AdminSender adminSender = new AdminSender(new InetSocketAddress(config.adminHost(), config.adminPort()));
+        MetricsForwarder forwarder = new MetricsForwarder(store, adminSender, config.intervalMs());
 
         AlertSender alertSender = new AlertSender(adminSender);
-        ThresholdMonitor monitor = new ThresholdMonitor(store, staleMs, alertSender::send,
-                new ThresholdMonitor.Rule("cpu", cpuWarn, cpuCrit),
-                new ThresholdMonitor.Rule("ram", ramWarn, ramCrit));
+        ThresholdMonitor monitor = new ThresholdMonitor(store, config.staleMs(), alertSender::send,
+                new ThresholdMonitor.Rule("cpu", config.cpuWarn(), config.cpuCrit()),
+                new ThresholdMonitor.Rule("ram", config.ramWarn(), config.ramCrit()));
         AlertScheduler alertScheduler = new AlertScheduler(monitor, 1000);
 
         MessageHandler metricsHandler = (message, from, channel) -> {
@@ -62,14 +57,15 @@ public final class UdpMetricsServerApp {
             }
         };
 
-        UdpReceiver metrics = new UdpReceiver(metricsPort, metricsHandler);
-        UdpReceiver ping = new UdpReceiver(pingPort, new PingResponder());
+        UdpReceiver metrics = new UdpReceiver(config.metricsPort(), metricsHandler);
+        UdpReceiver ping = new UdpReceiver(config.pingPort(), new PingResponder());
         metrics.start();
         ping.start();
         forwarder.start();
         alertScheduler.start();
         log.info("Gửi METRICS tới admin {}:{} mỗi {} ms; ngưỡng CPU {}/{}, RAM {}/{}; core im quá {} ms",
-                adminHost, adminPort, intervalMs, cpuWarn, cpuCrit, ramWarn, ramCrit, staleMs);
+                config.adminHost(), config.adminPort(), config.intervalMs(), config.cpuWarn(), config.cpuCrit(),
+                config.ramWarn(), config.ramCrit(), config.staleMs());
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             alertScheduler.close();
@@ -81,10 +77,5 @@ public final class UdpMetricsServerApp {
         }));
 
         new CountDownLatch(1).await();
-    }
-
-    private static String env(String name, String defaultValue) {
-        String v = System.getenv(name);
-        return (v == null || v.isBlank()) ? defaultValue : v.trim();
     }
 }

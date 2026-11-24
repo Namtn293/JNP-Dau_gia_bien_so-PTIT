@@ -16,8 +16,10 @@ import org.slf4j.LoggerFactory;
 import com.auction.model.CommandResult;
 
 /**
- * Client kết nối trực tiếp tới Raw TCP Control Server của Auction Core Service (Cổng 9090).
- * Giao thức line-based: gửi lệnh văn bản, nhận phản hồi "OK ..." hoặc "FAIL ...".
+ * Client kết nối trực tiếp tới Raw TCP Control Server của Auction Core Service
+ * (Cổng 9090).
+ * Giao thức line-based: gửi lệnh văn bản, nhận phản hồi "OK ..." hoặc "FAIL
+ * ...".
  */
 public final class TcpControlClient {
     private static final Logger log = LoggerFactory.getLogger(TcpControlClient.class);
@@ -26,18 +28,28 @@ public final class TcpControlClient {
     private final String host;
     private final int port;
 
+    /** Lưu địa chỉ host/cổng của Raw TCP Control Server. */
     public TcpControlClient(String host, int port) {
         this.host = host;
         this.port = port;
     }
 
+    /** Chạy thao tác TCP blocking trên luồng nền và trả CompletableFuture. */
     public CompletableFuture<CommandResult> sendCommand(String commandLine) {
         return CompletableFuture.supplyAsync(() -> executeBlocking(commandLine));
     }
 
+    /**
+     * Mở TCP socket, gửi một dòng lệnh, đọc một dòng phản hồi OK/FAIL rồi đóng kết
+     * nối.
+     */
     private CommandResult executeBlocking(String commandLine) {
         if (commandLine == null || commandLine.isBlank()) {
             return CommandResult.fail("Lệnh rỗng");
+        }
+        // Một dòng là một frame ứng dụng; không cho phép chèn lệnh thứ hai bằng CR/LF.
+        if (commandLine.indexOf('\r') >= 0 || commandLine.indexOf('\n') >= 0) {
+            return CommandResult.fail("Lệnh TCP không được chứa ký tự xuống dòng");
         }
         try (Socket socket = new Socket()) {
             socket.connect(new InetSocketAddress(host, port), TIMEOUT_MS);
@@ -75,4 +87,3 @@ public final class TcpControlClient {
         }
     }
 }
-

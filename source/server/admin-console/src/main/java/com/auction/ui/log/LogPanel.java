@@ -1,4 +1,4 @@
-package com.auction.ui.common;
+package com.auction.ui.log;
 
 import static com.auction.ui.common.Theme.*;
 
@@ -39,6 +39,7 @@ public class LogPanel extends JPanel {
         private final String label;
         private final Color color;
 
+        /** Khởi tạo thành phần Swing, bố cục và trạng thái ban đầu. */
         Level(String label, Color color) {
             this.label = label;
             this.color = color;
@@ -52,10 +53,12 @@ public class LogPanel extends JPanel {
     private JButton autoScrollButton;
     private boolean autoScroll = true;
 
+    /** Khởi tạo document lưu nội dung log và theo dõi thay đổi. */
     public static StyledDocument createDocument() {
         return new DefaultStyledDocument();
     }
 
+    /** Khởi tạo thành phần Swing, bố cục và trạng thái ban đầu. */
     public LogPanel(StyledDocument sharedDocument) {
         this.document = sharedDocument;
         textPane.setDocument(sharedDocument);
@@ -75,16 +78,19 @@ public class LogPanel extends JPanel {
         add(scrollPane, BorderLayout.CENTER);
 
         document.addDocumentListener(new DocumentListener() {
+            /** Xử lý sự kiện văn bản được chèn vào Swing Document. */
             @Override
             public void insertUpdate(DocumentEvent e) {
                 scrollToEndIfNeed();
             }
 
+            /** Xử lý sự kiện văn bản bị xóa khỏi Swing Document. */
             @Override
             public void removeUpdate(DocumentEvent e) {
                 // ...
             }
 
+            /** Xử lý sự kiện thay đổi thuộc tính của Swing Document. */
             @Override
             public void changedUpdate(DocumentEvent e) {
                 // ...
@@ -92,6 +98,7 @@ public class LogPanel extends JPanel {
         });
     }
 
+    /** Cuộn đến cuối log theo điều kiện hiện tại. */
     private void scrollToEndIfNeed() {
         if (!autoScroll) {
             return;
@@ -100,6 +107,7 @@ public class LogPanel extends JPanel {
         SwingUtilities.invokeLater(() -> textPane.setCaretPosition(textPane.getDocument().getLength()));
     }
 
+    /** Tạo tiêu đề và các thao tác của khu vực log. */
     private JPanel createHeader() {
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
@@ -139,6 +147,7 @@ public class LogPanel extends JPanel {
         return header;
     }
 
+    /** Tạo nút thao tác log theo kiểu liên kết. */
     private JButton createLinkButton(String text) {
         JButton button = new JButton(text);
         button.setFont(FONT_SMALL);
@@ -151,11 +160,13 @@ public class LogPanel extends JPanel {
         return button;
     }
 
+    /** Sao chép nội dung log vào clipboard. */
     private void copyToClipboard() {
         StringSelection selection = new StringSelection(textPane.getText());
         Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, null);
     }
 
+    /** Xóa nội dung log đang hiển thị. */
     private void clearDocument() {
         try {
             document.remove(0, document.getLength());
@@ -164,18 +175,22 @@ public class LogPanel extends JPanel {
         }
     }
 
+    /** Thêm một mục log theo loại hoặc mức độ tương ứng. */
     public void append(Level level, String message) {
         appendTo(document, level, message);
     }
 
-    public void append(String time ,Level level, String message) {
+    /** Thêm một mục log theo loại hoặc mức độ tương ứng. */
+    public void append(String time, Level level, String message) {
         appendTo(document, time, level, message);
     }
 
+    /** Chuyển mục log đến document đích. */
     public static void appendTo(StyledDocument doc, Level level, String message) {
         appendTo(doc, LocalTime.now().format(TIME_FORMAT), level, message);
     }
 
+    /** Chuyển mục log đến document đích. */
     public static void appendTo(StyledDocument doc, String time, Level level, String message) {
         if (SwingUtilities.isEventDispatchThread()) {
             write(doc, time, level, message);
@@ -184,6 +199,7 @@ public class LogPanel extends JPanel {
         }
     }
 
+    /** Ghi nội dung log có định dạng vào document Swing. */
     private static void write(StyledDocument doc, String time, Level level, String message) {
         try {
             doc.insertString(doc.getLength(), time + "  ", style(COLOR_LOG_MUTED, false));
@@ -195,6 +211,7 @@ public class LogPanel extends JPanel {
         }
     }
 
+    /** Tạo kiểu chữ và màu sắc theo loại log. */
     private static SimpleAttributeSet style(Color color, boolean bold) {
         SimpleAttributeSet set = new SimpleAttributeSet();
         StyleConstants.setForeground(set, color);
@@ -203,6 +220,7 @@ public class LogPanel extends JPanel {
         return set;
     }
 
+    /** Nạp nội dung log mẫu được định nghĩa trong ứng dụng. */
     public static void loadSampleLog(StyledDocument doc) {
         String now = LocalTime.now().format(TIME_FORMAT);
         appendTo(doc, now, Level.INFO, "Admin Console đã khởi động");

@@ -13,10 +13,12 @@ public enum RoomStatus {
 
     private final String label;
 
+    /** Khởi tạo đối tượng dữ liệu với các giá trị được cung cấp. */
     RoomStatus(String label) {
         this.label = label;
     }
 
+    /** Trả về nhãn tiếng Việt của giá trị hiện tại. */
     public String label() {
         return label;
     }

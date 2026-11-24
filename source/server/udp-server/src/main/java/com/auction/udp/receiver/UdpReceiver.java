@@ -31,11 +31,13 @@ public final class UdpReceiver implements AutoCloseable {
     private Thread thread;
     private volatile boolean running;
 
+    /** Khởi tạo cấu hình, callback và tài nguyên cần thiết cho kênh UDP. */
     public UdpReceiver(int port, MessageHandler handler) {
         this.port = port;
         this.handler = handler;
     }
 
+    /** Khởi động luồng nhận hoặc tác vụ định kỳ của thành phần. */
     public void start() throws SocketException {
         socket = new DatagramSocket(port);
         running = true;
@@ -54,6 +56,7 @@ public final class UdpReceiver implements AutoCloseable {
         socket.send(new DatagramPacket(data, data.length, to));
     }
 
+    /** Nhận từng UDP datagram, giải mã UTF-8 và chuyển cho bộ xử lý. */
     private void loop() {
         byte[] buffer = new byte[MAX_PACKET];
         while (running) {
@@ -82,6 +85,7 @@ public final class UdpReceiver implements AutoCloseable {
         }
     }
 
+    /** Dừng tác vụ và giải phóng tài nguyên mạng thuộc thành phần. */
     @Override
     public void close() {
         running = false;

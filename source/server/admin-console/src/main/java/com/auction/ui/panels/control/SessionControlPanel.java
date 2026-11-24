@@ -16,10 +16,9 @@ import javax.swing.JScrollPane;
 import com.auction.gateway.AdminGateway;
 import com.auction.model.ParticipantInfo;
 import com.auction.model.RoomInfo;
-import com.auction.model.ServerMetrics;
-import com.auction.ui.common.CommandLogger;
-import com.auction.ui.common.RoomSelection;
-import com.auction.ui.common.LogPanel;
+import com.auction.ui.log.CommandLogger;
+import com.auction.ui.state.RoomSelection;
+import com.auction.ui.log.LogPanel;
 import com.auction.ui.panels.control.intervention.InterventionPanel;
 import com.auction.ui.panels.control.participant.ParticipantsPanel;
 import com.auction.ui.panels.control.session.SessionHeader;
@@ -52,6 +51,7 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
     private volatile boolean metricsFetchFailed;
     private boolean refreshErrorLogged;
 
+    /** Khởi tạo thành phần Swing, bố cục và trạng thái ban đầu. */
     public SessionControlPanel(AdminGateway gateway, StyledDocument logDocument, RoomSelection selection) {
         this.gateway = gateway;
         this.logDocument = logDocument;
@@ -113,6 +113,7 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
         refreshParticipants();
     }
 
+    /** Tải lại thông tin phòng qua gateway. */
     private void refreshRoomInfo() {
         String roomId = selection.roomId();
         gateway.fetchRooms().whenComplete((rooms, error) -> SwingUtilities.invokeLater(() -> {
@@ -133,6 +134,7 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
         }));
     }
 
+    /** Tải lại danh sách người tham gia qua gateway. */
     private void refreshParticipants() {
         String roomId = selection.roomId();
         if (roomId == null) {
@@ -155,6 +157,7 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
         }));
     }
 
+    /** Phản ứng khi quản trị viên chuyển phòng đang chọn. */
     private void onRoomSelectionChanged(RoomInfo room) {
         participantRequestId++;
         if (room == null) {
@@ -174,15 +177,18 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
         }
     }
 
+    /** Thông báo lỗi khi làm mới dữ liệu. */
     private void reportRefreshError(Throwable error) {
         Throwable cause = error instanceof java.util.concurrent.CompletionException && error.getCause() != null
-                ? error.getCause() : error;
+                ? error.getCause()
+                : error;
         if (!refreshErrorLogged) {
             LogPanel.appendTo(logDocument, LogPanel.Level.ERROR, "Lỗi làm mới dữ liệu: " + cause.getMessage());
             refreshErrorLogged = true;
         }
     }
 
+    /** Tìm phòng theo mã trong danh sách hiện tại. */
     private static RoomInfo findRoom(List<RoomInfo> rooms, String roomId) {
         if (roomId == null) {
             return null;
@@ -193,12 +199,14 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
                 .orElse(null);
     }
 
+    /** Cập nhật các thành phần giao diện theo phòng được chọn. */
     private void applyRoom(RoomInfo room) {
         sessionCard.setRoom(room);
         header.setRoom(room);
         intervention.setRoom(room);
     }
 
+    /** Xóa dữ liệu phòng khỏi giao diện khi không còn lựa chọn. */
     private void clearRoom() {
         loadedRoomId = null;
 
@@ -216,11 +224,13 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
         CommandLogger.dispatch(logDocument, "> HALT " + roomId, gateway.halt(roomId), this::refresh);
     }
 
+    /** Xử lý thao tác tiếp tục phiên. */
     @Override
     public void onResume(String roomId) {
         CommandLogger.dispatch(logDocument, "> RESUME " + roomId, gateway.resume(roomId), this::refresh);
     }
 
+    /** Xử lý thao tác khóa người dùng trong phiên. */
     @Override
     public void onKick(String userId, String roomId) {
         CommandLogger.dispatch(logDocument,
@@ -228,6 +238,7 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
                 gateway.kick(userId, roomId), this::refresh);
     }
 
+    /** Xử lý thao tác mở khóa người dùng trong phiên. */
     @Override
     public void onUnkick(String userId, String roomId) {
         CommandLogger.dispatch(logDocument,
@@ -235,6 +246,7 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
                 gateway.unkick(userId, roomId), this::refresh);
     }
 
+    /** Xử lý thao tác hủy phiên. */
     @Override
     public void onCancel(String roomId) {
         CommandLogger.dispatch(logDocument, "> CANCEL " + roomId, gateway.cancel(roomId), this::refresh);

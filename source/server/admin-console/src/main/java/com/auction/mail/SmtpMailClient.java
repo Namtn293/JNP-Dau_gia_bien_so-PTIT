@@ -24,8 +24,10 @@ import javax.net.ssl.SSLSocketFactory;
 
 /**
  * SMTP client tự viết trên TCP socket.
- * Luồng: EHLO -> STARTTLS -> nâng lên TLS -> EHLO -> AUTH -> MAIL FROM -> RCPT TO -> DATA -> QUIT.
- * Hỗ trợ AUTH PLAIN và AUTH LOGIN, chạy được với Mailtrap (587) và Gmail (587, dùng App Password).
+ * Luồng: EHLO -> STARTTLS -> nâng lên TLS -> EHLO -> AUTH -> MAIL FROM -> RCPT
+ * TO -> DATA -> QUIT.
+ * Hỗ trợ AUTH PLAIN và AUTH LOGIN, chạy được với Mailtrap (587) và Gmail (587,
+ * dùng App Password).
  */
 public final class SmtpMailClient {
     private static final int TIMEOUT_MS = 10_000;
@@ -33,6 +35,7 @@ public final class SmtpMailClient {
 
     private final MailConfig config;
 
+    /** Khởi tạo SMTP client hoặc luồng đọc/ghi của kết nối SMTP. */
     public SmtpMailClient(MailConfig config) {
         this.config = config;
     }
@@ -51,6 +54,10 @@ public final class SmtpMailClient {
             // Nâng kết nối lên TLS, sau đó chào lại server (RFC 3207)
             SSLSocketFactory sslFactory = (SSLSocketFactory) SSLSocketFactory.getDefault();
             try (SSLSocket tls = (SSLSocket) sslFactory.createSocket(plain, config.host(), config.port(), true)) {
+                // Xác minh hostname của chứng chỉ TLS trước khi truyền thông tin AUTH.
+                var parameters = tls.getSSLParameters();
+                parameters.setEndpointIdentificationAlgorithm("HTTPS");
+                tls.setSSLParameters(parameters);
                 tls.startHandshake();
                 tls.setSoTimeout(TIMEOUT_MS);
 
@@ -68,6 +75,10 @@ public final class SmtpMailClient {
         }
     }
 
+    /**
+     * Chọn AUTH PLAIN hoặc LOGIN theo khả năng server công bố sau EHLO; chỉ gửi
+     * thông tin xác thực sau TLS.
+     */
     private void authenticate(Conn conn, Reply ehlo) throws IOException {
         // Lấy danh sách cơ chế xác thực từ dòng "250-AUTH PLAIN LOGIN ..."
         Set<String> mechanisms = new HashSet<>();
@@ -90,6 +101,10 @@ public final class SmtpMailClient {
         }
     }
 
+    /**
+     * Tạo MIME message với CRLF, header UTF-8 và nội dung Base64 trước khi gửi SMTP
+     * DATA.
+     */
     private String buildMessage(MailMessage m) {
         StringBuilder sb = new StringBuilder();
         sb.append("From: ").append(encodeHeader(config.fromName()))
@@ -102,7 +117,8 @@ public final class SmtpMailClient {
         sb.append("Content-Type: text/plain; charset=UTF-8\r\n");
         sb.append("Content-Transfer-Encoding: base64\r\n");
         sb.append("\r\n");
-        // Nội dung mã hóa base64 nên không có dòng nào bắt đầu bằng "." (không cần dot-stuffing)
+        // Nội dung mã hóa base64 nên không có dòng nào bắt đầu bằng "." (không cần
+        // dot-stuffing)
         sb.append(Base64.getMimeEncoder().encodeToString(m.body().getBytes(StandardCharsets.UTF_8)));
         sb.append("\r\n");
         return sb.toString();
@@ -110,7 +126,8 @@ public final class SmtpMailClient {
 
     /**
      * Mã hóa header theo RFC 2047 (=?UTF-8?B?...?=).
-     * Chia nhỏ để mỗi encoded-word không vượt quá 75 ký tự, không cắt giữa ký tự UTF-8.
+     * Chia nhỏ để mỗi encoded-word không vượt quá 75 ký tự, không cắt giữa ký tự
+     * UTF-8.
      */
     static String encodeHeader(String text) {
         final int maxBytes = 45; // 45 byte -> 60 ký tự base64, cộng 12 ký tự bao = 72
@@ -131,16 +148,19 @@ public final class SmtpMailClient {
         return String.join("\r\n ", words);
     }
 
+    /** Mã hóa một đoạn header theo định dạng MIME encoded-word. */
     private static String encodedWord(byte[] bytes) {
         return "=?UTF-8?B?" + Base64.getEncoder().encodeToString(bytes) + "?=";
     }
 
+    /** Mã hóa chuỗi UTF-8 thành Base64; đây không phải mã hóa bảo mật. */
     private static String base64(String text) {
         return Base64.getEncoder().encodeToString(text.getBytes(StandardCharsets.UTF_8));
     }
 
     /** Phản hồi của server: mã 3 chữ số và toàn bộ các dòng (có thể nhiều dòng). */
     private record Reply(int code, List<String> lines) {
+        /** Ghép các dòng phản hồi SMTP để báo lỗi. */
         String text() {
             return String.join(" | ", lines);
         }
@@ -151,12 +171,16 @@ public final class SmtpMailClient {
         private final BufferedReader in;
         private final BufferedWriter out;
 
+        /** Khởi tạo SMTP client hoặc luồng đọc/ghi của kết nối SMTP. */
         Conn(Socket socket) throws IOException {
             in = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
             out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8));
         }
 
-        /** Gửi một lệnh rồi kiểm tra mã phản hồi. Không đưa nội dung lệnh vào thông báo lỗi (tránh lộ mật khẩu). */
+        /**
+         * Gửi một lệnh rồi kiểm tra mã phản hồi. Không đưa nội dung lệnh vào thông báo
+         * lỗi (tránh lộ mật khẩu).
+         */
         Reply exchange(String command, int... allowed) throws IOException {
             out.write(command);
             out.write("\r\n");
@@ -164,6 +188,7 @@ public final class SmtpMailClient {
             return expect(allowed);
         }
 
+        /** Đọc phản hồi SMTP và kiểm tra mã trạng thái có nằm trong tập được phép. */
         Reply expect(int... allowed) throws IOException {
             Reply reply = readReply();
             for (int code : allowed) {
@@ -174,12 +199,17 @@ public final class SmtpMailClient {
             throw new IOException("Lỗi SMTP: " + reply.text());
         }
 
+        /** Gửi nội dung email và dấu kết thúc DATA bằng dòng chỉ chứa dấu chấm. */
         void sendData(String data) throws IOException {
             out.write(data);
             out.write(".\r\n");
             out.flush();
         }
 
+        /**
+         * Đọc phản hồi SMTP nhiều dòng; dấu gạch nối báo còn dòng tiếp theo, dấu cách
+         * báo dòng cuối.
+         */
         private Reply readReply() throws IOException {
             List<String> lines = new ArrayList<>();
             while (true) {
@@ -198,6 +228,7 @@ public final class SmtpMailClient {
             }
         }
 
+        /** Đọc mã trạng thái SMTP ba chữ số và báo lỗi nếu sai định dạng. */
         private static int parseCode(String line) throws IOException {
             try {
                 return Integer.parseInt(line.substring(0, 3));

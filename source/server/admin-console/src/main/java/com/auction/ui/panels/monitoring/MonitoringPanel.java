@@ -16,8 +16,8 @@ import com.auction.AdminConfig;
 import com.auction.gateway.AdminGateway;
 import com.auction.model.RoomInfo;
 import com.auction.model.RoomStatus;
-import com.auction.ui.common.RoomSelection;
-import com.auction.ui.common.LogPanel;
+import com.auction.ui.state.RoomSelection;
+import com.auction.ui.log.LogPanel;
 import com.auction.ui.panels.monitoring.metrics.MetricCardsPanel;
 import com.auction.ui.panels.monitoring.rooms.RoomTablePanel;
 import com.auction.ui.panels.monitoring.quick_control.QuickControlPanel;
@@ -44,6 +44,7 @@ public class MonitoringPanel extends JPanel {
 
     private final StyledDocument logDocument;
 
+    /** Khởi tạo thành phần Swing, bố cục và trạng thái ban đầu. */
     public MonitoringPanel(AdminGateway gateway, StyledDocument logDocument, RoomSelection selection,
             Consumer<RoomInfo> openSessionControl) {
         this.gateway = gateway;
@@ -104,6 +105,7 @@ public class MonitoringPanel extends JPanel {
         this.logDocument = logDocument;
     }
 
+    /** Yêu cầu tải danh sách phòng mới từ Core. */
     private void refreshRooms() {
         gateway.fetchRooms().whenComplete((rooms, error) -> SwingUtilities.invokeLater(() -> {
             if (error == null) {
@@ -114,6 +116,7 @@ public class MonitoringPanel extends JPanel {
         }));
     }
 
+    /** Áp dụng danh sách phòng lên giao diện và giữ đồng bộ lựa chọn. */
     private void applyRooms(List<RoomInfo> rooms) {
         roomTablePanel.setRooms(rooms);
         quickControlPanel.setRoomOptions(rooms.stream().map(RoomInfo::id).toList());
@@ -148,6 +151,7 @@ public class MonitoringPanel extends JPanel {
         }
     }
 
+    /** Đồng bộ lựa chọn phòng từ combobox. */
     private void onRoomPickedFromCombo(String roomId) {
         roomTablePanel.selectRoom(roomId);
         RoomInfo room = roomTablePanel.findRoom(roomId);
@@ -159,6 +163,7 @@ public class MonitoringPanel extends JPanel {
         }
     }
 
+    /** Gửi HTTP DELETE đến Core để xóa phiên. */
     private void deleteSession(RoomInfo room) {
         int choice = JOptionPane.showConfirmDialog(
                 this,
@@ -196,6 +201,7 @@ public class MonitoringPanel extends JPanel {
         }));
     }
 
+    /** Mở luồng tạo phiên mới và tải các biển số khả dụng. */
     private void createNewSession() {
 
         // 1. Khóa nút trong lúc tải danh sách biển số hợp lệ
@@ -239,6 +245,7 @@ public class MonitoringPanel extends JPanel {
         }));
     }
 
+    /** Gửi dữ liệu đã nhập qua gateway để tạo phiên thật ở Core. */
     private void submitCreateSession(CreateSessionRequest data) {
         LogPanel.appendTo(
                 logDocument,
@@ -327,5 +334,4 @@ public class MonitoringPanel extends JPanel {
                     });
                 });
     }
-
 }

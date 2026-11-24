@@ -2,10 +2,15 @@ package com.auction.udp.protocol;
 
 import java.util.Locale;
 
-/** Chuyển Message thành dòng text "LOAI key=value ...", ngược với MessageParser. */
+/**
+ * Chuyển Message thành dòng text "LOAI key=value ...", ngược với MessageParser.
+ */
 public final class MessageFormatter {
-    private MessageFormatter() {}
+    /** Ngăn khởi tạo lớp tiện ích chỉ chứa thành viên tĩnh. */
+    private MessageFormatter() {
+    }
 
+    /** Đóng gói thông điệp thành chuỗi theo wire format UDP hiện có. */
     public static String format(Message message) {
         return switch (message) {
             case Message.Metrics m -> String.format(Locale.ROOT,

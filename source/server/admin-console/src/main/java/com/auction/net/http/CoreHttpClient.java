@@ -1,7 +1,5 @@
-package com.auction.net.udp;
+package com.auction.net.http;
 
-import java.net.InetSocketAddress;
-import java.net.SocketException;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -10,23 +8,19 @@ import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.auction.AdminConfig;
-import com.auction.gateway.AdminGateway;
 import com.auction.model.AdminSession;
 import com.auction.model.AvailablePlateInfo;
 import com.auction.model.CommandResult;
@@ -34,8 +28,6 @@ import com.auction.model.ConnectionState;
 import com.auction.model.ParticipantInfo;
 import com.auction.model.RoomInfo;
 import com.auction.model.RoomStatus;
-import com.auction.model.ServerMetrics;
-import com.auction.net.tcp.TcpControlClient;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -44,134 +36,24 @@ import com.google.gson.JsonParser;
 import java.io.IOException;
 import com.auction.model.CreateSessionRequest;
 
-/**
- * Gateway dùng số liệu thật từ UDP (CPU, RAM, Online từ METRICS; RTT từ
- * PingProbe),
- * danh sách phòng thật qua HTTP API Core Service và lệnh điều khiển qua Raw TCP
- * 9090.
- */
-public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
-    private static final Logger log = LoggerFactory.getLogger(UdpAdminGateway.class);
-
-    /**
-     * Nhận cảnh báo. Gọi trên luồng nền, cần invokeLater khi cập nhật giao diện.
-     */
-    public interface AlertListener {
-        /** level: CRITICAL, WARNING hoặc RESOLVED. metric: cpu, ram, core hoặc rtt. */
-        void onAlert(String level, String metric, double value, double threshold);
-    }
-
+/** HTTP REST client: xác thực, tải dữ liệu, tạo/xóa phiên và cache kết quả. */
+public final class CoreHttpClient {
+    private static final Logger log = LoggerFactory.getLogger(CoreHttpClient.class);
     private static final long ROOMS_CACHE_TTL_MS = 500L;
     private static final long PARTICIPANTS_CACHE_TTL_MS = 500L;
-
-    private record Snapshot(ServerMetrics metrics, long receivedAt) {
-    }
 
     private record CachedValue<T>(T value, long fetchedAtMs) {
     }
 
-    private final TcpControlClient tcpClient = new TcpControlClient(AdminConfig.CORE_HOST, AdminConfig.RAW_TCP_PORT);
     private final HttpClient httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(6))
-            .build();
-    private final List<AlertListener> alertListeners = new CopyOnWriteArrayList<>();
-    private final RttMonitor rttMonitor = new RttMonitor(AdminConfig.RTT_WARN_MS, AdminConfig.RTT_CRIT_MS,
-            this::publish);
-
-    private final UdpMetricsListener metricsListener;
-    private final PingProbe pingProbe;
+            .connectTimeout(Duration.ofSeconds(6)).build();
     private final Object roomsFetchLock = new Object();
     private final Map<String, CachedValue<List<ParticipantInfo>>> participantsCache = new ConcurrentHashMap<>();
     private final Map<String, CompletableFuture<List<ParticipantInfo>>> participantsInFlight = new ConcurrentHashMap<>();
-
-    private volatile Snapshot latest;
     private volatile CachedValue<List<RoomInfo>> cachedRooms;
-    private volatile int rttMs;
-    private volatile long rttAt;
     private volatile String adminJwt;
 
-    public UdpAdminGateway() {
-        try {
-            metricsListener = new UdpMetricsListener(AdminConfig.UDP_PORT, new UdpMetricsListener.Listener() {
-                @Override
-                public void onMetrics(ServerMetrics metrics, long receivedAt) {
-                    latest = new Snapshot(metrics, receivedAt);
-                }
-
-                @Override
-                public void onAlert(String level, String metric, double value, double threshold) {
-                    log.warn("ALERT {} metric={} value={} threshold={}", level, metric, value, threshold);
-                    publish(level, metric, value, threshold);
-                }
-            });
-
-            pingProbe = new PingProbe(
-                    new InetSocketAddress(AdminConfig.UDP_SERVER_HOST, AdminConfig.UDP_PING_PORT),
-                    new PingProbe.Listener() {
-                        @Override
-                        public void onRtt(int ms) {
-                            rttMs = ms;
-                            rttAt = System.currentTimeMillis();
-                            rttMonitor.update(ms);
-                        }
-
-                        @Override
-                        public void onTimeout(long seq) {
-                            log.debug("PING seq={} không có PONG", seq);
-                        }
-                    });
-        } catch (SocketException e) {
-            throw new IllegalStateException("Không mở được socket UDP (cổng "
-                    + AdminConfig.UDP_PORT + " có thể đang được dùng): " + e.getMessage(), e);
-        }
-
-        metricsListener.start();
-        pingProbe.start(AdminConfig.PING_INTERVAL_MS);
-    }
-
-    public void addAlertListener(AlertListener listener) {
-        alertListeners.add(listener);
-    }
-
-    private void publish(String level, String metric, double value, double threshold) {
-        for (AlertListener l : alertListeners) {
-            l.onAlert(level, metric, value, threshold);
-        }
-    }
-
-    /**
-     * Gộp METRICS mới nhất với RTT mới nhất. Nếu một trong hai đã quá hạn thì báo
-     * lỗi,
-     * giao diện sẽ hiển thị "—" như khi mất kết nối.
-     */
-    @Override
-    public CompletableFuture<ServerMetrics> fetchMetrics() {
-        return CompletableFuture.supplyAsync(() -> {
-            long now = System.currentTimeMillis();
-            Snapshot s = latest;
-
-            if (s == null || now - s.receivedAt() > AdminConfig.DATA_STALE_MS) {
-                throw new IllegalStateException("Không nhận được METRICS từ core");
-            }
-            if (now - rttAt > AdminConfig.DATA_STALE_MS) {
-                throw new IllegalStateException("Không nhận được PONG từ UDP server");
-            }
-
-            ServerMetrics m = s.metrics();
-            return new ServerMetrics(
-                    m.cpuPercent(),
-                    m.cpuCores(),
-                    m.ramUsedGb(),
-                    m.ramTotalGb(),
-                    rttMs,
-                    m.onlineUsers(),
-                    m.bidsPerSecond());
-        });
-    }
-
-    // ===== Lấy danh sách phòng thật từ Core HTTP & gửi lệnh qua Raw TCP 9090 =====
-
-    @Override
+    /** Lấy danh sách phòng thật từ Core qua HTTP, không tạo dữ liệu giả. */
     public CompletableFuture<List<RoomInfo>> fetchRooms() {
         CachedValue<List<RoomInfo>> cache = this.cachedRooms;
         long nowMs = System.currentTimeMillis();
@@ -209,13 +91,13 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
         });
     }
 
-    /** Fetch all rooms from one admin snapshot so status transitions cannot split pages. */
+    /**
+     * Đọc snapshot danh sách phòng từ endpoint quản trị HTTP để tránh sai lệch khi
+     * chuyển trạng thái.
+     */
     private List<RoomInfo> fetchRoomsFromAdminApi() throws Exception {
-        String url = "http://" + AdminConfig.CORE_HOST + ":" + AdminConfig.CORE_HTTP_PORT
-                + "/api/v1/admin/auction/rooms";
-        HttpRequest req = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .timeout(Duration.ofSeconds(6))
+        String url = baseUrl() + "/api/v1/admin/auction/rooms";
+        HttpRequest req = request(url, 6)
                 .header("Authorization", "Bearer " + resolveAdminJwt())
                 .GET()
                 .build();
@@ -226,7 +108,6 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
         }
 
         JsonArray arr = JsonParser.parseString(resp.body()).getAsJsonArray();
-        LocalDateTime now = LocalDateTime.now();
         List<RoomInfo> rooms = new ArrayList<>(arr.size());
         for (JsonElement el : arr) {
             JsonObject obj = el.getAsJsonObject();
@@ -234,12 +115,13 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
             RoomStatus status = mapAdminRoomStatus(str(obj, "status", "SCHEDULED"));
             rooms.add(new RoomInfo(code, str(obj, "plate", code), str(obj, "region", "Toàn quốc"), status,
                     intValue(obj, "participantCount", 0), longValue(obj, "currentPrice", 0L),
-                    str(obj, "remainingLabel", formatRemaining(status, null, null, now)),
+                    str(obj, "remainingLabel", defaultRemaining(status)),
                     nullableLong(obj, "depositAmount")));
         }
         return List.copyOf(rooms);
     }
 
+    /** Ánh xạ trạng thái do Core trả về sang enum hiển thị. */
     private static RoomStatus mapAdminRoomStatus(String status) {
         return switch (status.toUpperCase(java.util.Locale.ROOT)) {
             case "ACTIVE", "LIVE" -> RoomStatus.ACTIVE;
@@ -253,144 +135,27 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
         };
     }
 
+    /** Đọc trường JSON kiểu int hoặc dùng giá trị dự phòng. */
     private static int intValue(JsonObject obj, String key, int fallback) {
         return obj.has(key) && !obj.get(key).isJsonNull() ? obj.get(key).getAsInt() : fallback;
     }
 
+    /** Đọc trường JSON kiểu long hoặc dùng giá trị dự phòng. */
     private static long longValue(JsonObject obj, String key, long fallback) {
         return obj.has(key) && !obj.get(key).isJsonNull() ? obj.get(key).getAsLong() : fallback;
     }
 
+    /** Đọc trường JSON kiểu long, trả null nếu không có dữ liệu. */
     private static Long nullableLong(JsonObject obj, String key) {
         return obj.has(key) && !obj.get(key).isJsonNull() ? obj.get(key).getAsLong() : null;
     }
 
-    private int fetchByStatus(String status, int page, List<RoomInfo> out) throws Exception {
-        String url = "http://" + AdminConfig.CORE_HOST
-                + ":" + AdminConfig.CORE_HTTP_PORT
-                + "/api/v1/auction/get?page="
-                + page
-                + "&size=50&status="
-                + status;
-        HttpRequest req = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .timeout(Duration.ofSeconds(6))
-                .GET()
-                .build();
-        HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
-        if (resp.statusCode() != 200) {
-            throw new IOException(
-                    "Core Service trả về HTTP "
-                            + resp.statusCode()
-                            + " khi lấy phòng status=" + status
-                            + ", page=" + page);
-        }
-
-        JsonObject root = JsonParser.parseString(resp.body()).getAsJsonObject();
-        JsonObject dataObj = root.has("data") && root.get("data").isJsonObject()
-                ? root.getAsJsonObject("data")
-                : null;
-        if (dataObj == null
-                || !dataObj.has("content")
-                || !dataObj.get("content").isJsonArray()) {
-
-            throw new IOException(
-                    "Response từ Core Service không có data.content hợp lệ"
-                            + " (status=" + status + ", page=" + page + ")");
-        }
-
-        JsonArray arr = dataObj.getAsJsonArray("content");
-        LocalDateTime now = LocalDateTime.now();
-        for (JsonElement el : arr) {
-            JsonObject obj = el.getAsJsonObject();
-            String code = str(obj, "sessionCode", str(obj, "plateNumber", "UNKNOWN"));
-            String plate = str(obj, "plateNumber", code);
-            String region = str(obj, "provinceName", "Toàn quốc");
-            String statusCode = str(obj, "statusCode", status);
-
-            JsonElement priceElement = obj.has("currentPrice")
-                    && !obj.get("currentPrice").isJsonNull()
-                            ? obj.get("currentPrice")
-                            : obj.get("price");
-
-            if (priceElement == null || priceElement.isJsonNull()) {
-                throw new IOException(
-                        "Phiên " + code + " không có giá hiện tại hợp lệ");
-            }
-
-            long price = priceElement.getAsLong();
-            int participants = obj.has("participantCount") && !obj.get("participantCount").isJsonNull()
-                    ? obj.get("participantCount").getAsInt()
-                    : 0;
-
-            String startStr = str(obj, "startTime", null);
-            String endStr = str(obj, "endTime", null);
-            RoomStatus roomStatus = mapRoomStatus(statusCode, startStr, endStr, now);
-            String remaining = formatRemaining(roomStatus, startStr, endStr, now);
-
-            out.add(new RoomInfo(code, plate, region, roomStatus, participants, price, remaining,
-                    nullableLong(obj, "depositAmount")));
-        }
-
-        return arr.size();
-    }
-
+    /** Đọc trường JSON kiểu chuỗi hoặc dùng giá trị dự phòng. */
     private static String str(JsonObject obj, String key, String def) {
         return obj.has(key) && !obj.get(key).isJsonNull() ? obj.get(key).getAsString() : def;
     }
 
-    private static RoomStatus mapRoomStatus(String statusCode, String startStr, String endStr, LocalDateTime now) {
-        if ("PAUSED".equalsIgnoreCase(statusCode))
-            return RoomStatus.PAUSED;
-        if ("COMPLETED".equalsIgnoreCase(statusCode))
-            return RoomStatus.COMPLETED;
-        if ("END".equalsIgnoreCase(statusCode))
-            return RoomStatus.CLOSED;
-        if ("LIVE".equalsIgnoreCase(statusCode)) {
-            if (endStr != null) {
-                try {
-                    long sec = Duration.between(now, LocalDateTime.parse(endStr)).getSeconds();
-                    if (sec >= 0 && sec <= 30)
-                        return RoomStatus.EXTENDING;
-                } catch (Exception ignored) {
-                }
-            }
-            return RoomStatus.ACTIVE;
-        }
-        if (startStr != null) {
-            try {
-                long min = Duration.between(now, LocalDateTime.parse(startStr)).toMinutes();
-                if (min >= 0 && min <= 15)
-                    return RoomStatus.WAITING;
-            } catch (Exception ignored) {
-            }
-        }
-        return RoomStatus.SCHEDULED;
-    }
-
-    private static String formatRemaining(RoomStatus rs, String startStr, String endStr, LocalDateTime now) {
-        if (rs == RoomStatus.PAUSED)
-            return "Tạm dừng";
-        if (rs == RoomStatus.CLOSED || rs == RoomStatus.SETTLED)
-            return "00:00:00";
-        if ((rs == RoomStatus.ACTIVE || rs == RoomStatus.EXTENDING) && endStr != null) {
-            try {
-                long sec = Math.max(0, Duration.between(now, LocalDateTime.parse(endStr)).getSeconds());
-                return String.format("%02d:%02d:%02d", sec / 3600, (sec % 3600) / 60, sec % 60);
-            } catch (Exception ignored) {
-            }
-        }
-        if (startStr != null) {
-            try {
-                LocalDateTime st = LocalDateTime.parse(startStr);
-                return String.format("%02d:%02d", st.getHour(), st.getMinute());
-            } catch (Exception ignored) {
-            }
-        }
-        return "—";
-    }
-
-    @Override
+    /** Lấy người tham gia phòng qua HTTP; cache ngắn hạn giảm request lặp. */
     public CompletableFuture<List<ParticipantInfo>> fetchParticipants(String roomId) {
         if (roomId == null || roomId.isBlank()) {
             return CompletableFuture.completedFuture(List.of());
@@ -416,14 +181,15 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
         }
     }
 
+    /**
+     * Gọi HTTP GET có Bearer JWT, đọc JSON và sắp xếp người tham gia theo giá giảm
+     * dần.
+     */
     private List<ParticipantInfo> fetchParticipantsFromHttp(String roomId) {
         try {
-            String encodedRoom = URLEncoder.encode(roomId.trim(), StandardCharsets.UTF_8).replace("+", "%20");
-            String url = "http://" + AdminConfig.CORE_HOST + ":" + AdminConfig.CORE_HTTP_PORT
-                    + "/api/v1/admin/auction/rooms/" + encodedRoom + "/participants";
-            HttpRequest req = HttpRequest.newBuilder()
-                    .uri(URI.create(url))
-                    .timeout(Duration.ofSeconds(6))
+            String encodedRoom = encodeRoom(roomId);
+            String url = baseUrl() + "/api/v1/admin/auction/rooms/" + encodedRoom + "/participants";
+            HttpRequest req = request(url, 6)
                     .header("Authorization", "Bearer " + resolveAdminJwt())
                     .GET()
                     .build();
@@ -471,7 +237,8 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
         }
     }
 
-    private void invalidateCache(String roomId) {
+    /** Xóa cache phòng/người tham gia để lần tải tiếp theo lấy dữ liệu mới. */
+    public void invalidateCache(String roomId) {
         cachedRooms = null;
         if (roomId != null) {
             participantsCache.remove(roomId);
@@ -480,46 +247,13 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
         }
     }
 
-    @Override
-    public CompletableFuture<CommandResult> halt(String roomId) {
-        return tcpClient.sendCommand("HALT " + roomId)
-                .whenComplete((r, ex) -> invalidateCache(roomId));
-    }
-
-    @Override
-    public CompletableFuture<CommandResult> resume(String roomId) {
-        return tcpClient.sendCommand("RESUME " + roomId)
-                .whenComplete((r, ex) -> invalidateCache(roomId));
-    }
-
-    @Override
-    public CompletableFuture<CommandResult> kick(String userId, String roomId) {
-        return tcpClient.sendCommand("KICK " + userId + " " + roomId)
-                .whenComplete((r, ex) -> invalidateCache(roomId));
-    }
-
-    @Override
-    public CompletableFuture<CommandResult> unkick(String userId, String roomId) {
-        return tcpClient.sendCommand("UNKICK " + userId + " " + roomId)
-                .whenComplete((r, ex) -> invalidateCache(roomId));
-    }
-
-    @Override
-    public CompletableFuture<CommandResult> cancel(String roomId) {
-        return tcpClient.sendCommand("CANCEL " + roomId)
-                .whenComplete((r, ex) -> invalidateCache(roomId));
-    }
-
-    @Override
+    /** Gửi HTTP DELETE đến Core để xóa phiên. */
     public CompletableFuture<CommandResult> deleteSession(String roomId) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                String encodedRoom = URLEncoder.encode(roomId.trim(), StandardCharsets.UTF_8).replace("+", "%20");
-                String url = "http://" + AdminConfig.CORE_HOST + ":" + AdminConfig.CORE_HTTP_PORT
-                        + "/api/v1/admin/auction/rooms/" + encodedRoom;
-                HttpRequest request = HttpRequest.newBuilder()
-                        .uri(URI.create(url))
-                        .timeout(Duration.ofSeconds(10))
+                String encodedRoom = encodeRoom(roomId);
+                String url = baseUrl() + "/api/v1/admin/auction/rooms/" + encodedRoom;
+                HttpRequest request = request(url, 10)
                         .header("Authorization", "Bearer " + resolveAdminJwt())
                         .DELETE()
                         .build();
@@ -545,18 +279,10 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
         });
     }
 
-    @Override
-    public CompletableFuture<CommandResult> announce(String roomId, String message) {
-        return tcpClient.sendCommand("ANNOUNCE " + roomId + " " + message)
-                .whenComplete((r, ex) -> invalidateCache(roomId));
-    }
-
-    @Override
-    public void close() {
-        metricsListener.close();
-        pingProbe.close();
-    }
-
+    /**
+     * Lấy JWT đăng nhập hoặc biến môi trường dự phòng; không gửi request thiếu
+     * token.
+     */
     private String resolveAdminJwt() {
         if (adminJwt != null && !adminJwt.isBlank()) {
             return adminJwt.trim();
@@ -568,7 +294,7 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
         throw new IllegalStateException("Chưa đăng nhập quản trị viên (thiếu JWT)");
     }
 
-    @Override
+    /** Xác thực qua HTTP POST và nhận JWT từ Core Service. */
     public CompletableFuture<AdminSession> login(String username, String password) {
         return CompletableFuture.supplyAsync(() -> {
             if (username == null || username.isBlank() || password == null || password.isBlank()) {
@@ -579,15 +305,9 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
             body.addProperty("userName", username.trim());
             body.addProperty("password", password);
 
-            String url = "http://"
-                    + AdminConfig.CORE_HOST
-                    + ":"
-                    + AdminConfig.CORE_HTTP_PORT
-                    + "/api/auth/login";
+            String url = baseUrl() + "/api/auth/login";
 
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(url))
-                    .timeout(Duration.ofSeconds(45))
+            HttpRequest request = request(url, 45)
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(body.toString(), StandardCharsets.UTF_8))
                     .build();
@@ -632,19 +352,13 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
         });
     }
 
-    @Override
+    /** Tải danh sách biển số khả dụng qua HTTP GET có JWT. */
     public CompletableFuture<List<AvailablePlateInfo>> fetchAvailablePlates() {
         return CompletableFuture.supplyAsync(() -> {
             String jwt = resolveAdminJwt();
-            String url = "http://"
-                    + AdminConfig.CORE_HOST
-                    + ":"
-                    + AdminConfig.CORE_HTTP_PORT
-                    + "/api/v1/admin/auction/available-plates";
+            String url = baseUrl() + "/api/v1/admin/auction/available-plates";
 
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(url))
-                    .timeout(Duration.ofSeconds(45))
+            HttpRequest request = request(url, 45)
                     .header("Authorization", "Bearer " + jwt)
                     .GET()
                     .build();
@@ -685,6 +399,10 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
         });
     }
 
+    /**
+     * Giải mã Base64URL phần payload JWT để đọc claims; không thay thế xác minh chữ
+     * ký tại Core.
+     */
     private static JsonObject decodeJwtPayload(String jwt) {
         String[] parts = jwt.split("\\.");
         if (parts.length < 2) {
@@ -695,6 +413,7 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
         return JsonParser.parseString(json).getAsJsonObject();
     }
 
+    /** Kiểm tra claim roles để quyết định cho phép mở giao diện quản trị. */
     private static boolean hasAdminRole(JsonObject claims) {
         if (!claims.has("roles") || !claims.get("roles").isJsonArray()) {
             return false;
@@ -708,7 +427,7 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
         return false;
     }
 
-    @Override
+    /** Gửi HTTP POST tạo phiên thật; Core xử lý lưu dữ liệu. */
     public CompletableFuture<String> createSession(
             CreateSessionRequest input) {
         return CompletableFuture.supplyAsync(() -> {
@@ -738,16 +457,10 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
                             DateTimeFormatter.ISO_LOCAL_DATE_TIME));
 
             // 3. Địa chỉ REST API của Core Service
-            String url = "http://"
-                    + AdminConfig.CORE_HOST
-                    + ":"
-                    + AdminConfig.CORE_HTTP_PORT
-                    + "/api/v1/admin/auction/rooms";
+            String url = baseUrl() + "/api/v1/admin/auction/rooms";
 
             // 4. Tạo HTTP POST request
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(url))
-                    .timeout(Duration.ofSeconds(45))
+            HttpRequest request = request(url, 45)
                     .header("Content-Type", "application/json")
                     .header("Authorization", "Bearer " + jwt.trim())
                     .POST(HttpRequest.BodyPublishers.ofString(
@@ -798,6 +511,7 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
         });
     }
 
+    /** Trích xuất thông báo lỗi từ JSON trả về của Core. */
     private static String readErrorMessage(String body) {
         try {
             JsonObject json = JsonParser
@@ -812,5 +526,29 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
         } catch (Exception e) {
             return "Không đọc được thông báo từ server";
         }
+    }
+
+    /** Nhãn dự phòng khi API không trả remainingLabel. */
+    private static String defaultRemaining(RoomStatus status) {
+        return switch (status) {
+            case PAUSED -> "Tạm dừng";
+            case CLOSED, SETTLED -> "00:00:00";
+            default -> "—";
+        };
+    }
+
+    /** Tạo HTTP request có timeout riêng cho từng loại nghiệp vụ. */
+    private static HttpRequest.Builder request(String url, long timeoutSeconds) {
+        return HttpRequest.newBuilder().uri(URI.create(url)).timeout(Duration.ofSeconds(timeoutSeconds));
+    }
+
+    /** Dùng chung địa chỉ Core, không thay đổi host/cổng hiện tại. */
+    private static String baseUrl() {
+        return "http://" + AdminConfig.CORE_HOST + ":" + AdminConfig.CORE_HTTP_PORT;
+    }
+
+    /** Mã hóa mã phòng thành một đoạn URL, không dùng dấu + cho khoảng trắng. */
+    private static String encodeRoom(String roomId) {
+        return URLEncoder.encode(roomId.trim(), StandardCharsets.UTF_8).replace("+", "%20");
     }
 }

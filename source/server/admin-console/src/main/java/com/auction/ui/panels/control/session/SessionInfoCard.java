@@ -14,62 +14,64 @@ import com.auction.model.RoomStatus;
 
 /** Thẻ phiên đang chọn: mã phòng, đồng hồ, giá hiện tại, số người tham gia. */
 public class SessionInfoCard extends JPanel {
-    private final JLabel roomIdLabel = caption("—");
-    private final JLabel plateLabel = value("—", 22f);
-    private final JLabel statusLabel = caption("—");
-    private final JLabel countdownTitleLabel = caption("ĐẾM NGƯỢC");
-    private final JLabel countdownLabel = value("—", 22f);
-    private final JLabel priceLabel = value("—", 22f);
-    private final JLabel peopleLabel = value("—", 16f);
-    private final JLabel depositLabel = caption("Cọc: Chưa có dữ liệu");
+        private final JLabel roomIdLabel = caption("—");
+        private final JLabel plateLabel = value("—", 22f);
+        private final JLabel statusLabel = caption("—");
+        private final JLabel countdownTitleLabel = caption("ĐẾM NGƯỢC");
+        private final JLabel countdownLabel = value("—", 22f);
+        private final JLabel priceLabel = value("—", 22f);
+        private final JLabel peopleLabel = value("—", 16f);
+        private final JLabel depositLabel = caption("Cọc: Chưa có dữ liệu");
 
-    public SessionInfoCard() {
-        setLayout(new GridLayout(1, 4, 14, 0));
-        applyCardStyle(this);
+        /** Khởi tạo thành phần Swing, bố cục và trạng thái ban đầu. */
+        public SessionInfoCard() {
+                setLayout(new GridLayout(1, 4, 14, 0));
+                applyCardStyle(this);
 
-        JLabel priceTitle = caption("GIÁ HIỆN TẠI (VNĐ)");
-        add(stack(roomIdLabel, plateLabel, statusLabel));
-        add(stack(countdownTitleLabel, countdownLabel,
-                caption("<html>Sau RESUME: cộng " + AdminConfig.EXTENSION_SECONDS + " giây</html>")));
-        add(stack(priceTitle, priceLabel,
-                caption("<html>Khởi điểm " + formatVnd(AdminConfig.START_PRICE_VND) + "</html>")));
-        add(stack(peopleLabel, depositLabel,
-                caption("<html>Đặt giá trong " + AdminConfig.LATE_BID_WINDOW_SECONDS
-                        + "s cuối:<br>gia hạn " + AdminConfig.EXTENSION_SECONDS + " giây</html>")));
-    }
-
-    /** Hiển thị phòng. Truyền null để đưa thẻ về trạng thái trống. */
-    public void setRoom(RoomInfo room) {
-        if (room == null) {
-            roomIdLabel.setText("—");
-            plateLabel.setText("—");
-            statusLabel.setText("—");
-            statusLabel.setForeground(COLOR_MUTED);
-            countdownTitleLabel.setText("ĐẾM NGƯỢC");
-            countdownLabel.setText("—");
-            countdownLabel.setForeground(COLOR_TEXT);
-            priceLabel.setText("—");
-            peopleLabel.setText("—");
-            depositLabel.setText("Cọc: Chưa có dữ liệu");
-            return;
+                JLabel priceTitle = caption("GIÁ HIỆN TẠI (VNĐ)");
+                add(stack(roomIdLabel, plateLabel, statusLabel));
+                add(stack(countdownTitleLabel, countdownLabel,
+                                caption("<html>Sau RESUME: cộng " + AdminConfig.EXTENSION_SECONDS + " giây</html>")));
+                add(stack(priceTitle, priceLabel,
+                                caption("<html>Khởi điểm " + formatVnd(AdminConfig.START_PRICE_VND) + "</html>")));
+                add(stack(peopleLabel, depositLabel,
+                                caption("<html>Đặt giá trong " + AdminConfig.LATE_BID_WINDOW_SECONDS
+                                                + "s cuối:<br>gia hạn " + AdminConfig.EXTENSION_SECONDS
+                                                + " giây</html>")));
         }
 
-        String roomText = room.id() + " • " + room.region();
-        roomIdLabel.setText("<html>" + roomText + "</html>");
-        roomIdLabel.setToolTipText(roomText);
-        plateLabel.setText(room.plate());
-        statusLabel.setText("• " + room.status().label());
-        statusLabel.setForeground(statusColor(room.status()));
+        /** Hiển thị phòng. Truyền null để đưa thẻ về trạng thái trống. */
+        public void setRoom(RoomInfo room) {
+                if (room == null) {
+                        roomIdLabel.setText("—");
+                        plateLabel.setText("—");
+                        statusLabel.setText("—");
+                        statusLabel.setForeground(COLOR_MUTED);
+                        countdownTitleLabel.setText("ĐẾM NGƯỢC");
+                        countdownLabel.setText("—");
+                        countdownLabel.setForeground(COLOR_TEXT);
+                        priceLabel.setText("—");
+                        peopleLabel.setText("—");
+                        depositLabel.setText("Cọc: Chưa có dữ liệu");
+                        return;
+                }
 
-        boolean paused = room.status() == RoomStatus.PAUSED;
-        countdownTitleLabel.setText(paused ? "ĐẾM NGƯỢC ĐÓNG BĂNG" : "ĐẾM NGƯỢC");
-        countdownLabel.setText(room.remainingLabel());
-        countdownLabel.setForeground(paused ? COLOR_WARNING : COLOR_TEXT);
+                String roomText = room.id() + " • " + room.region();
+                roomIdLabel.setText("<html>" + roomText + "</html>");
+                roomIdLabel.setToolTipText(roomText);
+                plateLabel.setText(room.plate());
+                statusLabel.setText("• " + room.status().label());
+                statusLabel.setForeground(statusColor(room.status()));
 
-        priceLabel.setText(formatVnd(room.currentPrice()));
-        peopleLabel.setText(room.participantCount() + " người tham gia");
-        depositLabel.setText(room.depositAmount() == null
-                ? "Cọc: Chưa có dữ liệu"
-                : "Cọc: " + formatVnd(room.depositAmount()) + " VNĐ / người");
-    }
+                boolean paused = room.status() == RoomStatus.PAUSED;
+                countdownTitleLabel.setText(paused ? "ĐẾM NGƯỢC ĐÓNG BĂNG" : "ĐẾM NGƯỢC");
+                countdownLabel.setText(room.remainingLabel());
+                countdownLabel.setForeground(paused ? COLOR_WARNING : COLOR_TEXT);
+
+                priceLabel.setText(formatVnd(room.currentPrice()));
+                peopleLabel.setText(room.participantCount() + " người tham gia");
+                depositLabel.setText(room.depositAmount() == null
+                                ? "Cọc: Chưa có dữ liệu"
+                                : "Cọc: " + formatVnd(room.depositAmount()) + " VNĐ / người");
+        }
 }

@@ -19,9 +19,10 @@ public class ParticipantRenderer extends DefaultTableCellRenderer {
     public static final int COL_CONN = 2;
     public static final int COL_PRICE = 3;
 
+    /** Định dạng ô bảng theo dữ liệu và trạng thái chọn hiện tại. */
     @Override
     public Component getTableCellRendererComponent(JTable table, Object value, boolean selected,
-                                                   boolean focus, int row, int column) {
+            boolean focus, int row, int column) {
         super.getTableCellRendererComponent(table, value, selected, focus, row, column);
 
         setText(textOf(value, column));
@@ -34,6 +35,7 @@ public class ParticipantRenderer extends DefaultTableCellRenderer {
         return this;
     }
 
+    /** Định dạng giá trị người tham gia thành chuỗi hiển thị. */
     private static String textOf(Object value, int column) {
         return switch (column) {
             case COL_CONN -> "● " + value;

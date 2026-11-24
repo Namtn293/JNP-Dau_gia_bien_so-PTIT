@@ -9,9 +9,11 @@ import java.util.Map;
  * ram_total=16.0 online=248 bps=12.4
  */
 public final class MessageParser {
+    /** Ngăn khởi tạo lớp tiện ích chỉ chứa thành viên tĩnh. */
     private MessageParser() {
     }
 
+    /** Phân tích datagram text theo loại gói và các trường bắt buộc. */
     public static Message parse(String line) {
         if (line == null || line.isBlank()) {
             throw new ProtocolException("Gói rỗng");
@@ -51,6 +53,7 @@ public final class MessageParser {
         };
     }
 
+    /** Lấy trường bắt buộc hoặc báo lỗi protocol nếu thiếu. */
     private static String require(Map<String, String> fields, String key) {
         String v = fields.get(key);
         if (v == null || v.isBlank()) {
@@ -60,6 +63,7 @@ public final class MessageParser {
         return v;
     }
 
+    /** Đọc trường số nguyên 64 bit từ thông điệp UDP. */
     private static long longField(Map<String, String> fields, String key) {
         try {
             return Long.parseLong(require(fields, key));
@@ -68,6 +72,7 @@ public final class MessageParser {
         }
     }
 
+    /** Đọc trường số nguyên 32 bit từ thông điệp UDP. */
     private static int intField(Map<String, String> fields, String key) {
         try {
             return Integer.parseInt(require(fields, key));
@@ -76,6 +81,7 @@ public final class MessageParser {
         }
     }
 
+    /** Đọc trường số thực hữu hạn từ thông điệp UDP. */
     private static double doubleField(Map<String, String> fields, String key) {
         try {
             double d = Double.parseDouble(require(fields, key));
@@ -88,6 +94,7 @@ public final class MessageParser {
         }
     }
 
+    /** Ánh xạ mức cảnh báo text sang enum. */
     private static Message.Level levelField(Map<String, String> fields) {
         String v = require(fields, "level").toUpperCase();
         try {

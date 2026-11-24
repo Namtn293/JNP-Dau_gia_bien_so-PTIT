@@ -3,11 +3,15 @@ package com.auction.mail;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
-/** Một email cần gửi. Kiểm tra địa chỉ người nhận ngay khi tạo, tránh chèn ký tự xuống dòng vào header. */
+/**
+ * Một email cần gửi. Kiểm tra địa chỉ người nhận ngay khi tạo, tránh chèn ký tự
+ * xuống dòng vào header.
+ */
 public record MailMessage(String to, String subject, String body) {
 
     private static final Pattern EMAIL = Pattern.compile("[^\\s@<>]+@[^\\s@<>]+\\.[^\\s@<>]+");
 
+    /** Khởi tạo thành phần và lưu các phụ thuộc cần thiết. */
     public MailMessage {
         Objects.requireNonNull(to, "Thiếu email người nhận");
         Objects.requireNonNull(subject, "Thiếu tiêu đề");

@@ -4,11 +4,14 @@ import java.util.Locale;
 
 /** Các mẫu email. Thêm mẫu mới bằng cách thêm một phương thức static ở đây. */
 public final class MailTemplates {
-    private MailTemplates() { }
+    /** Ngăn khởi tạo lớp tiện ích chỉ chứa thành viên tĩnh. */
+    private MailTemplates() {
+
+    }
 
     /** Thông báo trúng đấu giá. Số tiền cần thanh toán = giá trúng - tiền cọc. */
     public static MailMessage winnerNotice(String to, String roomId, String plate,
-                                           long finalPrice, long deposit) {
+            long finalPrice, long deposit) {
         long due = finalPrice - deposit;
         String subject = "[Đấu giá] Thông báo trúng đấu giá biển số " + plate;
         String body = """

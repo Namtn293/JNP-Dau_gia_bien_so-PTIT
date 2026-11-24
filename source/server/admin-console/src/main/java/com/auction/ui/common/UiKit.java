@@ -13,6 +13,10 @@ import javax.swing.BoxLayout;
 import javax.swing.BorderFactory;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
+import javax.swing.JButton;
+import javax.swing.JProgressBar;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.JPanel;
 import javax.swing.JTable;
 import javax.swing.Scrollable;
@@ -21,7 +25,9 @@ import javax.swing.table.TableColumnModel;
 
 /** Hàm tiện ích tạo component giao diện, dùng chung cho các panel. */
 public final class UiKit {
-    private UiKit() { }
+    /** Ngăn khởi tạo lớp tiện ích chỉ chứa thành viên tĩnh. */
+    private UiKit() {
+    }
 
     /** Thẻ trắng có viền, bố cục do người gọi truyền vào. */
     public static JPanel cardWith(LayoutManager layout) {
@@ -99,28 +105,78 @@ public final class UiKit {
         }
     }
 
+    /** Nút phân trang có cùng font và trạng thái focus như hai bảng cũ. */
+    public static JButton pagerButton(String text) {
+        JButton button = new JButton(text);
+        button.setFont(FONT_NORMAL);
+        button.setFocusPainted(false);
+        return button;
+    }
+
+    /** Thanh phần trăm 6px; chiều rộng ưu tiên do từng panel quyết định. */
+    public static JProgressBar thinBar(int preferredWidth) {
+        JProgressBar bar = new JProgressBar(0, 100);
+        bar.setValue(0);
+        bar.setStringPainted(false);
+        bar.setForeground(COLOR_PRIMARY);
+        bar.setBackground(new Color(230, 230, 230));
+        bar.setBorderPainted(false);
+        bar.setPreferredSize(new Dimension(preferredWidth, 6));
+        bar.setMaximumSize(new Dimension(Integer.MAX_VALUE, 6));
+        bar.setAlignmentX(Component.LEFT_ALIGNMENT);
+        return bar;
+    }
+
+    /** Chạy cùng callback khi nội dung Document Swing thay đổi. */
+    public static DocumentListener onDocumentChange(Runnable callback) {
+        return new DocumentListener() {
+            /** Xử lý sự kiện văn bản được chèn vào Swing Document. */
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                callback.run();
+            }
+
+            /** Xử lý sự kiện văn bản bị xóa khỏi Swing Document. */
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                callback.run();
+            }
+
+            /** Xử lý sự kiện thay đổi thuộc tính của Swing Document. */
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                callback.run();
+            }
+        };
+    }
+
     /** JPanel tự khớp chiều rộng với JScrollPane, ngăn tràn ngang. */
     public static class ScrollablePanel extends JPanel implements Scrollable {
+        /** Trả về kích thước ưu tiên cho vùng cuộn. */
         @Override
         public Dimension getPreferredScrollableViewportSize() {
             return getPreferredSize();
         }
 
+        /** Trả về bước cuộn nhỏ. */
         @Override
         public int getScrollableUnitIncrement(Rectangle visibleRect, int orientation, int direction) {
             return 16;
         }
 
+        /** Trả về bước cuộn lớn. */
         @Override
         public int getScrollableBlockIncrement(Rectangle visibleRect, int orientation, int direction) {
             return 64;
         }
 
+        /** Cho panel khớp chiều rộng viewport. */
         @Override
         public boolean getScrollableTracksViewportWidth() {
             return true;
         }
 
+        /** Cho panel giữ chiều cao nội dung để cuộn dọc. */
         @Override
         public boolean getScrollableTracksViewportHeight() {
             return false;

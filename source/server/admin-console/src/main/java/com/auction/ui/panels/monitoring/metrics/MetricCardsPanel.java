@@ -1,5 +1,6 @@
 package com.auction.ui.panels.monitoring.metrics;
 
+import com.auction.ui.common.UiKit;
 import static com.auction.ui.common.Theme.*;
 
 import java.awt.BasicStroke;
@@ -68,6 +69,7 @@ public class MetricCardsPanel extends JPanel {
     private JProgressBar cpuProgressBar;
     private JProgressBar ramProgressBar;
 
+    /** Khởi tạo thành phần Swing, bố cục và trạng thái ban đầu. */
     public MetricCardsPanel(AdminGateway gateway) {
         this.gateway = gateway;
 
@@ -118,6 +120,7 @@ public class MetricCardsPanel extends JPanel {
                 });
     }
 
+    /** Hiển thị các số liệu CPU, RAM và RTT vừa nhận. */
     private void applyMetrics(ServerMetrics m) {
         Second now = new Second();
 
@@ -151,6 +154,7 @@ public class MetricCardsPanel extends JPanel {
         bidRateValueLabel.setText(String.format("%.1f", m.bidsPerSecond()).replace('.', ','));
     }
 
+    /** Hiển thị trạng thái thiếu dữ liệu hoặc mất kết nối. */
     private void showOffline() {
         cpuValueLabel.setText("—");
         cpuCaptionLabel.setText("Không có dữ liệu");
@@ -162,6 +166,7 @@ public class MetricCardsPanel extends JPanel {
         pingStatusLabel.setForeground(COLOR_DANGER);
     }
 
+    /** Thêm mẫu mới vào lịch sử biểu đồ theo giới hạn hiện tại. */
     private static void pushHistory(Deque<Double> history, double value) {
         history.addLast(value);
         while (history.size() > HISTORY_SECONDS) {
@@ -169,20 +174,12 @@ public class MetricCardsPanel extends JPanel {
         }
     }
 
+    /** Tính trung bình các mẫu đang lưu. */
     private static double average(Deque<Double> values) {
         return values.stream().mapToDouble(Double::doubleValue).average().orElse(0);
     }
 
     /** Chữ hiển thị kèm RTT, dùng cùng ngưỡng với màu. */
-    private static String rttStatusText(int ms) {
-        if (ms < RTT_GOOD_MS) {
-            return "Ổn định";
-        }
-        if (ms <= RTT_BAD_MS) {
-            return "Trung bình";
-        }
-        return "Kém";
-    }
 
     // ===== Xây dựng giao diện =====
     private JPanel createCardBase() {
@@ -195,6 +192,7 @@ public class MetricCardsPanel extends JPanel {
         return card;
     }
 
+    /** Tạo tiêu đề của thẻ chỉ số. */
     private JPanel createCardHeader(String title, String rightText) {
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
@@ -215,25 +213,13 @@ public class MetricCardsPanel extends JPanel {
         return header;
     }
 
+    /** Tạo nhãn chú thích của thẻ. */
     private JLabel createCaptionLabel(String text) {
         JLabel label = new JLabel(text);
         label.setFont(FONT_SMALL);
         label.setForeground(COLOR_MUTED);
         label.setAlignmentX(Component.LEFT_ALIGNMENT);
         return label;
-    }
-
-    private JProgressBar createThinBar() {
-        JProgressBar bar = new JProgressBar(0, 100);
-        bar.setValue(0);
-        bar.setStringPainted(false);
-        bar.setForeground(COLOR_PRIMARY);
-        bar.setBackground(new Color(230, 230, 230));
-        bar.setBorderPainted(false);
-        bar.setPreferredSize(new Dimension(Integer.MAX_VALUE, 6));
-        bar.setMaximumSize(new Dimension(Integer.MAX_VALUE, 6));
-        bar.setAlignmentX(Component.LEFT_ALIGNMENT);
-        return bar;
     }
 
     // THẺ 1: CPU
@@ -264,7 +250,7 @@ public class MetricCardsPanel extends JPanel {
         card.add(midRow);
         card.add(Box.createVerticalStrut(12));
 
-        cpuProgressBar = createThinBar();
+        cpuProgressBar = UiKit.thinBar(Integer.MAX_VALUE);
         card.add(cpuProgressBar);
 
         card.add(Box.createVerticalGlue());
@@ -303,7 +289,7 @@ public class MetricCardsPanel extends JPanel {
         card.add(midRow);
         card.add(Box.createVerticalStrut(12));
 
-        ramProgressBar = createThinBar();
+        ramProgressBar = UiKit.thinBar(Integer.MAX_VALUE);
         card.add(ramProgressBar);
 
         card.add(Box.createVerticalGlue());
@@ -354,6 +340,7 @@ public class MetricCardsPanel extends JPanel {
         return card;
     }
 
+    /** Tạo nhãn hiển thị thông tin mẫu đo. */
     private JLabel createSampleLabel(String text, Color color) {
         JLabel label = new JLabel("● " + text);
         label.setFont(FONT_SMALL);
@@ -388,6 +375,7 @@ public class MetricCardsPanel extends JPanel {
         return card;
     }
 
+    /** Tạo thành phần hiển thị một giá trị thống kê. */
     private JPanel createStat(JLabel valueLabel, String caption) {
         JPanel stat = new JPanel();
         stat.setLayout(new BoxLayout(stat, BoxLayout.Y_AXIS));

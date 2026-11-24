@@ -1,4 +1,4 @@
-package com.auction.ui.common;
+package com.auction.ui.dialog;
 
 import com.auction.gateway.AdminGateway;
 import com.auction.model.AdminSession;
@@ -20,18 +20,21 @@ public final class AdminLoginDialog extends JDialog {
 
     private AdminSession authenticatedSession;
 
+    /** Khởi tạo thành phần Swing, bố cục và trạng thái ban đầu. */
     private AdminLoginDialog(AdminGateway gateway) {
         super((Frame) null, "Đăng nhập Quản trị viên", true);
         this.gateway = gateway;
         initUi();
     }
 
+    /** Mở hộp thoại đăng nhập và trả phiên đăng nhập nếu thành công. */
     public static AdminSession showLogin(AdminGateway gateway) {
         AdminLoginDialog dialog = new AdminLoginDialog(gateway);
         dialog.setVisible(true);
         return dialog.authenticatedSession;
     }
 
+    /** Khởi tạo các thành phần và bố cục hộp thoại. */
     private void initUi() {
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         setResizable(false);
@@ -101,6 +104,9 @@ public final class AdminLoginDialog extends JDialog {
         setLocationRelativeTo(null);
     }
 
+    /**
+     * Gửi yêu cầu đăng nhập bất đồng bộ; trả kết quả về EDT để cập nhật giao diện.
+     */
     private void submitLogin() {
         String username = usernameField.getText().trim();
         String password = new String(passwordField.getPassword());
@@ -132,6 +138,7 @@ public final class AdminLoginDialog extends JDialog {
         }));
     }
 
+    /** Bật/tắt trạng thái đang xử lý để tránh thao tác lặp. */
     private void setBusy(boolean busy) {
         usernameField.setEnabled(!busy);
         passwordField.setEnabled(!busy);

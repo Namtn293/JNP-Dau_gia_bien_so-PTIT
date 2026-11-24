@@ -6,12 +6,14 @@ import com.auction.udp.protocol.Message;
 
 /**
  * Giữ gói METRICS mới nhất. Gói có seq nhỏ hơn hoặc bằng gói hiện tại bị bỏ,
- * trừ khi gói hiện tại đã quá hạn (core có thể đã khởi động lại và seq quay về 1).
+ * trừ khi gói hiện tại đã quá hạn (core có thể đã khởi động lại và seq quay về
+ * 1).
  */
 public final class LatestMetrics {
     private final long staleAfterMillis;
     private Snapshot current;
 
+    /** Khởi tạo thành phần và lưu các phụ thuộc cần thiết. */
     public LatestMetrics(long staleAfterMillis) {
         this.staleAfterMillis = staleAfterMillis;
     }
@@ -35,10 +37,14 @@ public final class LatestMetrics {
         return Optional.of(current);
     }
 
-    /** Thời điểm nhận gói METRICS gần nhất, kể cả khi đã quá hạn. Empty nếu chưa từng nhận. */
+    /**
+     * Thời điểm nhận gói METRICS gần nhất, kể cả khi đã quá hạn. Empty nếu chưa
+     * từng nhận.
+     */
     public synchronized Optional<Long> lastReceivedAt() {
         return current == null ? Optional.empty() : Optional.of(current.receivedAt());
     }
 
-    public record Snapshot(Message.Metrics metrics, long receivedAt) { }
+    public record Snapshot(Message.Metrics metrics, long receivedAt) {
+    }
 }

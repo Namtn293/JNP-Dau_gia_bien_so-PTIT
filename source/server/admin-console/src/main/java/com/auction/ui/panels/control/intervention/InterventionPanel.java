@@ -17,8 +17,6 @@ import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
 
 import com.auction.AdminConfig;
 import com.auction.model.RoomInfo;
@@ -34,14 +32,19 @@ import com.auction.ui.common.UiKit;
 public class InterventionPanel extends UiKit.ScrollablePanel {
 
     public interface Listener {
+        /** Callback để controller xử lý thao tác tạm dừng. */
         void onHalt(String roomId);
 
+        /** Callback để controller xử lý thao tác tiếp tục. */
         void onResume(String roomId);
 
+        /** Callback để controller xử lý thao tác khóa người dùng. */
         void onKick(String userId, String roomId);
 
+        /** Callback để controller xử lý thao tác mở khóa người dùng. */
         void onUnkick(String userId, String roomId);
 
+        /** Callback để controller xử lý thao tác hủy phiên. */
         void onCancel(String roomId);
     }
 
@@ -56,6 +59,7 @@ public class InterventionPanel extends UiKit.ScrollablePanel {
     private final JButton unkickButton = ButtonStyles.filled("UNKICK", COLOR_SUCCESS);
     private final JButton cancelButton = ButtonStyles.outline("CANCEL");
 
+    /** Khởi tạo thành phần Swing, bố cục và trạng thái ban đầu. */
     public InterventionPanel(Listener listener) {
         this.listener = listener;
 
@@ -76,7 +80,10 @@ public class InterventionPanel extends UiKit.ScrollablePanel {
         updateButtons();
     }
 
-    /** Điền ID tài khoản cho KICK, thường là dòng vừa chọn trong bảng người tham gia. */
+    /**
+     * Điền ID tài khoản cho KICK, thường là dòng vừa chọn trong bảng người tham
+     * gia.
+     */
     public void setKickAccount(String userId) {
         kickField.setText(userId);
     }
@@ -100,7 +107,8 @@ public class InterventionPanel extends UiKit.ScrollablePanel {
         targetRoomLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         targetRoomLabel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 32));
         column.add(targetRoomLabel);
-        column.add(UiKit.caption("<html><body style='width: 240px'>Chọn phòng ở tab Giám sát để đổi mục tiêu.</body></html>"));
+        column.add(UiKit
+                .caption("<html><body style='width: 240px'>Chọn phòng ở tab Giám sát để đổi mục tiêu.</body></html>"));
         column.add(Box.createVerticalStrut(12));
 
         JPanel controls = new JPanel(new GridLayout(1, 2, 10, 0));
@@ -138,6 +146,7 @@ public class InterventionPanel extends UiKit.ScrollablePanel {
         return column;
     }
 
+    /** Tạo phần tiêu đề khu vực can thiệp. */
     private JPanel createHead() {
         JPanel head = new JPanel(new BorderLayout());
         head.setOpaque(false);
@@ -152,6 +161,7 @@ public class InterventionPanel extends UiKit.ScrollablePanel {
         return head;
     }
 
+    /** Tạo nhóm thành phần điều khiển. */
     private static JPanel actionGroup(JButton button, String descHtml) {
         JPanel group = new JPanel(new BorderLayout(0, 4));
         group.setOpaque(false);
@@ -192,24 +202,10 @@ public class InterventionPanel extends UiKit.ScrollablePanel {
         });
         cancelButton.addActionListener(e -> confirmCancel());
 
-        kickField.getDocument().addDocumentListener(new DocumentListener() {
-            @Override
-            public void insertUpdate(DocumentEvent e) {
-                updateButtons();
-            }
-
-            @Override
-            public void removeUpdate(DocumentEvent e) {
-                updateButtons();
-            }
-
-            @Override
-            public void changedUpdate(DocumentEvent e) {
-                updateButtons();
-            }
-        });
+        kickField.getDocument().addDocumentListener(UiKit.onDocumentChange(this::updateButtons));
     }
 
+    /** Yêu cầu xác nhận hủy phiên trước khi thực hiện. */
     private void confirmCancel() {
         if (room == null) {
             return;

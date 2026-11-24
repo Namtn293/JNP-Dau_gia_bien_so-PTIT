@@ -1,19 +1,23 @@
-package com.auction.ui.common;
+package com.auction.ui.log;
 
 import java.util.Locale;
 
 import javax.swing.text.StyledDocument;
 
-import com.auction.net.udp.UdpAdminGateway;
+import com.auction.net.udp.UdpMonitoringClient;
 
 /** Ghi cảnh báo UDP và RTT vào nhật ký giao diện. */
-public final class AlertLogger implements UdpAdminGateway.AlertListener {
+public final class AlertLogger implements UdpMonitoringClient.AlertListener {
     private final StyledDocument document;
 
+    /** Khởi tạo thành phần Swing, bố cục và trạng thái ban đầu. */
     public AlertLogger(StyledDocument document) {
         this.document = document;
     }
 
+    /**
+     * Xử lý callback cảnh báo; không cập nhật Swing trực tiếp từ luồng nhận UDP.
+     */
     @Override
     public void onAlert(String level, String metric, double value, double threshold) {
         LogPanel.Level logLevel = switch (level) {
@@ -25,6 +29,7 @@ public final class AlertLogger implements UdpAdminGateway.AlertListener {
         LogPanel.appendTo(document, logLevel, describe(level, metric, value, threshold));
     }
 
+    /** Tạo mô tả cảnh báo dễ đọc cho quản trị viên. */
     private static String describe(String level, String metric, double value, double threshold) {
         if ("core".equals(metric)) {
             return "CRITICAL".equals(level)

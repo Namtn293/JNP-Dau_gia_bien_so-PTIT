@@ -1,13 +1,16 @@
 package com.auction.udp.protocol;
 
 public sealed interface Message permits Message.Metrics, Message.Ping, Message.Pong, Message.Alert {
+    /** Trả về số thứ tự thông điệp UDP. */
     long seq();
 
+    /** Trả về timestamp của thông điệp UDP. */
     long ts();
 
     /** Chỉ số hệ thống, core gửi định kỳ. */
     record Metrics(long seq, long ts, double cpu, int cores, double ramUsedGb, double ramTotalGb, int online,
             double bps) implements Message {
+        /** Khởi tạo thành phần và lưu các phụ thuộc cần thiết. */
         public Metrics {
             if (cpu < 0 || cpu > 100) {
                 throw new ProtocolException("CPU ngoài khoảng 0-100: " + cpu);

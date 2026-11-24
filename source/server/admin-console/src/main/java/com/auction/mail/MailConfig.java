@@ -7,14 +7,15 @@ import java.nio.file.Path;
 import java.util.Properties;
 
 /**
- * Cấu hình SMTP. Thứ tự ưu tiên: biến môi trường, system property (-DMAIL_USER=...),
+ * Cấu hình SMTP. Thứ tự ưu tiên: biến môi trường, system property
+ * (-DMAIL_USER=...),
  * rồi file mail.properties (tìm từ thư mục hiện tại đi lên vài cấp).
  */
-public record MailConfig(String host, int port, String username, String password,
-                         String from, String fromName) {
+public record MailConfig(String host, int port, String username, String password, String from, String fromName) {
 
     private static final String FILE_NAME = "mail.properties";
 
+    /** Đọc cấu hình từ biến môi trường và nguồn cấu hình dự phòng. */
     public static MailConfig fromEnv() {
         Properties file = loadFile();
 
@@ -23,9 +24,8 @@ public record MailConfig(String host, int port, String username, String password
         if (user == null || pass == null) {
             String missing = (user == null ? "MAIL_USER" : "") + (user == null && pass == null ? ", " : "")
                     + (pass == null ? "MAIL_PASS" : "");
-            throw new IllegalStateException("Chưa có " + missing
-                    + ". Đặt biến môi trường, hoặc ghi vào file " + FILE_NAME
-                    + " trong source/server/admin-console");
+            throw new IllegalStateException("Chưa có " + missing + ". Đặt biến môi trường, hoặc ghi vào file "
+                    + FILE_NAME + " trong source/server/admin-console");
         }
 
         return new MailConfig(
@@ -37,6 +37,7 @@ public record MailConfig(String host, int port, String username, String password
                 value("MAIL_FROM_NAME", file, "Sàn đấu giá biển số"));
     }
 
+    /** Lấy giá trị cấu hình theo thứ tự ưu tiên đã định. */
     private static String value(String key, Properties file, String defaultValue) {
         String v = System.getenv(key);
         if (isBlank(v)) {
@@ -51,6 +52,7 @@ public record MailConfig(String host, int port, String username, String password
         return v.trim();
     }
 
+    /** Kiểm tra giá trị cấu hình chưa được cung cấp. */
     private static boolean isBlank(String s) {
         return s == null || s.isBlank();
     }
@@ -64,7 +66,7 @@ public record MailConfig(String host, int port, String username, String password
             Path nested = dir.resolve("source/server/admin-console").resolve(FILE_NAME);
             Path found = Files.isRegularFile(candidate) ? candidate
                     : Files.isRegularFile(nested) ? nested
-                    : null;
+                            : null;
             if (found != null) {
                 try (InputStream in = Files.newInputStream(found)) {
                     props.load(in);

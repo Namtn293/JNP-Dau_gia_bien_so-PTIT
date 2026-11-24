@@ -13,7 +13,7 @@ import com.auction.udp.protocol.MessageFormatter;
 public class PingResponder implements MessageHandler {
     private static final Logger log = LoggerFactory.getLogger(PingResponder.class);
 
-
+    /** Nhận PING và trả PONG với seq/ts tương ứng về địa chỉ nguồn. */
     public void handle(Message message, InetSocketAddress from, UdpReceiver channel) {
         if (!(message instanceof Message.Ping ping)) {
             log.warn("Bỏ gói {} nhận trên cổng ping từ {}", message.getClass().getSimpleName(), from);

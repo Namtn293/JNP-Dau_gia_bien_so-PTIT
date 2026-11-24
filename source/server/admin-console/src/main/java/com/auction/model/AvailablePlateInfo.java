@@ -6,6 +6,7 @@ public record AvailablePlateInfo(
         String plateType,
         String vehicleType) {
 
+    /** Trả về chuỗi dùng để hiển thị đối tượng. */
     @Override
     public String toString() {
         if (provinceName != null && !provinceName.isBlank()) {

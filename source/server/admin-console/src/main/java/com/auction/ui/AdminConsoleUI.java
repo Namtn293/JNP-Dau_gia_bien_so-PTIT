@@ -26,15 +26,15 @@ import org.slf4j.LoggerFactory;
 
 import static com.auction.ui.common.Theme.*;
 
-import com.auction.ui.common.LogPanel;
-import com.auction.ui.common.RoomSelection;
+import com.auction.ui.log.LogPanel;
+import com.auction.ui.state.RoomSelection;
 import com.auction.ui.panels.control.SessionControlPanel;
 import com.auction.AdminConfig;
 
 import com.auction.gateway.AdminGateway;
 import com.auction.model.AdminSession;
-import com.auction.net.udp.UdpAdminGateway;
-import com.auction.ui.common.AlertLogger;
+import com.auction.gateway.AdminGatewayImpl;
+import com.auction.ui.log.AlertLogger;
 
 /**
  * AdminConsoleUI - Cửa sổ chính của Admin Console.
@@ -50,16 +50,19 @@ public class AdminConsoleUI extends JFrame {
     private RoomSelection selection;
     private final AdminSession adminSession;
 
+    /** Khởi tạo thành phần Swing, bố cục và trạng thái ban đầu. */
     public AdminConsoleUI() {
-        this(new UdpAdminGateway(), null);
+        this(new AdminGatewayImpl(), null);
     }
 
-    public AdminConsoleUI(UdpAdminGateway udpGateway, AdminSession adminSession) {
+    /** Khởi tạo thành phần Swing, bố cục và trạng thái ban đầu. */
+    public AdminConsoleUI(AdminGatewayImpl udpGateway, AdminSession adminSession) {
         this.adminSession = adminSession;
         initializeUI(udpGateway); // Khởi tạo giao diện
     }
 
-    private void initializeUI(UdpAdminGateway udpGateway) {
+    /** Lắp ghép các thành phần giao diện và đăng ký sự kiện Swing. */
+    private void initializeUI(AdminGatewayImpl udpGateway) {
         // Cấu hình cửa sổ theo kích thước vùng làm việc khả dụng (trừ taskbar)
         setTitle("Đấu giá biển số • Quản trị viên");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -80,8 +83,8 @@ public class AdminConsoleUI extends JFrame {
 
         // 2 tab
         tabbedPane = new JTabbedPane(JTabbedPane.TOP);
-        tabbedPane.addTab("Giám sát đấu giá", new MonitoringPanel(gateway, logDocument, selection, room ->
-                tabbedPane.setSelectedIndex(1)));
+        tabbedPane.addTab("Giám sát đấu giá",
+                new MonitoringPanel(gateway, logDocument, selection, room -> tabbedPane.setSelectedIndex(1)));
         tabbedPane.addTab("Điều khiển phiên", new SessionControlPanel(gateway, logDocument, selection));
 
         add(createHeaderPanel(), BorderLayout.NORTH);

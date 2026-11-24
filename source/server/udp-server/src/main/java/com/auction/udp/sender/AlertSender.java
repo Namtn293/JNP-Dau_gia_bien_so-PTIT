@@ -14,10 +14,12 @@ public final class AlertSender {
 
     private final AdminSender admin;
 
+    /** Khởi tạo thành phần và lưu các phụ thuộc cần thiết. */
     public AlertSender(AdminSender admin) {
         this.admin = admin;
     }
 
+    /** Định dạng ALERT, ghi log và gửi UDP tới admin. */
     public void send(Message.Alert alert) {
         log.info("ALERT {} metric={} value={} threshold={}",
                 alert.level(), alert.metric(), alert.value(), alert.threshold());

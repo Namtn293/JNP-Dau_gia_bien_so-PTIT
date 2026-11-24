@@ -16,11 +16,15 @@ public final class MailService {
         return t;
     });
 
+    /** Khởi tạo thành phần và lưu các phụ thuộc cần thiết. */
     public MailService(MailConfig config) {
         this.client = new SmtpMailClient(config);
     }
 
-    /** Future hoàn tất khi gửi xong, hoặc hoàn tất exceptionally kèm lỗi (CompletionException bọc IOException). */
+    /**
+     * Future hoàn tất khi gửi xong, hoặc hoàn tất exceptionally kèm lỗi
+     * (CompletionException bọc IOException).
+     */
     public CompletableFuture<Void> send(MailMessage message) {
         return CompletableFuture.runAsync(() -> {
             try {

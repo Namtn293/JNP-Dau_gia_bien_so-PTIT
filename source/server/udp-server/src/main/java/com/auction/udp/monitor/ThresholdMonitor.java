@@ -40,6 +40,7 @@ public final class ThresholdMonitor {
     private final AtomicLong seq = new AtomicLong();
     private boolean coreSilent;
 
+    /** Khởi tạo thành phần và lưu các phụ thuộc cần thiết. */
     public ThresholdMonitor(LatestMetrics store, long silenceMs, Consumer<Message.Alert> sink, Rule... rules) {
         this.store = store;
         this.silenceMs = silenceMs;
@@ -47,6 +48,7 @@ public final class ThresholdMonitor {
         this.rules = rules;
     }
 
+    /** Kiểm tra Core mất tín hiệu và đánh giá các ngưỡng cảnh báo CPU/RAM. */
     public void evaluate(long now) {
         Optional<Long> last = store.lastReceivedAt();
         if (last.isEmpty()) {
@@ -71,12 +73,16 @@ public final class ThresholdMonitor {
         store.fresh(now).ifPresent(snapshot -> checkRules(snapshot.metrics(), now));
     }
 
+    /**
+     * So sánh số liệu với ngưỡng, phát cảnh báo khi đổi mức hoặc đến chu kỳ nhắc
+     * lại.
+     */
     private void checkRules(Message.Metrics m, long now) {
         for (Rule rule : rules) {
             double value = valueOf(rule.metric(), m);
             State next = value >= rule.critical() ? State.CRITICAL
                     : value >= rule.warning() ? State.WARNING
-                    : State.NORMAL;
+                            : State.NORMAL;
             State prev = states.getOrDefault(rule.metric(), State.NORMAL);
 
             if (next == prev) {
@@ -98,6 +104,7 @@ public final class ThresholdMonitor {
         }
     }
 
+    /** Chuyển trạng thái cảnh báo nội bộ thành mức ALERT. */
     private void emitLevel(Rule rule, State state, double value, long now) {
         if (state == State.CRITICAL) {
             emit(Message.Level.CRITICAL, rule.metric(), value, rule.critical(), now);
@@ -106,11 +113,13 @@ public final class ThresholdMonitor {
         }
     }
 
+    /** Tạo ALERT có seq và timestamp rồi chuyển tới bộ gửi UDP. */
     private void emit(Message.Level level, String metric, double value, double threshold, long now) {
         sink.accept(new Message.Alert(seq.incrementAndGet(), now, level, metric, value, threshold));
         lastEmitAt.put(metric, now);
     }
 
+    /** Tính giá trị CPU hoặc phần trăm RAM để so sánh ngưỡng. */
     private static double valueOf(String metric, Message.Metrics m) {
         return switch (metric) {
             case "cpu" -> m.cpu();

@@ -25,8 +25,6 @@ import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
 import javax.swing.text.StyledDocument;
 
 import com.auction.AdminConfig;
@@ -34,7 +32,7 @@ import com.auction.gateway.AdminGateway;
 import com.auction.model.CommandResult;
 import com.auction.model.RoomInfo;
 import com.auction.ui.common.ButtonStyles;
-import com.auction.ui.common.CommandLogger;
+import com.auction.ui.log.CommandLogger;
 import com.auction.ui.common.UiKit;
 
 public class QuickControlPanel extends UiKit.ScrollablePanel {
@@ -61,6 +59,7 @@ public class QuickControlPanel extends UiKit.ScrollablePanel {
     private JButton cancelButton;
     private JButton announceButton;
 
+    /** Khởi tạo thành phần Swing, bố cục và trạng thái ban đầu. */
     public QuickControlPanel(AdminGateway gateway, StyledDocument logDocument) {
         this.gateway = gateway;
         this.logDocument = logDocument;
@@ -142,6 +141,7 @@ public class QuickControlPanel extends UiKit.ScrollablePanel {
         add(contentWrapper, BorderLayout.NORTH);
     }
 
+    /** Tạo khu vực hiển thị thông tin phòng. */
     private JPanel createRoomInfoPanel() {
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
@@ -161,6 +161,7 @@ public class QuickControlPanel extends UiKit.ScrollablePanel {
         return panel;
     }
 
+    /** Tạo khu vực nút điều khiển phiên. */
     private Component createControlPanel() {
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
@@ -194,6 +195,7 @@ public class QuickControlPanel extends UiKit.ScrollablePanel {
         return panel;
     }
 
+    /** Tạo vùng nhập và gửi thông báo. */
     private JPanel createAnnouncePanel() {
         JPanel p = new JPanel();
         p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
@@ -218,6 +220,7 @@ public class QuickControlPanel extends UiKit.ScrollablePanel {
         return p;
     }
 
+    /** Tạo bố cục chứa các nút thao tác. */
     private JPanel createButtonPanel() {
         JPanel container = new JPanel();
         container.setLayout(new BoxLayout(container, BoxLayout.Y_AXIS));
@@ -258,6 +261,7 @@ public class QuickControlPanel extends UiKit.ScrollablePanel {
         return container;
     }
 
+    /** Tạo nhóm nút và nhãn thao tác liên quan. */
     private JPanel createActionGroup(JButton button, String descHtml) {
         JPanel group = new JPanel(new BorderLayout(0, 4));
         group.setOpaque(false);
@@ -272,6 +276,7 @@ public class QuickControlPanel extends UiKit.ScrollablePanel {
         return group;
     }
 
+    /** Tạo nhãn căn trái theo kiểu hiện tại. */
     private JLabel createLeftLabel(String text, Font font, Color color) {
         JLabel label = new JLabel(text);
         label.setFont(font);
@@ -280,11 +285,12 @@ public class QuickControlPanel extends UiKit.ScrollablePanel {
         return label;
     }
 
+    /** Tạo nút hành động theo kiểu hiện tại. */
     private JButton createButton(String text, Color bgColor) {
         return ButtonStyles.filled(text, bgColor);
     }
 
-
+    /** Tạo nút hủy phiên theo kiểu viền hiện tại. */
     private JButton createCancelButton(String text) {
         return ButtonStyles.outline(text);
     }
@@ -299,12 +305,14 @@ public class QuickControlPanel extends UiKit.ScrollablePanel {
         ButtonStyles.setOutline(cancelButton, enabled);
     }
 
+    /** Cập nhật khả năng gửi lệnh KICK theo dữ liệu nhập và phòng. */
     private void refreshKickButton() {
         boolean hasAccount = !kickAccountField.getText().trim().isEmpty();
         setButtonEnabled(kickButton, hasAccount, COLOR_DANGER);
         setButtonEnabled(unkickButton, hasAccount, COLOR_SUCCESS);
     }
 
+    /** Lấy mã phòng được chọn để tạo lệnh. */
     private String selectedRoomId() {
         return (String) roomComboBox.getSelectedItem();
     }
@@ -360,24 +368,10 @@ public class QuickControlPanel extends UiKit.ScrollablePanel {
         });
         announceField.addActionListener(e -> announceButton.doClick());
 
-        kickAccountField.getDocument().addDocumentListener(new DocumentListener() {
-            @Override
-            public void insertUpdate(DocumentEvent e) {
-                refreshKickButton();
-            }
-
-            @Override
-            public void removeUpdate(DocumentEvent e) {
-                refreshKickButton();
-            }
-
-            @Override
-            public void changedUpdate(DocumentEvent e) {
-                refreshKickButton();
-            }
-        });
+        kickAccountField.getDocument().addDocumentListener(UiKit.onDocumentChange(this::refreshKickButton));
     }
 
+    /** Hiển thị xác nhận trước khi gửi lệnh hủy phiên. */
     private void confirmAndCancel() {
         String roomId = selectedRoomId();
         int confirm = JOptionPane.showConfirmDialog(

@@ -1,4 +1,4 @@
-package com.auction.ui.common;
+package com.auction.ui.log;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -9,13 +9,16 @@ import com.auction.model.CommandResult;
 
 /** Ghi lệnh và kết quả vào nhật ký. Dùng chung cho mọi nút điều khiển. */
 public final class CommandLogger {
-    private CommandLogger() { }
+    /** Khởi tạo thành phần Swing, bố cục và trạng thái ban đầu. */
+    private CommandLogger() {
+    }
 
     /**
-     * @param onDone chạy trên EDT sau khi có kết quả (ví dụ làm mới dữ liệu), có thể null
+     * @param onDone chạy trên EDT sau khi có kết quả (ví dụ làm mới dữ liệu), có
+     *               thể null
      */
     public static void dispatch(StyledDocument log, String commandLine,
-                                CompletableFuture<CommandResult> future, Runnable onDone) {
+            CompletableFuture<CommandResult> future, Runnable onDone) {
         LogPanel.appendTo(log, LogPanel.Level.COMMAND, commandLine);
 
         future.thenAccept(result -> SwingUtilities.invokeLater(() -> {
@@ -26,9 +29,8 @@ public final class CommandLogger {
                 onDone.run();
             }
         })).exceptionally(ex -> {
-            SwingUtilities.invokeLater(() ->
-                    LogPanel.appendTo(log, LogPanel.Level.ERROR,
-                            "Không gửi được lệnh: " + ex.getMessage()));
+            SwingUtilities.invokeLater(() -> LogPanel.appendTo(log, LogPanel.Level.ERROR,
+                    "Không gửi được lệnh: " + ex.getMessage()));
             return null;
         });
     }

@@ -13,8 +13,11 @@ import javax.swing.JButton;
 public final class ButtonStyles {
     private static final Dimension SIZE = new Dimension(100, 36);
 
-    private ButtonStyles() { }
+    /** Ngăn khởi tạo lớp tiện ích chỉ chứa thành viên tĩnh. */
+    private ButtonStyles() {
+    }
 
+    /** Tạo nút đặc theo kiểu giao diện chung. */
     public static JButton filled(String text, Color color) {
         JButton button = new JButton(text);
         button.setFont(FONT_NORMAL.deriveFont(Font.BOLD));
@@ -27,6 +30,7 @@ public final class ButtonStyles {
         return button;
     }
 
+    /** Tạo nút viền theo kiểu giao diện chung. */
     public static JButton outline(String text) {
         JButton button = new JButton(text);
         button.setFont(FONT_NORMAL.deriveFont(Font.BOLD));

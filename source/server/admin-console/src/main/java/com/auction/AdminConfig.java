@@ -5,6 +5,7 @@ package com.auction;
  * Khi đổi IP, tên vận hành hoặc mặc định khác, chỉ cần sửa ở đây.
  */
 public final class AdminConfig {
+    /** Ngăn khởi tạo lớp tiện ích chỉ chứa thành viên tĩnh. */
     private AdminConfig() {
     }
 
@@ -52,6 +53,9 @@ public final class AdminConfig {
     public static final int RTT_WARN_MS = envInt("RTT_WARN_MS", 150);
     public static final int RTT_CRIT_MS = envInt("RTT_CRIT_MS", 300);
 
+    /**
+     * Đọc biến môi trường kiểu số nguyên, dùng giá trị mặc định khi chưa cấu hình.
+     */
     private static int envInt(String name, int defaultValue) {
         String v = System.getenv(name);
         return (v == null || v.isBlank()) ? defaultValue : Integer.parseInt(v.trim());
