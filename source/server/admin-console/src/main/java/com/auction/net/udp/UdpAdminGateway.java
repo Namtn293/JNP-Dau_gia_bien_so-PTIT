@@ -434,7 +434,6 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
                                 : ConnectionState.DISCONNECTED;
                         return new ParticipantInfo(str(person, "userId", ""),
                                 str(person, "fullName", "Người tham gia"), connection,
-                                intValue(person, "bidsInLast5s", 0),
                                 longValue(person, "lastPrice", 0L), currentRtt);
                     })
                     .sorted(Comparator.comparingLong(ParticipantInfo::lastPrice).reversed())
@@ -472,18 +471,6 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
             } catch (Exception ignored2) {
                 return null;
             }
-        }
-    }
-
-    private static final class ParticipantAccum {
-        final String userId;
-        final String fullName;
-        int bidsInLast5s;
-        long lastPrice;
-
-        ParticipantAccum(String userId, String fullName) {
-            this.userId = userId;
-            this.fullName = fullName;
         }
     }
 

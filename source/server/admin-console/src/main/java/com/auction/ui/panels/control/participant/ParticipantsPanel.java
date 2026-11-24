@@ -33,7 +33,6 @@ import com.auction.model.ParticipantInfo;
  */
 public class ParticipantsPanel extends JPanel {
     private static final int PAGE_SIZE = 10;
-    private static final String FOOTNOTE = "¹ Số yêu cầu trong 5 giây trước HALT; hiện không nhận giá mới.";
 
     private final Consumer<String> userPickedListener;
 
@@ -168,11 +167,7 @@ public class ParticipantsPanel extends JPanel {
         pager.add(pageLabel);
         pager.add(nextButton);
 
-        JPanel footer = new JPanel(new BorderLayout());
-        footer.setOpaque(false);
-        footer.add(caption(FOOTNOTE), BorderLayout.WEST);
-        footer.add(pager, BorderLayout.EAST);
-        return footer;
+        return pager;
     }
 
     private static JButton pagerButton(String text) {
@@ -258,8 +253,8 @@ public class ParticipantsPanel extends JPanel {
 
     private void configureParticipantColumnWidths() {
         configureTableColumns(table,
-                new int[] { 95, 195, 125, 85, 150, 75 },
-                new int[] { 70, 130, 95, 65, 110, 55 });
+                new int[] { 95, 195, 125, 150, 75 },
+                new int[] { 70, 130, 95, 110, 55 });
     }
 
     private static Object[] toRow(ParticipantInfo p) {
@@ -267,7 +262,6 @@ public class ParticipantsPanel extends JPanel {
                 p.userId(),
                 p.fullName(),
                 p.connection(),
-                p.bidsInLast5s(),
                 p.lastPrice(),
                 p.rttMs()
         };

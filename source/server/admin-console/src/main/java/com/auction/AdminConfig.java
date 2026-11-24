@@ -42,9 +42,6 @@ public final class AdminConfig {
     // tổng quan dự án)
     public static final int LATE_BID_WINDOW_SECONDS = 10;
 
-    // Số lượt đặt giá trong 5 giây được coi là bất thường (dùng để tô đỏ)
-    public static final int BID_WARNING_THRESHOLD = 10;
-
     // Kết nối UDP tới UDP server
     public static final String UDP_SERVER_HOST = "127.0.0.1";
     public static final int UDP_PING_PORT = 9002;
