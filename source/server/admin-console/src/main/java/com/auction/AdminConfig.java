@@ -36,14 +36,10 @@ public final class AdminConfig {
     // Tài chính (theo tổng quan dự án)
     public static final long DEPOSIT_VND = 40_000_000L;
     public static final long START_PRICE_VND = 40_000_000L;
-    public static final long BID_STEP_VND = 5_000_000L;
 
     // Khoảng thời gian cuối phiên: có lượt đặt giá thì phiên được gia hạn (theo
     // tổng quan dự án)
     public static final int LATE_BID_WINDOW_SECONDS = 10;
-
-    // Số lượt đặt giá trong 5 giây được coi là bất thường (dùng để tô đỏ)
-    public static final int BID_WARNING_THRESHOLD = 10;
 
     // Kết nối UDP tới UDP server
     public static final String UDP_SERVER_HOST = "127.0.0.1";

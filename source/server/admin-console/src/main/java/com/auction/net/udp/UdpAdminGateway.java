@@ -11,6 +11,7 @@ import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Comparator;
@@ -41,7 +42,6 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import java.io.IOException;
-import java.time.format.DateTimeFormatter;
 import com.auction.model.CreateSessionRequest;
 
 /**
@@ -82,6 +82,7 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
     private final PingProbe pingProbe;
     private final Object roomsFetchLock = new Object();
     private final Map<String, CachedValue<List<ParticipantInfo>>> participantsCache = new ConcurrentHashMap<>();
+    private final Map<String, CompletableFuture<List<ParticipantInfo>>> participantsInFlight = new ConcurrentHashMap<>();
 
     private volatile Snapshot latest;
     private volatile CachedValue<List<RoomInfo>> cachedRooms;
@@ -233,7 +234,8 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
             RoomStatus status = mapAdminRoomStatus(str(obj, "status", "SCHEDULED"));
             rooms.add(new RoomInfo(code, str(obj, "plate", code), str(obj, "region", "Toàn quốc"), status,
                     intValue(obj, "participantCount", 0), longValue(obj, "currentPrice", 0L),
-                    str(obj, "remainingLabel", formatRemaining(status, null, null, now))));
+                    str(obj, "remainingLabel", formatRemaining(status, null, null, now)),
+                    nullableLong(obj, "depositAmount")));
         }
         return List.copyOf(rooms);
     }
@@ -257,6 +259,10 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
 
     private static long longValue(JsonObject obj, String key, long fallback) {
         return obj.has(key) && !obj.get(key).isJsonNull() ? obj.get(key).getAsLong() : fallback;
+    }
+
+    private static Long nullableLong(JsonObject obj, String key) {
+        return obj.has(key) && !obj.get(key).isJsonNull() ? obj.get(key).getAsLong() : null;
     }
 
     private int fetchByStatus(String status, int page, List<RoomInfo> out) throws Exception {
@@ -322,7 +328,8 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
             RoomStatus roomStatus = mapRoomStatus(statusCode, startStr, endStr, now);
             String remaining = formatRemaining(roomStatus, startStr, endStr, now);
 
-            out.add(new RoomInfo(code, plate, region, roomStatus, participants, price, remaining));
+            out.add(new RoomInfo(code, plate, region, roomStatus, participants, price, remaining,
+                    nullableLong(obj, "depositAmount")));
         }
 
         return arr.size();
@@ -393,11 +400,20 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
         if (cached != null && nowMs - cached.fetchedAtMs() < PARTICIPANTS_CACHE_TTL_MS) {
             return CompletableFuture.completedFuture(cached.value());
         }
-        return CompletableFuture.supplyAsync(() -> {
-            List<ParticipantInfo> fresh = fetchParticipantsFromHttp(roomId);
-            participantsCache.put(roomId, new CachedValue<>(fresh, System.currentTimeMillis()));
-            return fresh;
-        });
+        synchronized (participantsInFlight) {
+            CompletableFuture<List<ParticipantInfo>> existing = participantsInFlight.get(roomId);
+            if (existing != null) {
+                return existing;
+            }
+            CompletableFuture<List<ParticipantInfo>> request = CompletableFuture.supplyAsync(() -> {
+                List<ParticipantInfo> fresh = fetchParticipantsFromHttp(roomId);
+                participantsCache.put(roomId, new CachedValue<>(fresh, System.currentTimeMillis()));
+                return fresh;
+            });
+            participantsInFlight.put(roomId, request);
+            request.whenComplete((value, error) -> participantsInFlight.remove(roomId, request));
+            return request;
+        }
     }
 
     private List<ParticipantInfo> fetchParticipantsFromHttp(String roomId) {
@@ -421,21 +437,17 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
             }
 
             JsonArray participants = JsonParser.parseString(resp.body()).getAsJsonArray();
-            int currentRtt = Math.max(0, rttMs);
             return participants.asList().stream()
                     .filter(JsonElement::isJsonObject)
                     .map(JsonElement::getAsJsonObject)
                     .map(person -> {
                         String presence = str(person, "connection", "OFFLINE");
                         ConnectionState connection = "CONNECTED".equalsIgnoreCase(presence)
-                                ? (currentRtt > AdminConfig.RTT_WARN_MS
-                                        ? ConnectionState.CHECK_NEEDED
-                                        : ConnectionState.CONNECTED)
-                                : ConnectionState.DISCONNECTED;
+                                ? ConnectionState.CONNECTED
+                                : ConnectionState.OFFLINE;
                         return new ParticipantInfo(str(person, "userId", ""),
                                 str(person, "fullName", "Người tham gia"), connection,
-                                intValue(person, "bidsInLast5s", 0),
-                                longValue(person, "lastPrice", 0L), currentRtt);
+                                longValue(person, "lastPrice", 0L));
                     })
                     .sorted(Comparator.comparingLong(ParticipantInfo::lastPrice).reversed())
                     .toList();
@@ -456,34 +468,6 @@ public final class UdpAdminGateway implements AdminGateway, AutoCloseable {
                             + ": "
                             + e.getMessage(),
                     e);
-        }
-    }
-
-    private static LocalDateTime parseBidTime(String raw) {
-        if (raw == null || raw.isBlank())
-            return null;
-        try {
-            return LocalDateTime.parse(raw);
-        } catch (Exception ignored) {
-            try {
-                return java.time.OffsetDateTime.parse(raw)
-                        .atZoneSameInstant(java.time.ZoneId.systemDefault())
-                        .toLocalDateTime();
-            } catch (Exception ignored2) {
-                return null;
-            }
-        }
-    }
-
-    private static final class ParticipantAccum {
-        final String userId;
-        final String fullName;
-        int bidsInLast5s;
-        long lastPrice;
-
-        ParticipantAccum(String userId, String fullName) {
-            this.userId = userId;
-            this.fullName = fullName;
         }
     }
 

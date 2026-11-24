@@ -8,6 +8,8 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -65,6 +67,7 @@ public class RoomTablePanel extends JPanel {
     private final JButton nextButton;
     private final JButton deleteSessionButton;
     private final List<Consumer<RoomInfo>> selectionListeners = new ArrayList<>();
+    private final List<Consumer<RoomInfo>> doubleClickListeners = new ArrayList<>();
     private final List<Consumer<RoomInfo>> deleteSessionListeners = new ArrayList<>();
 
     private List<RoomInfo> rooms = List.of(); // toàn bộ phòng
@@ -189,6 +192,17 @@ public class RoomTablePanel extends JPanel {
 
         attachFilterListeners();
         attachSelectionListener();
+        roomTable.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent event) {
+                if (event.getClickCount() == 2 && roomTable.getSelectedRow() >= 0) {
+                    RoomInfo room = getSelectedRoom();
+                    if (room != null) {
+                        doubleClickListeners.forEach(listener -> listener.accept(room));
+                    }
+                }
+            }
+        });
         applyView();
     }
 
@@ -254,6 +268,10 @@ public class RoomTablePanel extends JPanel {
     /** Đăng ký nhận sự kiện khi người dùng chọn một phòng trên bảng. */
     public void addRoomSelectionListener(Consumer<RoomInfo> listener) {
         selectionListeners.add(listener);
+    }
+
+    public void addRoomDoubleClickListener(Consumer<RoomInfo> listener) {
+        doubleClickListeners.add(listener);
     }
 
     // ===== Lọc, phân trang, nạp bảng =====

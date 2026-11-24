@@ -13,8 +13,6 @@ public class AdminParticipantVO {
     private String userId;
     private String fullName;
     private String connection;
-    private int bidsInLast5s;
     private long lastPrice;
-    private int rttMs;
     private String role;
 }

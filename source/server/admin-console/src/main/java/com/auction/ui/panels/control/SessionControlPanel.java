@@ -3,8 +3,8 @@ package com.auction.ui.panels.control;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.util.List;
-import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.swing.BorderFactory;
 import javax.swing.JPanel;
@@ -45,15 +45,12 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
     private final ParticipantsPanel participantsPanel = new ParticipantsPanel(
             userId -> intervention.setKickAccount(userId));
 
-    private boolean busy;
     private String loadedRoomId;
+    private long participantRequestId;
+    private final Map<String, List<ParticipantInfo>> participantCache = new ConcurrentHashMap<>();
 
     private volatile boolean metricsFetchFailed;
     private boolean refreshErrorLogged;
-
-    /** Dữ liệu của một lần làm mới, lấy đồng thời từ gateway. */
-    private record Snapshot(String roomId, List<RoomInfo> rooms, List<ParticipantInfo> people) {
-    }
 
     public SessionControlPanel(AdminGateway gateway, StyledDocument logDocument, RoomSelection selection) {
         this.gateway = gateway;
@@ -70,6 +67,8 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
         logPanel.setPreferredSize(new Dimension(0, 140));
         add(logPanel, BorderLayout.SOUTH);
 
+        selection.addListener(this::onRoomSelectionChanged);
+        onRoomSelectionChanged(selection.room());
         refresh();
         new Timer(REFRESH_MS, e -> refresh()).start();
     }
@@ -98,15 +97,7 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
     }
 
     // ===== Làm mới dữ liệu =====
-    /** Bỏ qua nếu lần làm mới trước chưa xong, tránh gửi chồng yêu cầu. */
-
     private void refresh() {
-        if (busy) {
-            return;
-        }
-
-        busy = true;
-
         gateway.fetchMetrics().whenComplete((metrics, error) -> {
             metricsFetchFailed = error != null;
             SwingUtilities.invokeLater(() -> {
@@ -118,78 +109,78 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
             });
         });
 
-        fetchSnapshot()
-                .thenAccept(snapshot -> SwingUtilities.invokeLater(() -> {
-                    busy = false;
-                    refreshErrorLogged = false;
-                    apply(snapshot);
-                }))
-                .exceptionally(ex -> {
-
-                    Throwable cause = ex.getCause() != null
-                            ? ex.getCause()
-                            : ex;
-
-                    String message = cause.getMessage();
-
-                    SwingUtilities.invokeLater(() -> {
-                        busy = false;
-
-                        // Chỉ báo offline nếu telemetry lỗi
-                        if (metricsFetchFailed) {
-                            header.showOffline();
-                        }
-
-                        // Không ghi lặp lỗi mỗi giây
-                        if (!refreshErrorLogged) {
-                            LogPanel.appendTo(
-                                    logDocument,
-                                    LogPanel.Level.ERROR,
-                                    "Lỗi làm mới dữ liệu: " + message);
-
-                            refreshErrorLogged = true;
-                        }
-                    });
-
-                    return null;
-                });
+        refreshRoomInfo();
+        refreshParticipants();
     }
 
-    /**
-     * Lấy phòng, chỉ số và người tham gia cùng lúc. Người tham gia chỉ lấy khi đã
-     * chọn phòng.
-     */
-    private CompletableFuture<Snapshot> fetchSnapshot() {
+    private void refreshRoomInfo() {
         String roomId = selection.roomId();
-
-        CompletableFuture<List<RoomInfo>> rooms = gateway.fetchRooms();
-
-        CompletableFuture<List<ParticipantInfo>> people = roomId == null
-                ? CompletableFuture.completedFuture(List.of())
-                : gateway.fetchParticipants(roomId);
-
-        return CompletableFuture.allOf(rooms, people)
-                .thenApply(ignored -> new Snapshot(roomId, rooms.join(), people.join()));
+        gateway.fetchRooms().whenComplete((rooms, error) -> SwingUtilities.invokeLater(() -> {
+            if (error != null) {
+                reportRefreshError(error);
+                return;
+            }
+            if (!java.util.Objects.equals(roomId, selection.roomId())) {
+                return;
+            }
+            RoomInfo room = findRoom(rooms, roomId);
+            if (room == null) {
+                selection.select(null);
+                return;
+            }
+            selection.select(room);
+            refreshErrorLogged = false;
+        }));
     }
 
-    /** Chạy trên EDT. */
-    private void apply(Snapshot snapshot) {
-        // Người dùng đã chọn phòng khác trong lúc chờ: bỏ dữ liệu cũ của phòng trước
-        if (!Objects.equals(snapshot.roomId(), selection.roomId())) {
+    private void refreshParticipants() {
+        String roomId = selection.roomId();
+        if (roomId == null) {
             return;
         }
+        long requestId = ++participantRequestId;
+        participantsPanel.setLoading(participantCache.containsKey(roomId) ? "Đang cập nhật" : "Đang tải danh sách...");
+        gateway.fetchParticipants(roomId).whenComplete((people, error) -> SwingUtilities.invokeLater(() -> {
+            if (requestId != participantRequestId || !roomId.equals(selection.roomId())) {
+                return;
+            }
+            if (error != null) {
+                reportRefreshError(error);
+                participantsPanel.setLoading("Không tải được danh sách");
+                return;
+            }
+            participantCache.put(roomId, people);
+            participantsPanel.setParticipants(people, false);
+            refreshErrorLogged = false;
+        }));
+    }
 
-        RoomInfo room = findRoom(snapshot.rooms(), snapshot.roomId());
+    private void onRoomSelectionChanged(RoomInfo room) {
+        participantRequestId++;
         if (room == null) {
             clearRoom();
             return;
         }
-
         applyRoom(room);
+        boolean roomChanged = !room.id().equals(loadedRoomId);
+        loadedRoomId = room.id();
+        List<ParticipantInfo> cached = participantCache.get(room.id());
+        if (roomChanged) {
+            participantsPanel.setParticipants(cached == null ? List.of() : cached, true);
+        }
+        participantsPanel.setLoading(cached == null ? "Đang tải danh sách..." : "Đang cập nhật");
+        if (roomChanged) {
+            refreshParticipants();
+        }
+    }
 
-        boolean roomChanged = !snapshot.roomId().equals(loadedRoomId);
-        loadedRoomId = snapshot.roomId();
-        participantsPanel.setParticipants(snapshot.people(), roomChanged);
+    private void reportRefreshError(Throwable error) {
+        Throwable cause = error instanceof java.util.concurrent.CompletionException && error.getCause() != null
+                ? error.getCause() : error;
+        if (!refreshErrorLogged) {
+            LogPanel.appendTo(logDocument, LogPanel.Level.ERROR, "Lỗi làm mới dữ liệu: " + cause.getMessage());
+            refreshErrorLogged = true;
+        }
     }
 
     private static RoomInfo findRoom(List<RoomInfo> rooms, String roomId) {
@@ -215,6 +206,7 @@ public class SessionControlPanel extends JPanel implements InterventionPanel.Lis
         header.setRoom(null);
         intervention.setRoom(null);
         participantsPanel.setParticipants(List.of(), true);
+        participantsPanel.setLoading("");
     }
 
     // ===== Callback từ InterventionPanel =====

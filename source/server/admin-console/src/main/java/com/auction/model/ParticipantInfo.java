@@ -5,7 +5,5 @@ public record ParticipantInfo(
         String userId,
         String fullName,
         ConnectionState connection,
-        int bidsInLast5s,
-        long lastPrice,
-        int rttMs) {
+        long lastPrice) {
 }

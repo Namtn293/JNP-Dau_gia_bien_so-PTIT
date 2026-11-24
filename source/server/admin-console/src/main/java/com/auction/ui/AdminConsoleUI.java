@@ -80,7 +80,8 @@ public class AdminConsoleUI extends JFrame {
 
         // 2 tab
         tabbedPane = new JTabbedPane(JTabbedPane.TOP);
-        tabbedPane.addTab("Giám sát đấu giá", new MonitoringPanel(gateway, logDocument, selection));
+        tabbedPane.addTab("Giám sát đấu giá", new MonitoringPanel(gateway, logDocument, selection, room ->
+                tabbedPane.setSelectedIndex(1)));
         tabbedPane.addTab("Điều khiển phiên", new SessionControlPanel(gateway, logDocument, selection));
 
         add(createHeaderPanel(), BorderLayout.NORTH);

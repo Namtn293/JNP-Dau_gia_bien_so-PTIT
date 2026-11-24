@@ -4,7 +4,6 @@ import static com.auction.ui.common.Theme.*;
 import static com.auction.ui.common.UiKit.*;
 
 import java.awt.BorderLayout;
-import java.awt.Color;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Dimension;
@@ -33,7 +32,6 @@ import com.auction.model.ParticipantInfo;
  */
 public class ParticipantsPanel extends JPanel {
     private static final int PAGE_SIZE = 10;
-    private static final String FOOTNOTE = "¹ Số yêu cầu trong 5 giây trước HALT; hiện không nhận giá mới.";
 
     private final Consumer<String> userPickedListener;
 
@@ -45,6 +43,7 @@ public class ParticipantsPanel extends JPanel {
     private boolean rebuilding;
 
     private JLabel countLabel;
+    private JLabel loadingLabel;
     private JTextField searchField;
     private DefaultTableModel tableModel;
     private JTable table;
@@ -73,10 +72,15 @@ public class ParticipantsPanel extends JPanel {
      */
     public void setParticipants(List<ParticipantInfo> people, boolean resetPaging) {
         participants = List.copyOf(people);
+        loadingLabel.setText("");
         if (resetPaging) {
             page = 0;
         }
         applyView();
+    }
+
+    public void setLoading(String message) {
+        loadingLabel.setText(message == null ? "" : message);
     }
 
     // ===== Bố cục =====
@@ -87,11 +91,14 @@ public class ParticipantsPanel extends JPanel {
 
         countLabel = caption("0 tài khoản");
         countLabel.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 0));
+        loadingLabel = caption("");
+        loadingLabel.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 0));
 
         JPanel titleBox = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         titleBox.setOpaque(false);
         titleBox.add(title);
         titleBox.add(countLabel);
+        titleBox.add(loadingLabel);
 
         searchField = new JTextField(16);
         searchField.setToolTipText("Tìm ID / tên người tham gia");
@@ -139,6 +146,7 @@ public class ParticipantsPanel extends JPanel {
         table.setShowVerticalLines(false);
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         table.setDefaultRenderer(Object.class, new ParticipantRenderer());
+        table.setOpaque(false);
         table.getTableHeader().setFont(FONT_LABEL);
         table.getTableHeader().setPreferredSize(new Dimension(0, 38));
         table.getTableHeader().setReorderingAllowed(false);
@@ -151,7 +159,7 @@ public class ParticipantsPanel extends JPanel {
 
         JScrollPane scroll = new JScrollPane(table);
         scroll.setBorder(BorderFactory.createLineBorder(COLOR_BORDER));
-        scroll.getViewport().setBackground(Color.WHITE);
+        scroll.getViewport().setOpaque(false);
         return scroll;
     }
 
@@ -170,7 +178,6 @@ public class ParticipantsPanel extends JPanel {
 
         JPanel footer = new JPanel(new BorderLayout());
         footer.setOpaque(false);
-        footer.add(caption(FOOTNOTE), BorderLayout.WEST);
         footer.add(pager, BorderLayout.EAST);
         return footer;
     }
@@ -258,8 +265,8 @@ public class ParticipantsPanel extends JPanel {
 
     private void configureParticipantColumnWidths() {
         configureTableColumns(table,
-                new int[] { 95, 195, 125, 85, 150, 75 },
-                new int[] { 70, 130, 95, 65, 110, 55 });
+                new int[] { 110, 230, 145, 180 },
+                new int[] { 80, 150, 110, 130 });
     }
 
     private static Object[] toRow(ParticipantInfo p) {
@@ -267,9 +274,7 @@ public class ParticipantsPanel extends JPanel {
                 p.userId(),
                 p.fullName(),
                 p.connection(),
-                p.bidsInLast5s(),
-                p.lastPrice(),
-                p.rttMs()
+                p.lastPrice()
         };
     }
 }

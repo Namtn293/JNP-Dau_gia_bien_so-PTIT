@@ -21,20 +21,18 @@ public class SessionInfoCard extends JPanel {
     private final JLabel countdownLabel = value("—", 22f);
     private final JLabel priceLabel = value("—", 22f);
     private final JLabel peopleLabel = value("—", 16f);
+    private final JLabel depositLabel = caption("Cọc: Chưa có dữ liệu");
 
     public SessionInfoCard() {
         setLayout(new GridLayout(1, 4, 14, 0));
         applyCardStyle(this);
 
         JLabel priceTitle = caption("GIÁ HIỆN TẠI (VNĐ)");
-        JLabel depositLabel = caption("<html>Cọc: " + formatVnd(AdminConfig.DEPOSIT_VND) + " VNĐ / người</html>");
-
         add(stack(roomIdLabel, plateLabel, statusLabel));
         add(stack(countdownTitleLabel, countdownLabel,
                 caption("<html>Sau RESUME: cộng " + AdminConfig.EXTENSION_SECONDS + " giây</html>")));
         add(stack(priceTitle, priceLabel,
-                caption("<html>Khởi điểm " + formatVnd(AdminConfig.START_PRICE_VND)
-                        + "<br>Bước giá " + formatVnd(AdminConfig.BID_STEP_VND) + "</html>")));
+                caption("<html>Khởi điểm " + formatVnd(AdminConfig.START_PRICE_VND) + "</html>")));
         add(stack(peopleLabel, depositLabel,
                 caption("<html>Đặt giá trong " + AdminConfig.LATE_BID_WINDOW_SECONDS
                         + "s cuối:<br>gia hạn " + AdminConfig.EXTENSION_SECONDS + " giây</html>")));
@@ -52,6 +50,7 @@ public class SessionInfoCard extends JPanel {
             countdownLabel.setForeground(COLOR_TEXT);
             priceLabel.setText("—");
             peopleLabel.setText("—");
+            depositLabel.setText("Cọc: Chưa có dữ liệu");
             return;
         }
 
@@ -69,5 +68,8 @@ public class SessionInfoCard extends JPanel {
 
         priceLabel.setText(formatVnd(room.currentPrice()));
         peopleLabel.setText(room.participantCount() + " người tham gia");
+        depositLabel.setText(room.depositAmount() == null
+                ? "Cọc: Chưa có dữ liệu"
+                : "Cọc: " + formatVnd(room.depositAmount()) + " VNĐ / người");
     }
 }

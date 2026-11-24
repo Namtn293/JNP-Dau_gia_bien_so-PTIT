@@ -3,6 +3,7 @@ package com.auction.ui.panels.monitoring;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.util.List;
+import java.util.function.Consumer;
 
 import javax.swing.BorderFactory;
 import javax.swing.JPanel;
@@ -39,12 +40,15 @@ public class MonitoringPanel extends JPanel {
     private final RoomTablePanel roomTablePanel;
     private final QuickControlPanel quickControlPanel;
     private final Timer refreshTimer;
+    private final Consumer<RoomInfo> openSessionControl;
 
     private final StyledDocument logDocument;
 
-    public MonitoringPanel(AdminGateway gateway, StyledDocument logDocument, RoomSelection selection) {
+    public MonitoringPanel(AdminGateway gateway, StyledDocument logDocument, RoomSelection selection,
+            Consumer<RoomInfo> openSessionControl) {
         this.gateway = gateway;
         this.selection = selection;
+        this.openSessionControl = openSessionControl;
 
         setLayout(new BorderLayout(0, 12));
         setBorder(BorderFactory.createEmptyBorder(14, 18, 12, 18));
@@ -78,8 +82,13 @@ public class MonitoringPanel extends JPanel {
 
         // Nối các thành phần
         roomTablePanel.addRoomSelectionListener(room -> {
-            selection.select(room.id());
+            selection.select(room);
             quickControlPanel.showRoom(room);
+        });
+        roomTablePanel.addRoomDoubleClickListener(room -> {
+            selection.select(room);
+            quickControlPanel.showRoom(room);
+            this.openSessionControl.accept(room);
         });
         quickControlPanel.addRoomPickedListener(this::onRoomPickedFromCombo);
         quickControlPanel.setOnCommandCompleted(this::refreshRooms);
@@ -132,17 +141,21 @@ public class MonitoringPanel extends JPanel {
             }
         }
         if (selected != null) {
-            selection.select(selected.id());
+            selection.select(selected);
             quickControlPanel.showRoom(selected);
+        } else {
+            selection.select(null);
         }
     }
 
     private void onRoomPickedFromCombo(String roomId) {
-        selection.select(roomId);
         roomTablePanel.selectRoom(roomId);
         RoomInfo room = roomTablePanel.findRoom(roomId);
         if (room != null) {
+            selection.select(room);
             quickControlPanel.showRoom(room);
+        } else {
+            selection.select(null);
         }
     }
 
@@ -293,12 +306,14 @@ public class MonitoringPanel extends JPanel {
 
                                         // 8. Chọn phiên vừa tạo
                                         roomTablePanel.selectRoom(sessionCode);
-                                        selection.select(sessionCode);
 
                                         RoomInfo selected = roomTablePanel.findRoom(sessionCode);
 
                                         if (selected != null) {
+                                            selection.select(selected);
                                             quickControlPanel.showRoom(selected);
+                                        } else {
+                                            selection.select(null);
                                         }
 
                                         JOptionPane.showMessageDialog(
