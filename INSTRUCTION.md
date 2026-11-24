@@ -1,6 +1,6 @@
 # HƯỚNG DẪN THỰC HIỆN BÀI TẬP LỚN — MÔN LẬP TRÌNH MẠNG
 
-**Giảng viên phụ trách:** TS. Đặng Ngọc Hùng  
+**Giảng viên phụ trách:** Nguyễn Quốc Huy  
 **Khoa:** Công nghệ thông tin 1
 
 > ⚠️ **Lưu ý:** Đây là tài liệu do giảng viên soạn sẵn. Sinh viên **KHÔNG** được chỉnh sửa file này.
@@ -122,7 +122,7 @@ Giảng viên sẽ kiểm tra theo thứ tự sau:
 - Theo thông báo và phân chia kế hoạch từng nhóm
 
 ### Liên hệ hỗ trợ:
-- Email giảng viên: **hungdn@ptit.edu.vn**
+- Email giảng viên: **huynq@ptit.edu.vn**
 
 
 ---

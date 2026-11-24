@@ -16,7 +16,7 @@
 | 3 | **Nguyễn Gia Bảo** | B23DCCN075 | baonguyenn.contact@gmail.com | **Thành viên:** Phụ trách **Raw TCP Control Server** (:9090), **UDP Telemetry Server** (:9001/:9002/:8888), Đo độ trễ RTT Ping/Pong, Ứng dụng quản trị **Admin Console** (Java Swing Desktop). |
 
 **Tên nhóm:** Nhóm 05 – Lập trình mạng (Nhóm 5)  
-**Giảng viên phụ trách:** TS. Đặng Ngọc Hùng — Khoa CNTT 1  
+**Giảng viên phụ trách:** Nguyễn Quốc Huy — Khoa CNTT 1  
 **Chủ đề đã đăng ký:** Xây dựng hệ thống sàn đấu giá trực tuyến biển số xe ô tô theo thời gian thực (Mô phỏng Nghị định 39/2023/NĐ-CP)
 
 ---
